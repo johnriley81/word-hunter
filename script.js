@@ -51,9 +51,10 @@ document.addEventListener("DOMContentLoaded", () => {
   
   messageLabel.addEventListener("click", function () {
     if (!isGameActive){
-        copyToClipboard(score);
+    copyToClipboard(score); // Copy the score
     }
-});
+  });
+
 
   doneButton.addEventListener("click", endGame);
 
@@ -435,7 +436,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showMessage("Game Over", 3);
     setTimeout(function(){
-        document.querySelector("#current-word").textContent = "Copy Score";
+        messageLabel.textContent = "Copy Score"; // Update message label
+        messageLabel.style.color = "black"; // Change color to make it noticeable
+        messageLabel.classList.remove("hidden");
+        messageLabel.classList.add("visible");
     }, 6000);
   }
 
