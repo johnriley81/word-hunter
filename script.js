@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastButton = null;
   let wordList = [];
   let gridsList = [];
+  let diffDays = 0;
 let nextLettersList = [];
 
 fetch("text/wordlist.txt")
@@ -90,7 +91,7 @@ fetch("text/wordlist.txt")
 
   messageLabel.addEventListener("click", function () {
     if (!isGameActive) {
-      copyToClipboard(score, longestWord);
+      copyToClipboard(score, longestWord, diffDays);
     }
   });
 
@@ -125,8 +126,8 @@ fetch("text/wordlist.txt")
   }
 
   function generateGrid() {
-    const diffDays = calculateDiffDays();
-    const gridLetters = gridsList[diffDays];  
+    diffDays = calculateDiffDays();
+    const gridLetters = gridsList[diffDays % gridsList.length];    
 
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -149,8 +150,8 @@ fetch("text/wordlist.txt")
   }
 
   function generateNextLetters() {
-    const diffDays = calculateDiffDays();
-    nextLetters = nextLettersList[diffDays];
+    diffDays = calculateDiffDays();
+    nextLetters = nextLettersList[diffDays % nextLettersList.length];
     return nextLetters;
   }
 
@@ -458,9 +459,9 @@ function calculateDiffDays() {
     }
   }
 
-  function copyToClipboard(score, longestWord) {
+  function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
-      .writeText(`WordHunter 0: ${score}🏹/Best Hunt: ${longestWord.toUpperCase()}/nhttps://wordhunter.onrender.com`)
+      .writeText(`WordHunter ${diffDays}: ${score}🏹/nBest Hunt: ${longestWord.toUpperCase()}/nhttps://wordhunter.onrender.com`)
       .then(function () {
         alert("Score copied to clipboard");
       })
