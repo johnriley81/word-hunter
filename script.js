@@ -6,7 +6,7 @@ let isGameActive = false;
 let longestWord = "";
 
 document.addEventListener("DOMContentLoaded", () => {
-  grid = document.querySelector("#grid");
+  const grid = document.querySelector("#grid");
   const startButton = document.querySelector("#start");
   const currentWordElement = document.querySelector("#current-word");
   const nextLettersElement = document.querySelector("#next-letters");
@@ -27,16 +27,50 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedButtonSet = new Set();
   let lastButton = null;
   let wordList = [];
-  let gridButtons = document.querySelectorAll(".grid-button");
+  let gridsList = [];
+  let diffDays = 0;
+let nextLettersList = [];
 
-  fetch("text/wordlist.txt")
-    .then((response) => response.text())
-    .then((data) => {
-      wordList = data.toLowerCase().split("\n");
-    })
-    .catch((error) => {
-      console.error("Error:", error);
+fetch("text/wordlist.txt")
+  .then((response) => response.text())
+  .then((data) => {
+    wordList = data.toLowerCase().split("\n");
+
+    // Fetch grids.txt after wordlist.txt has been fetched
+    return fetch("text/grids.txt");
+  })
+  .then((response) => response.text())
+  .then((data) => {
+    gridsList = data.split("\n").map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch (error) {
+        console.error("Error parsing line:", line);
+        console.error("Parse error:", error);
+      }
     });
+
+    // Fetch nextletters.txt after grids.txt has been fetched
+    return fetch("text/nextletters.txt");
+  })
+  .then((response) => response.text())
+  .then((data) => {
+    nextLettersList = data.split("\n").map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch (error) {
+        console.error("Error parsing line:", line);
+        console.error("Parse error:", error);
+      }
+    });
+
+    // Call generateGrid() after all files have been fetched
+    generateGrid();
+  })
+  .catch((error) => {
+    console.error("Fetch error:", error);
+  });
+  
 
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
@@ -44,16 +78,20 @@ document.addEventListener("DOMContentLoaded", () => {
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
+    grid.classList.remove("hidden");
+    grid.classList.add("visible");
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
+    grid.classList.remove("visible");
+    grid.classList.add("hidden");
   });
   document;
 
   messageLabel.addEventListener("click", function () {
     if (!isGameActive) {
-      copyToClipboard(score, longestWord);
+      copyToClipboard(score, longestWord, diffDays);
     }
   });
 
@@ -88,13 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function generateGrid() {
-    // logic or import to create initial grid goes here
-    const gridLetters = [
-      ["s", "a", "d", "n"],
-      ["e", "f", "i", "g"],
-      ["m", "o", "n", "c"],
-      ["b", "t", "e", "r"],
-    ];
+    diffDays = calculateDiffDays();
+    const gridLetters = gridsList[diffDays % gridsList.length];    
 
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -117,58 +150,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function generateNextLetters() {
-    nextLetters = [
-      "y",
-      "e",
-      "s",
-      "u",
-      "t",
-      "y",
-      "o",
-      "p",
-      "e",
-      "g",
-      "t",
-      "i",
-      "n",
-      "e",
-      "n",
-      "c",
-      "o",
-      "p",
-      "o",
-      "d",
-      "h",
-      "a",
-      "c",
-      "u",
-      "y",
-      "h",
-      "i",
-      "p",
-      "e",
-      "t",
-      "t",
-      "e",
-      "q",
-      "e",
-      "y",
-      "g",
-      "o",
-      "r",
-      "e",
-      "y",
-      "y",
-      "e",
-      "p",
-      "o",
-      "l",
-      "t",
-      "u",
-      "s",
-      "i",
-      "b",
-    ];
+    diffDays = calculateDiffDays();
+    nextLetters = nextLettersList[diffDays % nextLettersList.length];
     return nextLetters;
   }
 
@@ -188,6 +171,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     nextLettersElement.textContent = displayedNextLetters;
+  }
+
+  // Helper function to calculate the difference in days between two dates
+function calculateDiffDays() {
+    const now = new Date();
+    const start = new Date("2023-05-20");
+    const diffTime = Math.abs(now - start);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+    return diffDays;
   }
 
   function startTimer() {
@@ -466,9 +459,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function copyToClipboard(score, longestWord) {
+  function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
-      .writeText(`WordHunter 0: ${score}🏹/nLongest word: ${longestWord}`)
+      .writeText(`WordHunter #${diffDays} 🏹${score}/n🏆 ${longestWord.toUpperCase()} 🏆/nhttps://wordhunter.onrender.com`)
       .then(function () {
         alert("Score copied to clipboard");
       })
@@ -482,5 +475,4 @@ document.addEventListener("DOMContentLoaded", () => {
     return wordList.includes(word.toLowerCase());
   }
 
-  window.addEventListener("load", generateGrid);
 });

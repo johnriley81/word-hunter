@@ -150,9 +150,9 @@ html {
   border: 2px solid #000;
   box-shadow: 0 0 0 4px black; /* adjust as needed */
   border-radius: 30px;
-  background-color: #fff;
   font-size: 1.5rem;
   font-weight: bold;
+  font-family:'Gill Sans';
   color: maroon;
   text-transform: capitalize;
   height: calc((100vw - 3 * 20px) / 4);
