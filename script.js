@@ -3,13 +3,14 @@ let time = 60;
 let intervalId;
 let grid;
 let isGameActive = false;
+let longestWord = "";
 
 document.addEventListener("DOMContentLoaded", () => {
   grid = document.querySelector("#grid");
   const startButton = document.querySelector("#start");
   const currentWordElement = document.querySelector("#current-word");
   const nextLettersElement = document.querySelector("#next-letters");
-  const messageLabel = document.querySelector("#message-label")
+  const messageLabel = document.querySelector("#message-label");
   const timerElement = document.querySelector("#timer");
   const scoreElement = document.querySelector("#score");
   const rules = document.querySelector("#rules");
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedButtonSet = new Set();
   let lastButton = null;
   let wordList = [];
+  let gridButtons = document.querySelectorAll(".grid-button");
 
   fetch("text/wordlist.txt")
     .then((response) => response.text())
@@ -47,14 +49,13 @@ document.addEventListener("DOMContentLoaded", () => {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
   });
-  document
-  
+  document;
+
   messageLabel.addEventListener("click", function () {
-    if (!isGameActive){
-    copyToClipboard(score); // Copy the score
+    if (!isGameActive) {
+      copyToClipboard(score, longestWord);
     }
   });
-
 
   doneButton.addEventListener("click", endGame);
 
@@ -72,6 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].disabled = false; // Enable the buttons
+      buttons[i].classList.add("grid-button--active");
+      buttons[i].classList.remove("grid-button--inactive");
     }
 
     score = 0;
@@ -98,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const button = document.createElement("button");
         button.textContent = gridLetters[i][j];
         button.classList.add("grid-button");
+        button.classList.add("grid-button--inactive");
         button.disabled = true;
         button.addEventListener("mousedown", handleMouseDown);
         button.addEventListener("mouseover", handleMouseOver);
@@ -338,11 +342,14 @@ document.addEventListener("DOMContentLoaded", () => {
             1,
             "lightgreen"
           );
+          if (currentWord.length > longestWord.length) {
+            longestWord = currentWord;
+          }
           updateScore();
           replaceLetters();
           startTimer();
         } else {
-          showMessage("INVALID", 1, "red");
+          showMessage("INVALID", 1, "maroon");
         }
       }
       currentWord = "";
@@ -425,9 +432,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function endGame() {
     isGameActive = false;
     clearInterval(intervalId);
+
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].disabled = true; // Disable the buttons
+      buttons[i].classList.remove("grid-button--active");
+      buttons[i].classList.add("grid-button--inactive");
     }
 
     // Disable Done and Swap buttons
@@ -435,11 +445,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#swap-button").disabled = true;
 
     showMessage("Game Over", 3);
-    setTimeout(function(){
-        messageLabel.textContent = "Copy Score"; // Update message label
-        messageLabel.style.color = "black"; // Change color to make it noticeable
-        messageLabel.classList.remove("hidden");
-        messageLabel.classList.add("visible");
+    setTimeout(function () {
+      messageLabel.textContent = "Copy Score"; // Update message label
+      messageLabel.style.color = "black"; // Change color to make it noticeable
+      messageLabel.classList.remove("hidden");
+      messageLabel.classList.add("visible");
     }, 6000);
   }
 
@@ -456,9 +466,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function copyToClipboard(score) {
+  function copyToClipboard(score, longestWord) {
     navigator.clipboard
-      .writeText(`WordHunter 0: ${score}🏹`)
+      .writeText(`WordHunter 0: ${score}🏹/nLongest word: ${longestWord}`)
       .then(function () {
         alert("Score copied to clipboard");
       })
@@ -466,7 +476,7 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("FAIL\n\nUnable to copy score to clipboard");
         console.log("Error in copyToClipboard:", err);
       });
-}
+  }
 
   function validateWord(word) {
     return wordList.includes(word.toLowerCase());
