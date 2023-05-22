@@ -29,48 +29,47 @@ document.addEventListener("DOMContentLoaded", () => {
   let wordList = [];
   let gridsList = [];
   let diffDays = 0;
-let nextLettersList = [];
+  let nextLettersList = [];
 
-fetch("text/wordlist.txt")
-  .then((response) => response.text())
-  .then((data) => {
-    wordList = data.toLowerCase().split("\n");
+  fetch("text/wordlist.txt")
+    .then((response) => response.text())
+    .then((data) => {
+      wordList = data.toLowerCase().split("\n");
 
-    // Fetch grids.txt after wordlist.txt has been fetched
-    return fetch("text/grids.txt");
-  })
-  .then((response) => response.text())
-  .then((data) => {
-    gridsList = data.split("\n").map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        console.error("Error parsing line:", line);
-        console.error("Parse error:", error);
-      }
+      // Fetch grids.txt after wordlist.txt has been fetched
+      return fetch("text/grids.txt");
+    })
+    .then((response) => response.text())
+    .then((data) => {
+      gridsList = data.split("\n").map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          console.error("Error parsing line:", line);
+          console.error("Parse error:", error);
+        }
+      });
+
+      // Fetch nextletters.txt after grids.txt has been fetched
+      return fetch("text/nextletters.txt");
+    })
+    .then((response) => response.text())
+    .then((data) => {
+      nextLettersList = data.split("\n").map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          console.error("Error parsing line:", line);
+          console.error("Parse error:", error);
+        }
+      });
+
+      // Call generateGrid() after all files have been fetched
+      generateGrid();
+    })
+    .catch((error) => {
+      console.error("Fetch error:", error);
     });
-
-    // Fetch nextletters.txt after grids.txt has been fetched
-    return fetch("text/nextletters.txt");
-  })
-  .then((response) => response.text())
-  .then((data) => {
-    nextLettersList = data.split("\n").map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        console.error("Error parsing line:", line);
-        console.error("Parse error:", error);
-      }
-    });
-
-    // Call generateGrid() after all files have been fetched
-    generateGrid();
-  })
-  .catch((error) => {
-    console.error("Fetch error:", error);
-  });
-  
 
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
@@ -127,7 +126,7 @@ fetch("text/wordlist.txt")
 
   function generateGrid() {
     diffDays = calculateDiffDays();
-    const gridLetters = gridsList[diffDays % gridsList.length];    
+    const gridLetters = gridsList[diffDays % gridsList.length];
 
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -174,12 +173,12 @@ fetch("text/wordlist.txt")
   }
 
   // Helper function to calculate the difference in days between two dates
-function calculateDiffDays() {
+  function calculateDiffDays() {
     const now = new Date();
     const start = new Date("2023-05-20");
     const diffTime = Math.abs(now - start);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
+
     return diffDays;
   }
 
@@ -461,7 +460,9 @@ function calculateDiffDays() {
 
   function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
-      .writeText(`WordHunter #${diffDays} 🏹${score}/n🏆 ${longestWord.toUpperCase()} 🏆/nhttps://wordhunter.onrender.com`)
+      .writeText(
+        `WordHunter #${diffDays} 🏹${score}/n🏆 ${longestWord.toUpperCase()} 🏆/nhttps://wordhunter.onrender.com`
+      )
       .then(function () {
         alert("Score copied to clipboard");
       })
@@ -474,5 +475,4 @@ function calculateDiffDays() {
   function validateWord(word) {
     return wordList.includes(word.toLowerCase());
   }
-
 });
