@@ -461,7 +461,7 @@ function calculateDiffDays() {
 
   function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
-      .writeText(`WordHunter ${diffDays}: ${score}🏹/nBest Hunt: ${longestWord.toUpperCase()}/nhttps://wordhunter.onrender.com`)
+      .writeText(`WordHunter #${diffDays} 🏹${score}/n🏆 ${longestWord.toUpperCase()} 🏆/nhttps://wordhunter.onrender.com`)
       .then(function () {
         alert("Score copied to clipboard");
       })
