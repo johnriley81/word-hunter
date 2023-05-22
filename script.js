@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const startButton = document.querySelector("#start");
   const currentWordElement = document.querySelector("#current-word");
   const nextLettersElement = document.querySelector("#next-letters");
+  const messageLabel = document.querySelector("#message-label")
   const timerElement = document.querySelector("#timer");
   const scoreElement = document.querySelector("#score");
   const rules = document.querySelector("#rules");
@@ -45,6 +46,14 @@ document.addEventListener("DOMContentLoaded", () => {
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
+  });
+  document
+  
+  messageLabel.addEventListener("click", function () {
+    if (!isGameActive){
+    var message = this.innerText;
+    copyToClipboard(message);
+    }
   });
 
   doneButton.addEventListener("click", endGame);
@@ -442,6 +451,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return 3 + extraPoints;
     }
+  }
+
+  function copyToClipboard(text) {
+    console.log("copyToClipboard called with text:", text);
+    let questions = JSON.parse(sessionStorage.getItem("questions")) || [];
+    copyMsg = generateCopyMsg(questions);
+    navigator.clipboard
+      .writeText(copyMsg)
+      .then(function () {
+        alert("Score copied to clipboard");
+      })
+      .catch(function (err) {
+        alert("FAIL\n\nUnable to copy score to clipboard");
+        console.log("Error in copyToClipboard:", err);
+      });
   }
 
   function validateWord(word) {

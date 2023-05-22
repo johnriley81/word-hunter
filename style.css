@@ -34,6 +34,13 @@ html {
     height: 100%;
 }
 
+@media screen and (max-width: 375px) {
+    #logo {
+      width: 10%;
+      height: 100%;
+    }
+  }
+
 #rules-button, #close-rules {
     position: absolute;
     right: 0px;
