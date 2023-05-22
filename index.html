@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>WordHunter</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+  </head>
+  <body>
+    <div id="logo-rules-container">
+      <img id="logo" src="images/logo.png" alt="logo" />
+      <button id="rules-button">?</button>
+      <div id="rules" class="hidden">
+                  <!-- Rules goes here -->
+        <button id="close-rules">X</button>
+      </div>
+    </div>
+
+    <div id="game-info-container">
+      <div class="score-timer-container">
+        <div id="score">Score: 0</div>
+        <div id="timer">Time: 60</div>
+      </div>
+      <div id="next-letters-container" class="hidden">
+        <p id="next-letters-label"></p>
+        <div id="next-letters">
+          <!-- next letters list will be generated here -->
+        </div>
+      </div>
+      <div class="current-message-container">
+        <div id="current-word" class="hidden">
+          <div id="current-word-value"></div>
+        </div>
+        <div id="message-label" class="hidden">
+          <!-- Message goes here -->
+        </div>
+      </div>
+    </div>
+
+    <div id="grid-line-wrapper">
+      <div id="grid">
+        <!-- Grid buttons -->
+      </div>
+      <svg
+        id="line-container"
+        style="position: absolute; top: 0; left: 0"
+      ></svg>
+    </div>
+
+    <div id="button-container">
+      <button id="done-button" class="hidden">DONE</button>
+      <button id="start">START</button>
+      <button id="swap-button" class="hidden">SWAP</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
