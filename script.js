@@ -432,9 +432,11 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.add("grid-button--inactive");
     }
 
-    // Disable Done and Swap buttons
-    document.querySelector("#done-button").disabled = true;
-    document.querySelector("#swap-button").disabled = true;
+    // Hide Done and Swap buttons
+    doneButton.classList.add("hidden");
+    doneButton.classList.remove("visible");
+    swapButton.classList.add("hidden");
+    swapButton.classList.remove("visible");
 
     showMessage("Game Over", 3);
     setTimeout(function () {
@@ -461,7 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
       .writeText(
-        `WordHunter #${diffDays} 🏹${score}/n🏆 ${longestWord.toUpperCase()} 🏆/nhttps://wordhunter.onrender.com`
+        `WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\nhttps://wordhunter.onrender.com`
       )
       .then(function () {
         alert("Score copied to clipboard");
