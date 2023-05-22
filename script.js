@@ -51,10 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
   messageLabel.addEventListener("click", function () {
     if (!isGameActive){
-    var message = this.innerText;
-    copyToClipboard(message);
+        copyToClipboard(score);
     }
-  });
+});
 
   doneButton.addEventListener("click", endGame);
 
@@ -453,12 +452,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function copyToClipboard(text) {
-    console.log("copyToClipboard called with text:", text);
-    let questions = JSON.parse(sessionStorage.getItem("questions")) || [];
-    copyMsg = generateCopyMsg(questions);
+  function copyToClipboard(score) {
     navigator.clipboard
-      .writeText(copyMsg)
+      .writeText(`WordHunter 0: ${score}🏹`)
       .then(function () {
         alert("Score copied to clipboard");
       })
@@ -466,7 +462,7 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("FAIL\n\nUnable to copy score to clipboard");
         console.log("Error in copyToClipboard:", err);
       });
-  }
+}
 
   function validateWord(word) {
     return wordList.includes(word.toLowerCase());
