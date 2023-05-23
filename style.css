@@ -234,3 +234,7 @@ html {
 .selected {
   background-color: lightgreen;
 }
+
+.selected-swap {
+  background-color: lightblue;
+}

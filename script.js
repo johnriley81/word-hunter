@@ -4,8 +4,8 @@ let intervalId;
 let grid;
 let isGameActive = false;
 let longestWord = "";
-let sponsorMsg = "Sponsored by: No One"
-let websiteLink = "https://wordhunter.onrender.com"
+let sponsorMsg = "Sponsored by: No One";
+let websiteLink = "https://wordhunter.onrender.com";
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
@@ -22,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const swapButton = document.querySelector("#swap-button");
-  swapButton.disabled = true;
 
   let score = 0;
   let currentWord = "";
@@ -34,6 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
+  let isSwapEnabled = false;
+  let isSwapValid = false;
+  let swapTiles = [];
 
   fetch("text/wordlist.txt")
     .then((response) => response.text())
@@ -79,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
   startButton.addEventListener("click", startGame);
+  swapButton.addEventListener("click", handleSwap);
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
@@ -159,6 +162,40 @@ document.addEventListener("DOMContentLoaded", () => {
     return nextLetters;
   }
 
+  function handleSwap() {
+    if (isSwapEnabled && isSwapValid) {
+      // Swap the letters of the two tiles
+      swapLetters(swapTiles[0], swapTiles[1]);
+      swapTiles = [];
+      isSwapEnabled = false;
+      isSwapValid = false;
+      swapButton.style.backgroundColor = "gray";
+      swapButton.disabled = true;
+    } else if (isSwapEnabled) {
+      // User tried to swap while it wasn't valid
+      swapTiles.forEach((tile) => tile.classList.remove("selected-swap"));
+      swapTiles = [];
+      isSwapEnabled = false;
+      swapButton.style.backgroundColor = "#fcebc7";
+      swapButton.textContent = "SWAP";
+    } else {
+      isSwapEnabled = true;
+      swapButton.style.backgroundColor = "lightblue";
+      swapButton.textContent = "BACK";
+    }
+  }
+
+  function swapLetters(tile1, tile2) {
+    // Swap the letters of tile1 and tile2
+    const temp = tile1.textContent;
+    tile1.textContent = tile2.textContent;
+    tile2.textContent = temp;
+
+    // Reset the selected state of the tiles
+    tile1.classList.remove("selected-swap");
+    tile2.classList.remove("selected-swap");
+  }
+
   function updateScore() {
     scoreElement.textContent = "Score: " + score;
   }
@@ -210,11 +247,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchStart(event) {
     if (!isGameActive) return;
-    handleMouseDown(event);
+    if (isSwapEnabled) {
+      const mockEvent = { target: event.target, preventDefault: () => {} };
+      handleMouseUp(mockEvent);
+    } else {
+      handleMouseDown(event);
+    }
   }
 
   function handleTouchMove(event) {
     if (!isGameActive) return;
+    if (isSwapEnabled) return;
     event.preventDefault();
     const touch = event.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -232,34 +275,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchEnd(event) {
     if (!isGameActive) return;
+    if (isSwapEnabled) return;
     if (event.target.classList.contains("grid-button")) {
-      const touch = event.changedTouches[0];
-      const element = document.elementFromPoint(touch.clientX, touch.clientY);
-      const mockEvent = { target: element, preventDefault: () => {} };
+      // Change this line to use event.target instead of element from touch point
+      const mockEvent = { target: event.target, preventDefault: () => {} };
       handleMouseUp(mockEvent);
     }
   }
 
   function handleMouseDown(event) {
     if (!isGameActive) return;
-    if (
-      event.target.classList.contains("grid-button") &&
-      event.target.textContent !== "" &&
-      (lastButton === null || isAdjacent(lastButton, event.target))
-    ) {
-      isMouseDown = true;
-      currentWord += event.target.textContent;
-      selectedButtons.push(event.target);
-      selectedButtonSet.add(event.target);
-      event.target.classList.add("selected");
-      lastButton = event.target;
-      messageLabel.textContent = "";
-      updateCurrentWord();
+    if (isSwapEnabled) {
+      if (event.target.classList.contains("selected-swap")) {
+        // Deselecting a previously selected tile
+        event.target.classList.remove("selected-swap");
+        swapTiles = swapTiles.filter((tile) => tile !== event.target);
+      } else if (swapTiles.length < 2) {
+        // Selecting a new tile
+        event.target.classList.add("selected-swap");
+        swapTiles.push(event.target);
+      }
+
+      if (swapTiles.length === 2) {
+        isSwapValid = true;
+        swapButton.textContent = "SWAP";
+      } else {
+        isSwapValid = false;
+        swapButton.textContent = "BACK";
+      }
+    } else {
+      if (
+        event.target.classList.contains("grid-button") &&
+        event.target.textContent !== "" &&
+        (lastButton === null || isAdjacent(lastButton, event.target))
+      ) {
+        isMouseDown = true;
+        currentWord += event.target.textContent;
+        selectedButtons.push(event.target);
+        selectedButtonSet.add(event.target);
+        event.target.classList.add("selected");
+        lastButton = event.target;
+        messageLabel.textContent = "";
+        updateCurrentWord();
+      }
     }
   }
 
   function handleMouseOver(event) {
     if (!isGameActive) return;
+    if (isSwapEnabled) return;
     if (
       isMouseDown &&
       event.target.textContent !== "" &&
@@ -329,6 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleMouseUp(event) {
     if (!isGameActive) return;
+    if (isSwapEnabled) return;
     if (isMouseDown) {
       isMouseDown = false;
       if (currentWord.length > 2) {
@@ -439,12 +504,12 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.remove("selected");
       buttons[i].style.color = "black";
     }
-      currentWord = "";
-      updateCurrentWord();
-      const lineContainer = document.querySelector("#line-container");
-      while (lineContainer.firstChild) {
-        lineContainer.firstChild.remove();
-      }
+    currentWord = "";
+    updateCurrentWord();
+    const lineContainer = document.querySelector("#line-container");
+    while (lineContainer.firstChild) {
+      lineContainer.firstChild.remove();
+    }
 
     // Hide Done and Swap buttons
     doneButton.classList.add("hidden");
