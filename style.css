@@ -16,10 +16,12 @@ body {
   -moz-background-size: cover;
   -o-background-size: cover;
   background-size: cover;
+  overscroll-behavior-x: none;
 }
 
 html {
   height: -webkit-fill-available;
+  overscroll-behavior-x: none;
 }
 
 #logo-rules-container {
