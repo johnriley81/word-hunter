@@ -4,12 +4,16 @@ let intervalId;
 let grid;
 let isGameActive = false;
 let longestWord = "";
+let sponsorMsg = "Sponsored by: No One"
+let websiteLink = "https://wordhunter.onrender.com"
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
   const startButton = document.querySelector("#start");
+  startButton.disabled = true;
   const currentWordElement = document.querySelector("#current-word");
   const nextLettersElement = document.querySelector("#next-letters");
+  nextLettersElement.textContent = sponsorMsg;
   const messageLabel = document.querySelector("#message-label");
   const timerElement = document.querySelector("#timer");
   const scoreElement = document.querySelector("#score");
@@ -66,6 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Call generateGrid() after all files have been fetched
       generateGrid();
+      startButton.disabled = false;
     })
     .catch((error) => {
       console.error("Fetch error:", error);
@@ -248,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedButtonSet.add(event.target);
       event.target.classList.add("selected");
       lastButton = event.target;
+      messageLabel.textContent = "";
       updateCurrentWord();
     }
   }
@@ -334,7 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
             1,
             "lightgreen"
           );
-          if (currentWord.length > longestWord.length) {
+          if (currentWord.length >= longestWord.length) {
             longestWord = currentWord;
           }
           updateScore();
@@ -427,10 +433,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
-      buttons[i].disabled = true; // Disable the buttons
+      buttons[i].disabled = true;
       buttons[i].classList.remove("grid-button--active");
       buttons[i].classList.add("grid-button--inactive");
+      buttons[i].classList.remove("selected");
+      buttons[i].style.color = "black";
     }
+      currentWord = "";
+      updateCurrentWord();
+      const lineContainer = document.querySelector("#line-container");
+      while (lineContainer.firstChild) {
+        lineContainer.firstChild.remove();
+      }
 
     // Hide Done and Swap buttons
     doneButton.classList.add("hidden");
@@ -440,10 +454,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showMessage("Game Over", 3);
     setTimeout(function () {
-      messageLabel.textContent = "Copy Score"; // Update message label
-      messageLabel.style.color = "black"; // Change color to make it noticeable
+      messageLabel.textContent = "Copy Score";
+      messageLabel.style.color = "black";
       messageLabel.classList.remove("hidden");
       messageLabel.classList.add("visible");
+      nextLettersElement.textContent = sponsorMsg;
     }, 6000);
   }
 
@@ -463,7 +478,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function copyToClipboard(score, longestWord, diffDays) {
     navigator.clipboard
       .writeText(
-        `WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\nhttps://wordhunter.onrender.com`
+        `WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
       )
       .then(function () {
         alert("Score copied to clipboard");
