@@ -232,11 +232,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     time = 60;
     timerElement.textContent = "Time: " + time;
+    timerElement.style.color = "white";
 
-    // Start a new timer
     intervalId = setInterval(() => {
       time -= 1;
       timerElement.textContent = "Time: " + time;
+
+      if (time === 10) {
+        if (navigator.vibrate) {
+          navigator.vibrate(100);
+        }
+      }
+
+      if (time <= 10) {
+        timerElement.style.color = time % 2 === 0 ? "darkred" : "white";
+      }
 
       if (time <= 0) {
         clearInterval(intervalId);
@@ -277,7 +287,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGameActive) return;
     if (isSwapEnabled) return;
     if (event.target.classList.contains("grid-button")) {
-      // Change this line to use event.target instead of element from touch point
       const mockEvent = { target: event.target, preventDefault: () => {} };
       handleMouseUp(mockEvent);
     }
@@ -382,7 +391,21 @@ document.addEventListener("DOMContentLoaded", () => {
               grid.getBoundingClientRect().top
           );
 
-          line.setAttribute("stroke", "white");
+          // transform line from orange to red
+          const wordLength = selectedButtons.length;
+          let color;
+          let lettersChange = 8;
+          if (wordLength <= lettersChange) {
+            colorChange = Math.round(
+              255 - (255 / lettersChange) * (wordLength - 1)
+            );
+            color = `rgb(255, ${colorChange}, 0)`;
+          } else {
+            color = `rgb(255, 0, 0)`;
+          }
+          line.setAttribute("stroke", color);
+          line.setAttribute("stroke-width", "3");
+
           document.querySelector("#line-container").appendChild(line);
         }
       }
@@ -412,7 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
           replaceLetters();
           startTimer();
         } else {
-          showMessage("INVALID", 1, "maroon");
+          showMessage("INVALID", 1, "darkred");
         }
       }
       currentWord = "";

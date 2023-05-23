@@ -155,7 +155,7 @@ html {
   font-size: 1.5rem;
   font-weight: bold;
   font-family: "Gill Sans";
-  color: maroon;
+  color: darkred;
   text-transform: capitalize;
   height: calc((100vw - 3 * 20px) / 4);
   width: calc((100vw - 3 * 20px) / 4);
