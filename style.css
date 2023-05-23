@@ -159,6 +159,8 @@ html {
   text-transform: capitalize;
   height: calc((100vw - 3 * 20px) / 4);
   width: calc((100vw - 3 * 20px) / 4);
+  user-select: none;
+  -webkit-user-select: none; /* Safari */
 }
 
 .grid-button--inactive {
