@@ -238,12 +238,6 @@ document.addEventListener("DOMContentLoaded", () => {
       time -= 1;
       timerElement.textContent = "Time: " + time;
 
-      if (time === 10) {
-        if (navigator.vibrate) {
-          navigator.vibrate(100);
-        }
-      }
-
       if (time <= 10) {
         timerElement.style.color = time % 2 === 0 ? "darkred" : "white";
       }
