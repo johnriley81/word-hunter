@@ -188,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       isSwapEnabled = true;
       swapButton.style.backgroundColor = "lightblue";
       swapButton.textContent = "BACK";
+      showMessage("Select tiles to swap")
     }
   }
 
