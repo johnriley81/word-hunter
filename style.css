@@ -160,7 +160,7 @@ html {
   height: calc((100vw - 3 * 20px) / 4);
   width: calc((100vw - 3 * 20px) / 4);
   user-select: none;
-  -webkit-user-select: none; /* Safari */
+  -webkit-user-select: none;
 }
 
 .grid-button--inactive {
@@ -232,6 +232,9 @@ html {
   display: flex; /* center text vertically and horizontally */
   align-items: center;
   justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .hidden {
