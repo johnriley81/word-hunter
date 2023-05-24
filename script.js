@@ -223,16 +223,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Helper function to calculate the difference in days between two dates
   function calculateDiffDays() {
     const now = new Date();
-    const start = new Date("2023-05-20T00:00:00");
+    const start = new Date(2023, 4, 20);
 
-    const timezoneOffset = now.getTimezoneOffset() * 60 * 1000; 
-    const adjustedNow = new Date(now.getTime() - timezoneOffset);
-
-    const diffTime = Math.abs(adjustedNow - start);
+    const diffTime = Math.abs(now - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return diffDays;
 }
+
 
   function startTimer() {
     // Clear the previous timer
