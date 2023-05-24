@@ -6,6 +6,7 @@ let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "Sponsored by: No One";
 let websiteLink = "https://wordhunter.onrender.com";
+let hardMode = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
@@ -22,6 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const swapButton = document.querySelector("#swap-button");
+  const hardModeCheckbox = document.getElementById("hard-mode");
+  const hardModeLabel = document.getElementById("hard-mode-label");
+  const hardModeContainer = document.getElementById("hard-mode-container");
 
   let score = 0;
   let currentWord = "";
@@ -81,6 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
   startButton.addEventListener("click", startGame);
+  hardModeCheckbox.addEventListener("click", handleHardMode);
   swapButton.addEventListener("click", handleSwap);
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
@@ -107,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function startGame() {
     isGameActive = true;
     startButton.style.display = "none"; // Hide start button
+    hardModeContainer.style.display = "none"; // Hide hardMode checkbox
     document.querySelector("#current-word").classList.remove("hidden");
     document.querySelector("#current-word").classList.add("visible");
     document.getElementById("next-letters-container").classList.add("visible");
@@ -217,12 +223,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Helper function to calculate the difference in days between two dates
   function calculateDiffDays() {
     const now = new Date();
-    const start = new Date("2023-05-20");
-    const diffTime = Math.abs(now - start);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const start = new Date("2023-05-20T00:00:00");
+
+    const timezoneOffset = now.getTimezoneOffset() * 60 * 1000; 
+    const adjustedNow = new Date(now.getTime() - timezoneOffset);
+
+    const diffTime = Math.abs(adjustedNow - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return diffDays;
-  }
+}
 
   function startTimer() {
     // Clear the previous timer
@@ -230,7 +240,12 @@ document.addEventListener("DOMContentLoaded", () => {
       clearInterval(intervalId);
     }
 
-    time = 60;
+    if (hardMode) {
+      time = 30;
+    } else {
+      time = 60;
+    }
+
     timerElement.textContent = "Time: " + time;
     timerElement.style.color = "white";
 
@@ -247,6 +262,19 @@ document.addEventListener("DOMContentLoaded", () => {
         endGame();
       }
     }, 1000);
+  }
+
+  function handleHardMode() {
+    hardMode = hardModeCheckbox.checked;
+    if (hardMode) {
+      hardModeLabel.style.color = "black";
+      time = 30;
+      timerElement.textContent = "Time: 30";
+    } else {
+      hardModeLabel.style.color = "white";
+      time = 60;
+      timerElement.textContent = "Time: 60";
+    }
   }
 
   function handleTouchStart(event) {
@@ -558,9 +586,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function copyToClipboard(score, longestWord, diffDays) {
+    asterisk = "";
+    if (hardMode) {
+      asterisk = "*";
+    }
     navigator.clipboard
       .writeText(
-        `WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
+        `WordHunter #${diffDays} 🏹${score}${asterisk}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
       )
       .then(function () {
         alert("Score copied to clipboard");
