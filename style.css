@@ -207,6 +207,15 @@ html {
   width: 100%;
 }
 
+#hard-mode-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: right;
+  align-items: center;
+  height: 10%;
+  width: 100%;
+}
+
 #start,
 #done-button,
 #swap-button {
