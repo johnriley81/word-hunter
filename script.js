@@ -7,6 +7,7 @@ let longestWord = "";
 let sponsorMsg = "Sponsored by: No One";
 let websiteLink = "https://wordhunter.onrender.com";
 let hardMode = false;
+let asterisk = "";
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
@@ -274,10 +275,12 @@ document.addEventListener("DOMContentLoaded", () => {
       hardModeLabel.style.color = "black";
       time = 30;
       timerElement.textContent = "Time: 30";
+      asterisk = "*";
     } else {
       hardModeLabel.style.color = "white";
       time = 60;
       timerElement.textContent = "Time: 60";
+      asterisk = "";
     }
   }
 
@@ -570,6 +573,11 @@ document.addEventListener("DOMContentLoaded", () => {
     retryButton.classList.remove("hiddenDisplay");
     retryButton.classList.add("visibleDisplay");
 
+    // Log user score
+    console.log(
+      `puzzle: ${diffDays}, score: ${score}${asterisk}, trophy: ${longestWord}`
+    );
+
     showMessage("Game Over", 2);
     setTimeout(function () {
       messageLabel.textContent = "Copy Score";
@@ -594,10 +602,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function copyToClipboard(score, longestWord, diffDays) {
-    asterisk = "";
-    if (hardMode) {
-      asterisk = "*";
-    }
     navigator.clipboard
       .writeText(
         `WordHunter #${diffDays} 🏹${score}${asterisk}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
