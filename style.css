@@ -66,11 +66,11 @@ html {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.85);
   color: #fff;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: top;
   flex-direction: column;
   box-sizing: border-box;
 }
