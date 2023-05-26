@@ -1,3 +1,15 @@
+@media screen and (orientation: landscape) {
+  body > * {
+    display: none;
+    visibility: hidden;
+  }
+  body > #landscape-message {
+    display: block;
+    visibility: visible;
+    color: black;
+  }
+}
+
 body {
   font-family: "Press Start 2P", cursive;
   text-transform: uppercase;
