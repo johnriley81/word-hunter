@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startButton.addEventListener("click", startGame);
   hardModeCheckbox.addEventListener("click", handleHardMode);
   swapButton.addEventListener("click", handleSwap);
-  retryButton.addEventListener("click", function (){
+  retryButton.addEventListener("click", function () {
     window.location.reload();
   });
   closeRules.addEventListener("click", function () {
@@ -119,7 +119,9 @@ document.addEventListener("DOMContentLoaded", () => {
     hardModeContainer.style.display = "none"; // Hide hardMode checkbox
     currentWordElement.classList.remove("hidden");
     currentWordElement.classList.add("visible");
-    document.getElementById("next-letters-container").classList.add("visible");
+    document
+      .getElementById("next-letters-container")
+      .classList.add("visibleDisplay");
     doneButton.classList.remove("hidden");
     doneButton.classList.add("visibleDisplay");
     swapButton.classList.remove("hidden");
@@ -192,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
       isSwapEnabled = true;
       swapButton.style.backgroundColor = "lightblue";
       swapButton.textContent = "BACK";
-      showMessage("Select tiles to swap")
+      showMessage("Select tiles to swap");
     }
   }
 
@@ -234,8 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return diffDays;
-}
-
+  }
 
   function startTimer() {
     // Clear the previous timer
