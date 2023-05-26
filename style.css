@@ -201,7 +201,7 @@ html {
 #button-container {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
   height: 10%;
   width: 100%;
@@ -218,8 +218,9 @@ html {
 
 #start,
 #done-button,
-#swap-button {
-  width: 45%; /* adjust this value to create more space around the buttons */
+#swap-button,
+#retry-button {
+  width: 25%; /* adjust this value to create more space around the buttons */
   font-family: "Press Start 2P", cursive;
   height: 50%; /* let the browser decide the height based on content and padding */
   padding: 3%; /* adjust padding to create space around the text */
@@ -229,7 +230,6 @@ html {
   border: none;
   background-color: #fcebc7;
   color: #000;
-  display: flex; /* center text vertically and horizontally */
   align-items: center;
   justify-content: center;
   user-select: none;
@@ -243,6 +243,14 @@ html {
 
 .visible {
   visibility: visible;
+}
+
+.hiddenDisplay {
+  display: none;
+}
+
+.visibleDisplay {
+  display: flex;
 }
 
 .selected {

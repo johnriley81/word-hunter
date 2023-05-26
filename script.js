@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const swapButton = document.querySelector("#swap-button");
+  const retryButton = document.querySelector("#retry-button");
   const hardModeCheckbox = document.getElementById("hard-mode");
   const hardModeLabel = document.getElementById("hard-mode-label");
   const hardModeContainer = document.getElementById("hard-mode-container");
@@ -87,6 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
   startButton.addEventListener("click", startGame);
   hardModeCheckbox.addEventListener("click", handleHardMode);
   swapButton.addEventListener("click", handleSwap);
+  retryButton.addEventListener("click", function (){
+    window.location.reload();
+  });
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
@@ -113,13 +117,13 @@ document.addEventListener("DOMContentLoaded", () => {
     isGameActive = true;
     startButton.style.display = "none"; // Hide start button
     hardModeContainer.style.display = "none"; // Hide hardMode checkbox
-    document.querySelector("#current-word").classList.remove("hidden");
-    document.querySelector("#current-word").classList.add("visible");
+    currentWordElement.classList.remove("hidden");
+    currentWordElement.classList.add("visible");
     document.getElementById("next-letters-container").classList.add("visible");
-    document.querySelector("#done-button").classList.remove("hidden");
-    document.querySelector("#done-button").classList.add("visible");
-    document.querySelector("#swap-button").classList.remove("hidden");
-    document.querySelector("#swap-button").classList.add("visible");
+    doneButton.classList.remove("hidden");
+    doneButton.classList.add("visibleDisplay");
+    swapButton.classList.remove("hidden");
+    swapButton.classList.add("visibleDisplay");
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
@@ -556,19 +560,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Hide Done and Swap buttons
-    doneButton.classList.add("hidden");
-    doneButton.classList.remove("visible");
-    swapButton.classList.add("hidden");
-    swapButton.classList.remove("visible");
+    doneButton.classList.add("hiddenDisplay");
+    doneButton.classList.remove("visibleDisplay");
+    swapButton.classList.add("hiddenDisplay");
+    swapButton.classList.remove("visibleDisplay");
 
-    showMessage("Game Over", 3);
+    // Show Retry button
+    retryButton.classList.remove("hiddenDisplay");
+    retryButton.classList.add("visibleDisplay");
+
+    showMessage("Game Over", 2);
     setTimeout(function () {
       messageLabel.textContent = "Copy Score";
       messageLabel.style.color = "black";
       messageLabel.classList.remove("hidden");
       messageLabel.classList.add("visible");
       nextLettersElement.textContent = sponsorMsg;
-    }, 6000);
+    }, 4000);
   }
 
   function getWordScore(word) {
