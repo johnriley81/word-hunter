@@ -610,7 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
       leaderboardTable.classList.remove("hidden");
       leaderboardTable.classList.remove("hiddenDisplay");
       leaderboardTable.classList.add("visibleDisplay");
-      if (score >= 5){
+      if (score >= 50){
       playerName.classList.remove("hiddenDisplay");
       playerName.classList.add("visibleDisplay");
       leaderboardButton.classList.remove("hiddenDisplay");
@@ -635,7 +635,7 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
   
-    if (score > 5) {
+    if (score > 50) {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
         "player": playerName.value,
