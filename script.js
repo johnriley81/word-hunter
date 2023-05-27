@@ -6,10 +6,12 @@ let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "Sponsored by: No One";
 let websiteLink = "https://wordhunter.onrender.com";
-let leaderboardLink = "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/dev/"
+let leaderboardLink =
+  "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/dev/";
 let hardMode = false;
 let asterisk = "";
 let playerPosition;
+let isEndgame = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
@@ -102,14 +104,24 @@ document.addEventListener("DOMContentLoaded", () => {
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
-    grid.classList.remove("hidden");
-    grid.classList.add("visible");
+    if (!isEndgame) {
+      grid.classList.remove("hidden");
+      grid.classList.add("visible");
+    } else {
+      leaderboardElements.classList.remove("hidden");
+      leaderboardElements.classList.add("visible");
+    }
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
-    grid.classList.remove("visible");
-    grid.classList.add("hidden");
+    if (!isEndgame) {
+      grid.classList.remove("visible");
+      grid.classList.add("hidden");
+    } else {
+      leaderboardElements.classList.remove("visible");
+      leaderboardElements.classList.add("hidden");
+    }
   });
   document;
 
@@ -378,16 +390,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.target === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
-      
+
         // Remove the corresponding line
         const lineContainer = document.querySelector("#line-container");
         lineContainer.lastChild.remove();
-      
+
         // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
           removedButton.classList.remove("selected");
           selectedButtonSet.delete(removedButton);
-        }      
+        }
       } else {
         currentWord += event.target.textContent;
         selectedButtons.push(event.target);
@@ -554,6 +566,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endGame() {
+    isEndgame = true;
     isGameActive = false;
     clearInterval(intervalId);
 
@@ -605,100 +618,104 @@ document.addEventListener("DOMContentLoaded", () => {
       grid.classList.add("hidden");
       gridLineContainer.classList.remove("visibleDisplay");
       gridLineContainer.classList.remove("hiddenDisplay");
-      leaderboardElements.classList.add('visibleDisplay');
-      leaderboardElements.classList.remove('hiddenDisplay');
+      leaderboardElements.classList.add("visibleDisplay");
+      leaderboardElements.classList.remove("hiddenDisplay");
       leaderboardTable.classList.remove("hidden");
       leaderboardTable.classList.remove("hiddenDisplay");
       leaderboardTable.classList.add("visibleDisplay");
-      if (score >= 50){
-      playerName.classList.remove("hiddenDisplay");
-      playerName.classList.add("visibleDisplay");
-      leaderboardButton.classList.remove("hiddenDisplay");
-      leaderboardButton.classList.add("visibleDisplay");
+      if (score >= 50) {
+        playerName.classList.remove("hiddenDisplay");
+        playerName.classList.add("visibleDisplay");
+        leaderboardButton.classList.remove("hiddenDisplay");
+        leaderboardButton.classList.add("visibleDisplay");
       }
     }, 4000);
   }
 
-  async function getLeaderboard(clicked=false) { 
-    if(clicked){
-      playerName.disabled=true;
-      leaderboardButton.disabled=true;
+  async function getLeaderboard(clicked = false) {
+    if (clicked) {
+      playerName.disabled = true;
+      leaderboardButton.disabled = true;
       leaderboardButton.style.backgroundColor = "gray";
     }
 
-    let requestURL = `${leaderboardLink}${diffDays}`
+    let requestURL = `${leaderboardLink}${diffDays}`;
 
     let requestOptions = {
       method: "GET",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
     };
-  
+
     if (score > 50) {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
-        "player": playerName.value,
-        "hard": hardMode,
-        "score": score,
-        "trophy": longestWord
+        player: playerName.value,
+        hard: hardMode,
+        score: score,
+        trophy: longestWord,
       });
     }
-  
+
     // make the API request
     let response = await fetch(requestURL, requestOptions);
-    console.log(requestOptions.body)
+    console.log(requestOptions.body);
     let data = await response.json();
-  
+
     // handle the response
     let leaderboard = data.top_10 || data; // get the leaderboard from the response
-  
+
     // clear the existing leaderboard table
     leaderboardTable.innerHTML = "";
-  
+
     // create a table body
-    let tbody = document.createElement('tbody');
-    
+    let tbody = document.createElement("tbody");
+
     // add the table header
-    let headerRow = document.createElement('tr');
+    let headerRow = document.createElement("tr");
     ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
-      let th = document.createElement('th');
+      let th = document.createElement("th");
       th.textContent = headerText;
       headerRow.appendChild(th);
     });
     headerRow.style.backgroundColor = "black";
-    headerRow.style.color = "white"
+    headerRow.style.color = "white";
     tbody.appendChild(headerRow);
-    
+
     // add the new leaderboard rows
     leaderboard.forEach((row, index) => {
-      let tr = document.createElement('tr');
+      let tr = document.createElement("tr");
       let [player, hardMode, rowScore, rowTrophy] = row;
-    
+
       // Determine the color of the row
-      let color = "black";  // default color
+      let color = "black"; // default color
       if (hardMode === 1) {
         color = "maroon";
       }
-      if (player === playerName.value && rowScore === score && rowTrophy === longestWord) {
-        playerPosition = index+1;
-        console.log(playerPosition)
+      if (
+        player === playerName.value &&
+        rowScore === score &&
+        rowTrophy === longestWord
+      ) {
+        playerPosition = index + 1;
+        console.log(playerPosition);
         color = "white";
       }
-      
+
       tr.style.color = color;
-    
-      [index+1, player, rowScore, rowTrophy].forEach((cellText) => {
-        let td = document.createElement('td');
+
+      [index + 1, player, rowScore, rowTrophy].forEach((cellText) => {
+        let td = document.createElement("td");
         td.textContent = cellText;
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
     });
-  
+
     leaderboardTable.appendChild(tbody);
   }
-  
+
   function getWordScore(word) {
     // Adjust the score calculation as per your rules
     if (word.length <= 3) {
@@ -714,8 +731,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function copyToClipboard(score, longestWord, diffDays) {
     let leaderboardText = "";
-    if(playerPosition){
-      leaderboardText = `I'm #${playerPosition} on `
+    if (playerPosition) {
+      leaderboardText = `I'm #${playerPosition} on `;
     }
     navigator.clipboard
       .writeText(
