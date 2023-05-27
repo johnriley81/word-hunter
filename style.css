@@ -238,6 +238,11 @@ html {
   padding: 1px;
 }
 
+.centered-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
 #player-name {
   height: 10%;
   max-height: 10px;
