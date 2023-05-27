@@ -616,9 +616,11 @@ document.addEventListener("DOMContentLoaded", () => {
       nextLettersElement.textContent = sponsorMsg;
 
       // Leaderboard elements
+      grid.classList.remove("visible");
       grid.classList.remove("visibleDisplay");
-      grid.classList.add("hiddenDisplay");
       grid.classList.add("hidden");
+      grid.classList.add("hiddenDisplay");
+      gridLineContainer.classList.remove("visible");
       gridLineContainer.classList.remove("visibleDisplay");
       gridLineContainer.classList.remove("hiddenDisplay");
       leaderboardElements.classList.add("visibleDisplay");
