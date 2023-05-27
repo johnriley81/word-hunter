@@ -210,6 +210,61 @@ html {
   pointer-events: none; /* this allows mouse events to pass through to the buttons underneath */
 }
 
+#leaderboard-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  pointer-events: none;
+}
+
+#leaderboard-table {
+  height: 80%;
+  width: auto;
+  min-width: 80%;
+  max-width: 95%;
+  margin: auto;
+  justify-content: center;
+  display: flex;
+}
+
+#leaderboard-table td,
+#leaderboard-table th {
+  padding: 1px;
+}
+
+#player-name {
+  height: 10%;
+  max-height: 10px;
+  width: 40%;
+  padding: 3%;
+}
+
+#leaderboard-button {
+  height: 10%;
+  max-height: 30px;
+  width: fit-content; /* Adjust this as necessary */
+  font-family: "Press Start 2P", cursive;
+  padding: 3%;
+  font-size: 1rem;
+  text-align: center;
+  margin: 1vh 0;
+  border: none;
+  background-color: #fcebc7;
+  color: #000;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
 #button-container {
   display: flex;
   flex-direction: row;
@@ -263,6 +318,10 @@ html {
 
 .visibleDisplay {
   display: flex;
+}
+
+#leaderboard-elements.visibleDisplay {
+  pointer-events: auto;
 }
 
 .selected {

@@ -61,14 +61,32 @@
       </div>
     </div>
 
-    <div id="grid-line-wrapper">
+    <div id="grid-line-wrapper" style="position: relative">
       <div id="grid">
         <!-- Grid buttons -->
       </div>
-      <svg
-        id="line-container"
-        style="position: absolute; top: 0; left: 0"
-      ></svg>
+      <svg id="line-container"></svg>
+      <div id="leaderboard-elements">
+        <table id="leaderboard-table" class="hiddenDisplay">
+          <tbody>
+            <tr>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        <input
+          type="text"
+          id="player-name"
+          placeholder="PLAYER NAME"
+          maxlength="8"
+          class="hiddenDisplay"
+        />
+        <button id="leaderboard-button" class="hiddenDisplay">
+          SUBMIT
+        </button>
+      </div>
     </div>
 
     <div id="button-container">
