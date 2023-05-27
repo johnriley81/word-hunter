@@ -6,8 +6,10 @@ let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "Sponsored by: No One";
 let websiteLink = "https://wordhunter.onrender.com";
+let leaderboardLink = "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/dev/"
 let hardMode = false;
 let asterisk = "";
+let playerPosition;
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
@@ -28,6 +30,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const hardModeCheckbox = document.getElementById("hard-mode");
   const hardModeLabel = document.getElementById("hard-mode-label");
   const hardModeContainer = document.getElementById("hard-mode-container");
+  const gridLineContainer = document.querySelector("#line-container");
+  const leaderboardElements = document.getElementById("leaderboard-elements");
+  const leaderboardTable = document.getElementById("leaderboard-table");
+  const playerName = document.getElementById("player-name");
+  const leaderboardButton = document.getElementById("leaderboard-button");
 
   let score = 0;
   let currentWord = "";
@@ -113,6 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   doneButton.addEventListener("click", endGame);
+  leaderboardButton.addEventListener("click", getLeaderboard);
 
   function startGame() {
     isGameActive = true;
@@ -580,15 +588,117 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     showMessage("Game Over", 2);
+    // Fetch the leaderboard right after game ends
+    getLeaderboard();
+    leaderboardTable.classList.add("hidden");
+
     setTimeout(function () {
       messageLabel.textContent = "Copy Score";
       messageLabel.style.color = "black";
       messageLabel.classList.remove("hidden");
       messageLabel.classList.add("visible");
       nextLettersElement.textContent = sponsorMsg;
+
+      // Leaderboard elements
+      grid.classList.remove("visibleDisplay");
+      grid.classList.add("hiddenDisplay");
+      grid.classList.add("hidden");
+      gridLineContainer.classList.remove("visibleDisplay");
+      gridLineContainer.classList.remove("hiddenDisplay");
+      leaderboardElements.classList.add('visibleDisplay');
+      leaderboardElements.classList.remove('hiddenDisplay');
+      leaderboardTable.classList.remove("hidden");
+      leaderboardTable.classList.remove("hiddenDisplay");
+      leaderboardTable.classList.add("visibleDisplay");
+      if (score >= 50){
+      playerName.classList.remove("hiddenDisplay");
+      playerName.classList.add("visibleDisplay");
+      leaderboardButton.classList.remove("hiddenDisplay");
+      leaderboardButton.classList.add("visibleDisplay");
+      }
     }, 4000);
   }
 
+  async function getLeaderboard(clicked=false) { 
+    if(clicked){
+      playerName.disabled=true;
+      leaderboardButton.disabled=true;
+      leaderboardButton.style.backgroundColor = "gray";
+    }
+
+    let requestURL = `${leaderboardLink}${diffDays}`
+
+    let requestOptions = {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
+      },
+    };
+  
+    if (score > 50) {
+      requestOptions.method = "POST";
+      requestOptions.body = JSON.stringify({
+        "player": playerName.value,
+        "hard": hardMode,
+        "score": score,
+        "trophy": longestWord
+      });
+    }
+  
+    // make the API request
+    let response = await fetch(requestURL, requestOptions);
+    console.log(requestOptions.body)
+    let data = await response.json();
+  
+    // handle the response
+    let leaderboard = data.top_10 || data; // get the leaderboard from the response
+  
+    // clear the existing leaderboard table
+    leaderboardTable.innerHTML = "";
+  
+    // create a table body
+    let tbody = document.createElement('tbody');
+    
+    // add the table header
+    let headerRow = document.createElement('tr');
+    ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
+      let th = document.createElement('th');
+      th.textContent = headerText;
+      headerRow.appendChild(th);
+    });
+    headerRow.style.backgroundColor = "black";
+    headerRow.style.color = "white"
+    tbody.appendChild(headerRow);
+    
+    // add the new leaderboard rows
+    leaderboard.forEach((row, index) => {
+      let tr = document.createElement('tr');
+      let [player, hardMode, rowScore, rowTrophy] = row;
+    
+      // Determine the color of the row
+      let color = "black";  // default color
+      if (hardMode === 1) {
+        color = "maroon";
+      }
+      if (player === playerName.value && rowScore === score && rowTrophy === longestWord) {
+        playerPosition = index+1;
+        console.log(playerPosition)
+        color = "white";
+      }
+      
+      tr.style.color = color;
+    
+      [index+1, player, rowScore, rowTrophy].forEach((cellText) => {
+        let td = document.createElement('td');
+        td.textContent = cellText;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  
+    leaderboardTable.appendChild(tbody);
+  }
+  
   function getWordScore(word) {
     // Adjust the score calculation as per your rules
     if (word.length <= 3) {
@@ -603,9 +713,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function copyToClipboard(score, longestWord, diffDays) {
+    let leaderboardText = "";
+    if(playerPosition){
+      leaderboardText = `I'm #${playerPosition} on `
+    }
     navigator.clipboard
       .writeText(
-        `WordHunter #${diffDays} 🏹${score}${asterisk}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
+        `${leaderboardText}WordHunter #${diffDays} 🏹${score}${asterisk}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
       )
       .then(function () {
         alert("Score copied to clipboard");
