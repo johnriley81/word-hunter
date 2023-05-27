@@ -370,15 +370,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.target === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
-
+      
         // Remove the corresponding line
         const lineContainer = document.querySelector("#line-container");
         lineContainer.lastChild.remove();
-
+      
         // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
           removedButton.classList.remove("selected");
-        }
+          selectedButtonSet.delete(removedButton);
+        }      
       } else {
         currentWord += event.target.textContent;
         selectedButtons.push(event.target);
