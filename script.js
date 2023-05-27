@@ -136,6 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function startGame() {
     isGameActive = true;
+    timerElement.style.color = "white";
     startButton.style.display = "none"; // Hide start button
     hardModeContainer.style.display = "none"; // Hide hardMode checkbox
     currentWordElement.classList.remove("hidden");
@@ -295,11 +296,13 @@ document.addEventListener("DOMContentLoaded", () => {
       hardModeLabel.style.color = "black";
       time = 30;
       timerElement.textContent = "Time: 30";
+      timerElement.style.color = "maroon";
       asterisk = "*";
     } else {
       hardModeLabel.style.color = "white";
       time = 60;
       timerElement.textContent = "Time: 60";
+      timerElement.style.color = "white";
       asterisk = "";
     }
   }
@@ -705,11 +708,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
       tr.style.color = color;
 
-      [index + 1, player, rowScore, rowTrophy].forEach((cellText) => {
-        let td = document.createElement("td");
-        td.textContent = cellText;
-        tr.appendChild(td);
-      });
+      // Determine the displayed position (medal or number)
+      let positionDisplay;
+      if (index === 0) {
+        positionDisplay = "🥇";
+      } else {
+        positionDisplay = index + 1;
+      }
+
+      [positionDisplay, player, rowScore, rowTrophy].forEach(
+        (cellText, cellIndex) => {
+          let td = document.createElement("td");
+          td.textContent = cellText;
+
+          // Add class for first and third columns
+          if (cellIndex === 0 || cellIndex === 2) {
+            td.classList.add("centered-cell");
+          }
+
+          tr.appendChild(td);
+        }
+      );
       tbody.appendChild(tr);
     });
 
