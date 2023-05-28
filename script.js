@@ -110,6 +110,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       leaderboardElements.classList.remove("hidden");
       leaderboardElements.classList.add("visible");
+      messageLabel.classList.remove("hidden");
+      messageLabel.classList.add("visible");
     }
   });
   rulesButton.addEventListener("click", function () {
@@ -121,6 +123,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       leaderboardElements.classList.remove("visible");
       leaderboardElements.classList.add("hidden");
+      messageLabel.classList.remove("visible");
+      messageLabel.classList.add("hidden");
     }
   });
   document;
