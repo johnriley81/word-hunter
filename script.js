@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isSwapEnabled = false;
   let isSwapValid = false;
   let swapTiles = [];
+  let scoreValidation = [];
 
   fetch("text/wordlist.txt")
     .then((response) => response.text())
@@ -478,6 +479,8 @@ document.addEventListener("DOMContentLoaded", () => {
       isMouseDown = false;
       if (currentWord.length > 2) {
         if (validateWord(currentWord)) {
+          scoreValidation.push([currentWord, getLetters(), selectedButtonSet.size])
+          console.log(scoreValidation);
           const wordScore = getWordScore(currentWord);
           score += wordScore;
           showMessage(
@@ -664,6 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
         hard: hardMode,
         score: score,
         trophy: longestWord,
+        scoreValidation: scoreValidation,
       });
     }
 
@@ -739,6 +743,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     leaderboardTable.appendChild(tbody);
+  }
+
+  function getLetters() {
+    let letters = '';
+    const tiles = document.querySelectorAll('.grid-button'); // replace .grid-button with your actual selector
+    
+    tiles.forEach(tile => {
+      let tileText = tile.textContent; // or .innerText or .innerHTML, whichever contains the letter
+        letters += tileText;
+    });
+    
+    return letters;
   }
 
   function getWordScore(word) {
