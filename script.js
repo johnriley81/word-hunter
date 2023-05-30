@@ -520,21 +520,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const index1 = Array.prototype.indexOf.call(grid.children, button1);
     const index2 = Array.prototype.indexOf.call(grid.children, button2);
     const diff = Math.abs(index1 - index2);
-
-    // Check for horizontal/vertical adjacency (difference is 1 or 4)
-    const isHorizontalOrVertical = diff === 1 || diff === 4;
-
-    // Check for diagonal adjacency
-    const isDiagonal =
-      (diff === 5 &&
-        ((index1 % 4 !== 3 && index2 % 4 !== 0) ||
-          (index1 % 4 !== 0 && index2 % 4 !== 3))) ||
-      (diff === 3 &&
-        ((index1 % 4 !== 0 && index2 % 4 !== 3) ||
-          (index1 % 4 !== 3 && index2 % 4 !== 0)));
-
-    return isHorizontalOrVertical || isDiagonal;
-  }
+  
+    const isHorizontal = diff === 1 && Math.floor(index1 / 4) === Math.floor(index2 / 4);
+    const isVertical = diff === 4;
+    const isDiagonal = ((diff === 5 || diff === 3) && Math.abs(Math.floor(index1 / 4) - Math.floor(index2 / 4)) === 1);
+  
+    return isHorizontal || isVertical || isDiagonal;
+  }  
 
   function replaceLetters() {
     const uniqueSelectedButtons = Array.from(selectedButtonSet);
