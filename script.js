@@ -5,9 +5,9 @@ let grid;
 let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "Sponsored by: No One";
-let websiteLink = "https://wordhunter.onrender.com";
+let websiteLink = "https://wordhunter.io/";
 let leaderboardLink =
-  "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/dev/";
+  "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/prod/";
 let hardMode = false;
 let asterisk = "";
 let playerPosition;
