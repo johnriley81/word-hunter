@@ -627,10 +627,14 @@ document.addEventListener("DOMContentLoaded", () => {
       leaderboardTable.classList.remove("hidden");
       leaderboardTable.classList.remove("hiddenDisplay");
       leaderboardTable.classList.add("visibleDisplay");
+      playerName.classList.remove("hiddenDisplay");
+      playerName.classList.add("hidden");
+      leaderboardButton.classList.remove("hiddenDisplay");
+      leaderboardButton.classList.add("hidden");
       if (score >= 50) {
-        playerName.classList.remove("hiddenDisplay");
+        playerName.classList.remove("hidden");
         playerName.classList.add("visibleDisplay");
-        leaderboardButton.classList.remove("hiddenDisplay");
+        leaderboardButton.classList.remove("hidden");
         leaderboardButton.classList.add("visibleDisplay");
       }
     }, 4000);
