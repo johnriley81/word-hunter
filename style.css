@@ -17,7 +17,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: space-around;
-  height: 85vh;
+  height: -webkit-fill-available;
   margin: 0;
   padding: 5px;
   background-color: #1c1c1e;
@@ -32,7 +32,7 @@ body {
 }
 
 html {
-  height: 100%;
+  height: -webkit-fill-available;
   overscroll-behavior-x: none;
 }
 
