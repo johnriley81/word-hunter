@@ -180,7 +180,7 @@ html {
 }
 
 .grid-button--active {
-  background-color: white;
+  background-color: #fae8d9;
 }
 
 @media (min-width: 768px) {
