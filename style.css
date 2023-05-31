@@ -32,7 +32,7 @@ body {
 }
 
 html {
-  height: 86vh;
+  height: 85vh;
   overscroll-behavior-x: none;
 }
 
@@ -41,15 +41,13 @@ html {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 15%;
+  height: 10%;
   position: relative;
 }
 
 #logo {
-  display: flex;
   justify-content: center;
   align-items: center;
-  width: 18%;
   height: 100%;
 }
 
