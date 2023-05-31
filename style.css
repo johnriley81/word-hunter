@@ -193,7 +193,6 @@ html {
 
 #grid-line-wrapper {
   position: relative;
-  bottom: absolute;
   width: 100vw;
   height: 100vh;
   @media (min-width: 768px) {
