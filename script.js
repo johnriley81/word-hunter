@@ -105,28 +105,14 @@ document.addEventListener("DOMContentLoaded", () => {
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
-    if (!isEndgame) {
-      grid.classList.remove("hidden");
-      grid.classList.add("visible");
-    } else {
-      leaderboardElements.classList.remove("hidden");
-      leaderboardElements.classList.add("visible");
-      messageLabel.classList.remove("hidden");
-      messageLabel.classList.add("visible");
-    }
+    grid.classList.remove("hidden");
+    grid.classList.add("visible");
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
-    if (!isEndgame) {
-      grid.classList.remove("visible");
-      grid.classList.add("hidden");
-    } else {
-      leaderboardElements.classList.remove("visible");
-      leaderboardElements.classList.add("hidden");
-      messageLabel.classList.remove("visible");
-      messageLabel.classList.add("hidden");
-    }
+    grid.classList.remove("visible");
+    grid.classList.add("hidden");
   });
   document;
 
@@ -149,6 +135,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document
       .getElementById("next-letters-container")
       .classList.add("visibleDisplay");
+    rulesButton.classList.add("hidden");
+    rulesButton.classList.remove("visible");
     doneButton.classList.remove("hidden");
     doneButton.classList.add("visibleDisplay");
     swapButton.classList.remove("hidden");
@@ -479,7 +467,11 @@ document.addEventListener("DOMContentLoaded", () => {
       isMouseDown = false;
       if (currentWord.length > 2) {
         if (validateWord(currentWord)) {
-          scoreValidation.push([currentWord, getLetters(), selectedButtonSet.size])
+          scoreValidation.push([
+            currentWord,
+            getLetters(),
+            selectedButtonSet.size,
+          ]);
           console.log(scoreValidation);
           const wordScore = getWordScore(currentWord);
           score += wordScore;
@@ -520,13 +512,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const index1 = Array.prototype.indexOf.call(grid.children, button1);
     const index2 = Array.prototype.indexOf.call(grid.children, button2);
     const diff = Math.abs(index1 - index2);
-  
-    const isHorizontal = diff === 1 && Math.floor(index1 / 4) === Math.floor(index2 / 4);
+
+    const isHorizontal =
+      diff === 1 && Math.floor(index1 / 4) === Math.floor(index2 / 4);
     const isVertical = diff === 4;
-    const isDiagonal = ((diff === 5 || diff === 3) && Math.abs(Math.floor(index1 / 4) - Math.floor(index2 / 4)) === 1);
-  
+    const isDiagonal =
+      (diff === 5 || diff === 3) &&
+      Math.abs(Math.floor(index1 / 4) - Math.floor(index2 / 4)) === 1;
+
     return isHorizontal || isVertical || isDiagonal;
-  }  
+  }
 
   function replaceLetters() {
     const uniqueSelectedButtons = Array.from(selectedButtonSet);
@@ -742,14 +737,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getLetters() {
-    let letters = '';
-    const tiles = document.querySelectorAll('.grid-button'); // replace .grid-button with your actual selector
-    
-    tiles.forEach(tile => {
+    let letters = "";
+    const tiles = document.querySelectorAll(".grid-button"); // replace .grid-button with your actual selector
+
+    tiles.forEach((tile) => {
       let tileText = tile.textContent; // or .innerText or .innerHTML, whichever contains the letter
-        letters += tileText;
+      letters += tileText;
     });
-    
+
     return letters;
   }
 
