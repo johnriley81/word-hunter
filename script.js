@@ -15,6 +15,7 @@ let isEndgame = false;
 let sounds = {
   click: new Audio("sounds/click.wav"),
   bing: new Audio("sounds/bing.wav"),
+  bing2: new Audio("sounds/bing2.wav"),
   invalid: new Audio("sounds/invalid.wav"),
   pop: new Audio("sounds/pop.wav"),
   swoosh: new Audio("sounds/swoosh.wav"),
@@ -142,6 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function startGame() {
     playSound("click");
     playSound("bing");
+    playSound("bing2");
     playSound("invalid");
     playSound("tick");
     isGameActive = true;
@@ -499,7 +501,11 @@ document.addEventListener("DOMContentLoaded", () => {
       isMouseDown = false;
       if (currentWord.length > 2) {
         if (validateWord(currentWord)) {
-          playSound("bing");
+          if (currentWord.length >= 5){
+            playSound("bing2");
+          } else {
+            playSound("bing");
+          }
           scoreValidation.push([
             currentWord,
             getLetters(),
