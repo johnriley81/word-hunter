@@ -151,6 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .getElementById("next-letters-container")
       .classList.add("visibleDisplay");
     rulesButton.classList.add("hidden");
+    rulesButton.classList.add("hiddenDisplay");
     rulesButton.classList.remove("visible");
     doneButton.classList.remove("hidden");
     doneButton.classList.add("visibleDisplay");
