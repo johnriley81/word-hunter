@@ -141,6 +141,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function startGame() {
     playSound("click");
+    playSound("bing");
+    playSound("invalid");
+    playSound("tick");
     isGameActive = true;
     timerElement.style.color = "white";
     startButton.style.display = "none"; // Hide start button
