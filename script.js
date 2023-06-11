@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isSwapValid = false;
   let swapTiles = [];
   let scoreValidation = [];
+  let isPaused = false;
 
   for (var key in sounds) {
     sounds[key].load();
@@ -122,12 +123,14 @@ document.addEventListener("DOMContentLoaded", () => {
     rules.classList.add("hidden");
     grid.classList.remove("hidden");
     grid.classList.add("visible");
+    isPaused = false;
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
     grid.classList.remove("visible");
     grid.classList.add("hidden");
+    isPaused = true;
   });
   document;
 
@@ -155,9 +158,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document
       .getElementById("next-letters-container")
       .classList.add("visibleDisplay");
-    rulesButton.classList.add("hidden");
-    rulesButton.classList.add("hiddenDisplay");
-    rulesButton.classList.remove("visible");
     doneButton.classList.remove("hidden");
     doneButton.classList.add("visibleDisplay");
     swapButton.classList.remove("hidden");
@@ -299,6 +299,10 @@ document.addEventListener("DOMContentLoaded", () => {
     timerElement.style.color = "white";
 
     intervalId = setInterval(() => {
+      if (isPaused) {
+        return;
+      }
+
       time -= 1;
       timerElement.textContent = "Time: " + time;
 
@@ -501,7 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
       isMouseDown = false;
       if (currentWord.length > 2) {
         if (validateWord(currentWord)) {
-          if (currentWord.length >= 5){
+          if (currentWord.length >= 5) {
             playSound("bing2");
           } else {
             playSound("bing");
@@ -627,7 +631,10 @@ document.addEventListener("DOMContentLoaded", () => {
       lineContainer.firstChild.remove();
     }
 
-    // Hide Done and Swap buttons
+    // Hide Rules, Done and Swap buttons
+    rulesButton.classList.add("hiddenDisplay");
+    rulesButton.classList.add("hidden");
+    doneButton.classList.remove("visible");
     doneButton.classList.add("hiddenDisplay");
     doneButton.classList.remove("visibleDisplay");
     swapButton.classList.add("hiddenDisplay");
