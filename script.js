@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const scoreElement = document.querySelector("#score");
   const rules = document.querySelector("#rules");
   const rulesButton = document.querySelector("#rules-button");
+  const muteButton = document.getElementById("mute-button");
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const swapButton = document.querySelector("#swap-button");
@@ -62,6 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let isSwapValid = false;
   let swapTiles = [];
   let scoreValidation = [];
+  let isPaused = false;
+  let isMuted = false;
 
   for (var key in sounds) {
     sounds[key].load();
@@ -114,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
   hardModeCheckbox.addEventListener("click", handleHardMode);
   swapButton.addEventListener("click", handleSwap);
   retryButton.addEventListener("click", function () {
-    playSound("click");
+    playSound("click", isMuted);
     window.location.reload();
   });
   closeRules.addEventListener("click", function () {
@@ -122,14 +125,25 @@ document.addEventListener("DOMContentLoaded", () => {
     rules.classList.add("hidden");
     grid.classList.remove("hidden");
     grid.classList.add("visible");
+    isPaused = false;
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
     grid.classList.remove("visible");
     grid.classList.add("hidden");
+    isPaused = true;
   });
-  document;
+  muteButton.addEventListener("click", function () {
+    if (isMuted){
+      isMuted = false;
+      muteButton.textContent = "🔊";
+    } else {
+      isMuted = true;
+      muteButton.textContent = "🔇";
+    }
+  });
+
 
   messageLabel.addEventListener("click", function () {
     if (!isGameActive) {
@@ -141,11 +155,11 @@ document.addEventListener("DOMContentLoaded", () => {
   leaderboardButton.addEventListener("click", getLeaderboard);
 
   function startGame() {
-    playSound("click");
-    playSound("bing");
-    playSound("bing2");
-    playSound("invalid");
-    playSound("tick");
+    playSound("click", isMuted);
+    playSound("bing", true);
+    playSound("bing2", true);
+    playSound("invalid", true);
+    playSound("tick", true);
     isGameActive = true;
     timerElement.style.color = "white";
     startButton.style.display = "none"; // Hide start button
@@ -155,9 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document
       .getElementById("next-letters-container")
       .classList.add("visibleDisplay");
-    rulesButton.classList.add("hidden");
-    rulesButton.classList.add("hiddenDisplay");
-    rulesButton.classList.remove("visible");
     doneButton.classList.remove("hidden");
     doneButton.classList.add("visibleDisplay");
     swapButton.classList.remove("hidden");
@@ -212,7 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleSwap() {
     if (isSwapEnabled && isSwapValid) {
-      playSound("swoosh");
+      playSound("swoosh", isMuted);
       showMessage(
         `Swapped ${swapTiles[0].textContent} and ${swapTiles[1].textContent}`,
         1,
@@ -226,7 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
       swapButton.style.backgroundColor = "gray";
       swapButton.disabled = true;
     } else if (isSwapEnabled) {
-      playSound("click");
+      playSound("click", isMuted);
       // User tried to swap while it wasn't valid
       swapTiles.forEach((tile) => tile.classList.remove("selected-swap"));
       swapTiles = [];
@@ -235,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
       swapButton.textContent = "SWAP";
       showMessage("Swap exited");
     } else {
-      playSound("click");
+      playSound("click", isMuted);
       isSwapEnabled = true;
       swapButton.style.backgroundColor = "lightblue";
       swapButton.textContent = "BACK";
@@ -299,11 +310,15 @@ document.addEventListener("DOMContentLoaded", () => {
     timerElement.style.color = "white";
 
     intervalId = setInterval(() => {
+      if (isPaused) {
+        return;
+      }
+
       time -= 1;
       timerElement.textContent = "Time: " + time;
 
       if (time <= 10) {
-        playSound("tick");
+        playSound("tick", isMuted);
         timerElement.style.color = time % 2 === 0 ? "darkred" : "white";
       }
 
@@ -315,7 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleHardMode() {
-    playSound("click");
+    playSound("click", isMuted);
     hardMode = hardModeCheckbox.checked;
     if (hardMode) {
       hardModeLabel.style.color = "black";
@@ -373,12 +388,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGameActive) return;
     if (isSwapEnabled) {
       if (event.target.classList.contains("selected-swap")) {
-        playSound("pop");
+        playSound("pop", isMuted);
         // Deselecting a previously selected tile
         event.target.classList.remove("selected-swap");
         swapTiles = swapTiles.filter((tile) => tile !== event.target);
       } else if (swapTiles.length < 2) {
-        playSound("pop");
+        playSound("pop", isMuted);
         // Selecting a new tile
         event.target.classList.add("selected-swap");
         swapTiles.push(event.target);
@@ -501,10 +516,10 @@ document.addEventListener("DOMContentLoaded", () => {
       isMouseDown = false;
       if (currentWord.length > 2) {
         if (validateWord(currentWord)) {
-          if (currentWord.length >= 5){
-            playSound("bing2");
+          if (currentWord.length >= 5) {
+            playSound("bing2", isMuted);
           } else {
-            playSound("bing");
+            playSound("bing", isMuted);
           }
           scoreValidation.push([
             currentWord,
@@ -526,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
           replaceLetters();
           startTimer();
         } else {
-          playSound("invalid");
+          playSound("invalid", isMuted);
           showMessage("INVALID", 1, "darkred");
         }
       }
@@ -604,9 +619,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function endGame() {
     if (score > 50) {
-      playSound("gameOver");
+      playSound("gameOver", isMuted);
     } else {
-      playSound("click");
+      playSound("click", isMuted);
     }
     isEndgame = true;
     isGameActive = false;
@@ -627,7 +642,10 @@ document.addEventListener("DOMContentLoaded", () => {
       lineContainer.firstChild.remove();
     }
 
-    // Hide Done and Swap buttons
+    // Hide Rules, Done and Swap buttons
+    rulesButton.classList.add("hiddenDisplay");
+    rulesButton.classList.add("hidden");
+    doneButton.classList.remove("visible");
     doneButton.classList.add("hiddenDisplay");
     doneButton.classList.remove("visibleDisplay");
     swapButton.classList.add("hiddenDisplay");
@@ -682,7 +700,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function getLeaderboard(clicked = false) {
     if (clicked) {
-      playSound("click");
+      playSound("click", isMuted);
       playerName.disabled = true;
       leaderboardButton.disabled = true;
       leaderboardButton.style.backgroundColor = "gray";
@@ -808,7 +826,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function copyToClipboard(score, longestWord, diffDays) {
-    playSound("click");
+    playSound("click", isMuted);
     let leaderboardText = "";
     if (playerPosition) {
       leaderboardText = `I'm #${playerPosition} on `;
@@ -830,7 +848,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return wordList.includes(word.toLowerCase());
   }
 
-  function playSound(name) {
-    sounds[name].play();
+  function playSound(name, muted) {
+    console.log(muted)
+    let sound = sounds[name];
+    if(muted){
+      sound.volume = 0.0;
+    } else {
+      sound.volume = 1.0;
+    }
+    sound.play();
   }
+  
 });
