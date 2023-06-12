@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     isPaused = true;
   });
   muteButton.addEventListener("click", function () {
-    if (isMuted){
+    if (isMuted) {
       isMuted = false;
       muteButton.textContent = "🔊";
     } else {
@@ -143,7 +143,6 @@ document.addEventListener("DOMContentLoaded", () => {
       muteButton.textContent = "🔇";
     }
   });
-
 
   messageLabel.addEventListener("click", function () {
     if (!isGameActive) {
@@ -849,14 +848,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function playSound(name, muted) {
-    console.log(muted)
     let sound = sounds[name];
-    if(muted){
+    if (muted) {
       sound.volume = 0.0;
     } else {
       sound.volume = 1.0;
     }
     sound.play();
   }
-  
 });
