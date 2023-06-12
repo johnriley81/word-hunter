@@ -137,10 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
   muteButton.addEventListener("click", function () {
     if (isMuted) {
       isMuted = false;
-      muteButton.textContent = "🔊";
+      muteButton.textContent = "🔔";
     } else {
       isMuted = true;
-      muteButton.textContent = "🔇";
+      muteButton.textContent = "🔕";
     }
   });
 
