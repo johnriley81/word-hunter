@@ -644,7 +644,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Hide Rules, Done and Swap buttons
     rulesButton.classList.add("hiddenDisplay");
     rulesButton.classList.add("hidden");
-    doneButton.classList.remove("visible");
+    rulesButton.classList.remove("visible");
+    muteButton.classList.add("hiddenDisplay");
+    muteButton.classList.add("hidden");
+    muteButton.classList.remove("visible");
     doneButton.classList.add("hiddenDisplay");
     doneButton.classList.remove("visibleDisplay");
     swapButton.classList.add("hiddenDisplay");
@@ -849,11 +852,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function playSound(name, muted) {
     let sound = sounds[name];
-    if (muted) {
-      sound.volume = 0.0;
-    } else {
-      sound.volume = 1.0;
-    }
+    sound.muted = muted;
     sound.play();
   }
 });
