@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (time <= 10) {
         playSound("tick", isMuted);
-        timerElement.style.color = time % 2 === 0 ? "darkred" : "white";
+        timerElement.style.color = time % 2 === 0 ? "red" : "white";
       }
 
       if (time <= 0) {
@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
       hardModeLabel.style.color = "black";
       time = 30;
       timerElement.textContent = "Time: 30";
-      timerElement.style.color = "maroon";
+      timerElement.style.color = "red";
       asterisk = "*";
     } else {
       hardModeLabel.style.color = "white";
