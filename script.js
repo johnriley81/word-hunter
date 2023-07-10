@@ -773,6 +773,11 @@ document.addEventListener("DOMContentLoaded", () => {
         color = "white";
       }
 
+      if (player === "doughack") {
+        player = "doug";
+        color = "purple";
+      }
+
       tr.style.color = color;
 
       // Determine the displayed position (medal or number)
