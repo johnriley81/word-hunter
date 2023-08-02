@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let swapTiles = [];
   let scoreValidation = [];
   let isPaused = false;
-  let isMuted = false;
+  let isMuted = true;
 
   for (var key in sounds) {
     sounds[key].load();
