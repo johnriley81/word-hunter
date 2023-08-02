@@ -541,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
           startTimer();
         } else {
           playSound("invalid", isMuted);
-          showMessage("INVALID", 1, "darkred");
+          showMessage("INVALID", 1, "red");
         }
       }
       currentWord = "";
@@ -761,7 +761,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Determine the color of the row
       let color = "black"; // default color
       if (hardMode === 1) {
-        color = "maroon";
+        color = "red";
       }
       if (
         player === playerName.value &&
