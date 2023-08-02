@@ -766,7 +766,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let [player, hardMode, rowScore, rowTrophy] = row;
 
       // Determine the color of the row
-      let color = "silver"; // default color
+      let color = "white"; // default color
       if (hardMode === 1) {
         color = "red";
       }
@@ -777,7 +777,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         playerPosition = index + 1;
         console.log(playerPosition);
-        color = "white";
+        color = "gold";
       }
 
       if (player === "doughack") {
