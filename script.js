@@ -4,7 +4,7 @@ let intervalId;
 let grid;
 let isGameActive = false;
 let longestWord = "";
-let sponsorMsg = "Sponsored by: No One";
+let sponsorMsg = "Now with: 3 SWAPs!!";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink =
   "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/prod/";
