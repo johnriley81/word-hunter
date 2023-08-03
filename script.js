@@ -768,7 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Determine the color of the row
       let color = "white"; // default color
       if (hardMode === 1) {
-        color = "#ffcccb";
+        color = "#ff474c";
       }
       if (
         player === playerName.value &&
