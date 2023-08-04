@@ -782,7 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (player === "doughack") {
         player = "doug";
-        color = "purple";
+        color = "magenta";
       }
 
       tr.style.color = color;
