@@ -7,7 +7,7 @@ let longestWord = "";
 let sponsorMsg = "Now with: 3 SWAPs!!";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink =
-  "https://qup3qlr9ci.execute-api.us-west-2.amazonaws.com/prod/";
+  "https://johnriley81.pythonanywhere.com/leaderboard/";
 let hardMode = false;
 let asterisk = "";
 let playerPosition;
