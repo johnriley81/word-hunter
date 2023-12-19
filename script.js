@@ -6,8 +6,7 @@ let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "Now with: 3 SWAPs!!";
 let websiteLink = "https://wordhunter.io/";
-let leaderboardLink =
-  "https://johnriley81.pythonanywhere.com/leaderboard/";
+let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
 let hardMode = false;
 let asterisk = "";
 let playerPosition;
@@ -724,14 +723,14 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
 
-    if (score > 50) {
+    if (score > 50 && playerName.value != "") {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
         player: playerName.value,
         hard: hardMode,
         score: score,
         trophy: longestWord,
-        scoreValidation: scoreValidation,
+        // scoreValidation: scoreValidation,
       });
     }
 
@@ -742,6 +741,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // handle the response
     let leaderboard = JSON.parse(data["body"]); // get the leaderboard from the response
+    if (score > 50 && playerName.value != "") {
+      leaderboard = JSON.parse(data["body"]).top_10;
+    }
 
     // clear the existing leaderboard table
     leaderboardTable.innerHTML = "";
