@@ -741,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let data = await response.json();
 
     // handle the response
-    let leaderboard = data.top_10 || data; // get the leaderboard from the response
+    let leaderboard = JSON.parse(data["body"]); // get the leaderboard from the response
 
     // clear the existing leaderboard table
     leaderboardTable.innerHTML = "";
