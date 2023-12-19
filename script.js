@@ -845,7 +845,7 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("click", isMuted);
     let leaderboardText = "";
     if (playerPosition) {
-      leaderboardText = `I'm #${playerPosition} on `;
+      leaderboardText = `#${playerPosition} on `;
     }
     navigator.clipboard
       .writeText(
