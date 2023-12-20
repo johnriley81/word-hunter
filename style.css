@@ -109,7 +109,7 @@ html {
 #score,
 #timer {
   border-style: outset;
-  border-color: black;
+  border-color: #e85af2;
   background-color: black;
   padding: .75%;
 }
@@ -174,7 +174,7 @@ html {
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 2px solid #000;
+  border: 2px solid #8c8594;
   box-shadow: 0 0 0 4px black; /* adjust as needed */
   border-radius: 30px;
   font-size: 1.5rem;
@@ -273,8 +273,8 @@ html {
   text-align: center;
   margin: 1vh 0;
   border: none;
-  background-color: #fcebc7;
-  color: #000;
+  background-color: black;
+  color: white;
   align-items: center;
   justify-content: center;
   user-select: none;
@@ -286,7 +286,7 @@ html {
 #button-container {
   display: flex;
   flex-direction: row;
-  justify-content: space-around;
+  justify-content: space-evenly;
   align-items: center;
   height: 10%;
   width: 100%;
@@ -295,26 +295,26 @@ html {
 #hard-mode-container {
   display: flex;
   flex-direction: row;
-  justify-content: right;
+  justify-content: center;
   align-items: center;
   height: 10%;
-  width: 100%;
+  width: 40%;
 }
 
 #start,
 #done-button,
 #swap-button,
 #retry-button {
-  width: 25%; /* adjust this value to create more space around the buttons */
+  width: 40%; /* adjust this value to create more space around the buttons */
   font-family: "Press Start 2P", cursive;
   height: 50%; /* let the browser decide the height based on content and padding */
-  padding: 3%; /* adjust padding to create space around the text */
+  padding: 4%; /* adjust padding to create space around the text */
   font-size: 1rem;
   text-align: center;
   margin: 1vh 0;
   border: none;
-  background-color: #fcebc7;
-  color: #000;
+  background-color: #0c0459;
+  color: white;
   align-items: center;
   justify-content: center;
   user-select: none;
@@ -335,7 +335,7 @@ html {
 }
 
 .visibleDisplay {
-  display: flex;
+  display:flex;
 }
 
 #leaderboard-elements.visibleDisplay {
