@@ -436,6 +436,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.target === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
+        if (removedButton.textContent==="qu"){
+          currentWord = currentWord.slice(0, -1);
+        }
 
         // Remove the corresponding line
         const lineContainer = document.querySelector("#line-container");
