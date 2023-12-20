@@ -4,7 +4,7 @@ let intervalId;
 let grid;
 let isGameActive = false;
 let longestWord = "";
-let sponsorMsg = "Now with: 3 SWAPs!!";
+let sponsorMsg = "wordhunter";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
 let hardMode = false;
@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let scoreValidation = [];
   let isPaused = false;
   let isMuted = true;
-  let swapCount = 3;
+  let swapCount = 5;
 
   for (var key in sounds) {
     sounds[key].load();
@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     score = 0;
     currentWord = "";
     nextLetters = generateNextLetters();
-    showMessage("Good Luck", 1, "gold");
+    showMessage("Happy Hunting", 1, "gold");
     updateScore();
     updateCurrentWord();
     updateNextLetters();
@@ -224,22 +224,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isSwapEnabled && isSwapValid) {
       swapCount = swapCount - 1;
       playSound("swoosh", isMuted);
-      if (swapCount != 1) {
-        showMessage(`${swapCount} swaps remaining`, 1, "gold");
-      } else {
-        showMessage(`${swapCount} swap remaining`, 1, "gold");
-      }
+      showMessage(`swapped ${swapTiles[0].textContent} & ${swapTiles[1].textContent}`, 1, "gold");
       // Swap the letters of the two tiles
       swapLetters(swapTiles[0], swapTiles[1]);
       swapTiles = [];
       isSwapEnabled = false;
       isSwapValid = false;
-      swapButton.textContent = "SWAP";
+      swapButton.textContent = `SWAP[${swapCount}]`;
       if (swapCount == 0) {
         swapButton.style.backgroundColor = "gray";
         swapButton.disabled = true;
       } else {
-        swapButton.style.backgroundColor = "#fcebc7";
+        swapButton.style.backgroundColor = "#0c0459";
       }
     } else if (isSwapEnabled) {
       playSound("click", isMuted);
@@ -247,15 +243,15 @@ document.addEventListener("DOMContentLoaded", () => {
       swapTiles.forEach((tile) => tile.classList.remove("selected-swap"));
       swapTiles = [];
       isSwapEnabled = false;
-      swapButton.style.backgroundColor = "#fcebc7";
-      swapButton.textContent = "SWAP";
+      swapButton.style.backgroundColor = "#0c0459";
+      swapButton.textContent = `SWAP[${swapCount}]`;
       showMessage("Swap exited", 1, "gold");
     } else {
       playSound("click", isMuted);
       isSwapEnabled = true;
-      swapButton.style.backgroundColor = "lightblue";
+      swapButton.style.backgroundColor = "#1e12a3";
       swapButton.textContent = "BACK";
-      showMessage("Tap 2 tiles to swap", 1, "gold");
+      showMessage("select 2 tiles", 1, "gold");
     }
   }
 
@@ -279,9 +275,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateNextLetters() {
-    let displayedNextLetters = nextLetters.slice(0, 10).join(", ");
+    let displayedNextLetters = nextLetters.slice(0, 8).join(", ");
 
-    if (nextLetters.length > 10) {
+    if (nextLetters.length > 8) {
       displayedNextLetters += "...";
     }
 
@@ -623,11 +619,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endGame() {
-    if (score > 50) {
-      playSound("gameOver", isMuted);
-    } else {
-      playSound("click", isMuted);
-    }
+    playSound("gameOver", isMuted);
     isEndgame = true;
     isGameActive = false;
     clearInterval(intervalId);
