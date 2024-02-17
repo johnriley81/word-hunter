@@ -1,3 +1,16 @@
+// colors
+let hardmodeColor = "#ed3251";
+let swapOriginalColor = "#d14402";
+let swapInUseColor = "#b50948";
+let swapReadyColor = "#e31963";
+let swapUsedColor = "gray";
+let greenTextColor = "#07f03a";
+let redTextColor = "red";
+let redTextColorLeaderboard = "#f70202";
+let goldTextColor = "#e3af02"
+let happyHuntingColor = "#ffb5c2"
+
+
 let isMouseDown = false;
 let time = 60;
 let intervalId;
@@ -183,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
     score = 0;
     currentWord = "";
     nextLetters = generateNextLetters();
-    showMessage("Happy Hunting", 1, "gold");
+    showMessage("Happy Hunting", 1, happyHuntingColor);
     updateScore();
     updateCurrentWord();
     updateNextLetters();
@@ -224,7 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isSwapEnabled && isSwapValid) {
       swapCount = swapCount - 1;
       playSound("swoosh", isMuted);
-      showMessage(`swapped ${swapTiles[0].textContent} & ${swapTiles[1].textContent}`, 1, "gold");
+      showMessage(`swapped ${swapTiles[0].textContent} & ${swapTiles[1].textContent}`, 1, happyHuntingColor);
       // Swap the letters of the two tiles
       swapLetters(swapTiles[0], swapTiles[1]);
       swapTiles = [];
@@ -232,10 +245,10 @@ document.addEventListener("DOMContentLoaded", () => {
       isSwapValid = false;
       swapButton.textContent = `SWAP[${swapCount}]`;
       if (swapCount == 0) {
-        swapButton.style.backgroundColor = "gray";
+        swapButton.style.backgroundColor = swapUsedColor;
         swapButton.disabled = true;
       } else {
-        swapButton.style.backgroundColor = "#0c0459";
+        swapButton.style.backgroundColor = swapOriginalColor;
       }
     } else if (isSwapEnabled) {
       playSound("click", isMuted);
@@ -243,15 +256,15 @@ document.addEventListener("DOMContentLoaded", () => {
       swapTiles.forEach((tile) => tile.classList.remove("selected-swap"));
       swapTiles = [];
       isSwapEnabled = false;
-      swapButton.style.backgroundColor = "#0c0459";
+      swapButton.style.backgroundColor = swapOriginalColor;
       swapButton.textContent = `SWAP[${swapCount}]`;
-      showMessage("Swap exited", 1, "gold");
+      showMessage("Swap exited", 1, happyHuntingColor);
     } else {
       playSound("click", isMuted);
       isSwapEnabled = true;
-      swapButton.style.backgroundColor = "#1e12a3";
+      swapButton.style.backgroundColor = swapInUseColor;
       swapButton.textContent = "BACK";
-      showMessage("select 2 tiles", 1, "gold");
+      showMessage("select 2 tiles", 1, happyHuntingColor);
     }
   }
 
@@ -320,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (time <= 10) {
         playSound("tick", isMuted);
-        timerElement.style.color = time % 2 === 0 ? "red" : "white";
+        timerElement.style.color = time % 2 === 0 ? hardmodeColor : "white";
       }
 
       if (time <= 0) {
@@ -334,10 +347,10 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("click", isMuted);
     hardMode = hardModeCheckbox.checked;
     if (hardMode) {
-      hardModeLabel.style.color = "black";
+      hardModeLabel.style.color = hardmodeColor;
       time = 30;
       timerElement.textContent = "Time: 30";
-      timerElement.style.color = "red";
+      timerElement.style.color = hardmodeColor;
       asterisk = "*";
     } else {
       hardModeLabel.style.color = "white";
@@ -403,9 +416,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (swapTiles.length === 2) {
         isSwapValid = true;
         swapButton.textContent = "SWAP";
+        swapButton.style.backgroundColor = swapReadyColor;
       } else {
         isSwapValid = false;
         swapButton.textContent = "BACK";
+        swapButton.style.backgroundColor = swapInUseColor;
       }
     } else {
       if (
@@ -536,7 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
           showMessage(
             `${currentWord.toUpperCase()} +${wordScore}`,
             1,
-            "lightgreen"
+            greenTextColor
           );
           if (currentWord.length >= longestWord.length) {
             longestWord = currentWord;
@@ -546,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
           startTimer();
         } else {
           playSound("invalid", isMuted);
-          showMessage("INVALID", 1, "red");
+          showMessage("INVALID", 1, redTextColor);
         }
       }
       currentWord = "";
@@ -663,14 +678,14 @@ document.addEventListener("DOMContentLoaded", () => {
       `puzzle: ${diffDays}, score: ${score}${asterisk}, trophy: ${longestWord}`
     );
 
-    showMessage("Game Over", 2, "gold");
+    showMessage("Game Over", 2, happyHuntingColor);
     // Fetch the leaderboard right after game ends
     getLeaderboard();
     leaderboardTable.classList.add("hidden");
 
     setTimeout(function () {
       messageLabel.textContent = "Copy Score";
-      messageLabel.style.color = "gold";
+      messageLabel.style.color = happyHuntingColor;
       messageLabel.classList.remove("hidden");
       messageLabel.classList.add("visible");
       nextLettersElement.textContent = sponsorMsg;
@@ -765,7 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Determine the color of the row
       let color = "white"; // default color
       if (hardMode === 1) {
-        color = "#ff474c";
+        color = redTextColorLeaderboard;
       }
       if (
         player === playerName.value &&
@@ -774,7 +789,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         playerPosition = index + 1;
         console.log(playerPosition);
-        color = "gold";
+        color = goldTextColor;
       }
 
       if (player === "doughack") {
