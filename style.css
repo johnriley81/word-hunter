@@ -8,15 +8,15 @@
   --next-letters-shadow-color: black;
   --grid-button-border-color: #8c8594;
   --grid-button-shadow-color: black;
-  --grid-button-inactive-color: gray;
-  --grid-button-active-color: #faf7e5;
-  --grid-button-text-color: #500070;
-  --leaderboard-button-background-color: #fa5102;
+  --grid-button-inactive-color: #303030;
+  --grid-button-active-color: black;
+  --grid-button-text-color: white;
+  --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
-  --button-background-color: #d14402;
+  --button-background-color: #ed3d02;
   --button-text-color: white;
-  --selected-tile-color: #e8bfff;
-  --swap-tile-color: #ffbdc9;
+  --selected-tile-color: #3d4f3a;
+  --swap-tile-color: #0222ed;
 }
 
 @media screen and (orientation: landscape) {
