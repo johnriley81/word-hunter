@@ -1,14 +1,14 @@
 // colors
-let hardmodeColor = "#ed3251";
-let swapOriginalColor = "#d14402";
-let swapInUseColor = "#b50948";
-let swapReadyColor = "#e31963";
+let hardmodeColor = "red";
+let swapOriginalColor = "#ed3d02";
+let swapInUseColor = "#3ba1f5";
+let swapReadyColor = "#0222ed";
 let swapUsedColor = "gray";
 let greenTextColor = "#07f03a";
 let redTextColor = "red";
-let redTextColorLeaderboard = "#f70202";
+let redTextColorLeaderboard = "red";
 let goldTextColor = "#e3af02"
-let happyHuntingColor = "#ffb5c2"
+let happyHuntingColor = "gold"
 
 
 let isMouseDown = false;
@@ -648,7 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.remove("grid-button--active");
       buttons[i].classList.add("grid-button--inactive");
       buttons[i].classList.remove("selected");
-      buttons[i].style.color = "black";
+      buttons[i].style.color = "white";
     }
     currentWord = "";
     updateCurrentWord();
