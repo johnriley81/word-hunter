@@ -19,26 +19,19 @@
     <link rel="icon" type="image/png" href="/images/favicon.png" />
   </head>
   <body>
+    <div id="page-background" aria-hidden="true"></div>
     <div id="logo-rules-container">
+      <button
+        type="button"
+        id="done-button"
+        class="hiddenDisplay header-bar-button"
+        aria-label="End game"
+      >
+        🔚
+      </button>
       <img id="logo" src="images/logo.png" alt="logo" />
-      <button id="mute-button">🔕</button>
-      <button id="rules-button">❓</button>
-      <div id="rules" class="hidden">
-        <h1></h1>
-        <h2>HOW TO PLAY</h2>
-        <p>Swipe your finger on the tile grid to form words</p>
-        <p>Enter a valid word within 60 seconds to reset the timer</p>
-        <p>Longer words earn more points</p>
-        <p>The same tile can be used multiple times in a word</p>
-        <p>Used letters are replaced by letters at the top</p>
-        <p>Five 2-tile swaps can be performed per game</p>
-        <p>Puzzle resets at midnight</p>
-        <p>Hard Mode: 30 Second timer</p>
-        <p></p>
-        <p></p>
-        <p>wordhuntercreator@gmail.com</p>
-        <button id="close-rules">❌</button>
-      </div>
+      <button type="button" id="mute-button" class="header-icon-button">🔕</button>
+      <button type="button" id="rules-button" class="header-icon-button">❓</button>
     </div>
     <div id="landscape-message" class="hiddenDisplay">
       Please use portrait mode
@@ -46,7 +39,6 @@
     <div id="game-info-container">
       <div class="score-timer-container">
         <div id="score">Score: 0</div>
-        <div id="timer">Time: 60</div>
       </div>
       <div id="next-letters-container">
         <p id="next-letters-label"></p>
@@ -55,9 +47,7 @@
         </div>
       </div>
       <div class="current-message-container">
-        <div id="current-word" class="hidden">
-          <div id="current-word-value"></div>
-        </div>
+        <div id="current-word" class="visible"></div>
         <div id="message-label" class="hidden">
           <!-- Message goes here -->
         </div>
@@ -65,8 +55,21 @@
     </div>
 
     <div id="grid-line-wrapper" style="position: relative">
-      <div id="grid">
-        <!-- Grid buttons -->
+      <div id="grid-viewport" class="grid-viewport">
+        <div id="grid-pan" class="grid-pan">
+          <div id="grid-stage" class="grid-stage">
+            <div
+              id="shift-preview-strip"
+              class="shift-preview-strip shift-preview-strip--hidden"
+              aria-hidden="true"
+            >
+              <div class="shift-preview-inner"></div>
+            </div>
+            <div id="grid">
+              <!-- Grid buttons -->
+            </div>
+          </div>
+        </div>
       </div>
       <svg id="line-container"></svg>
       <div id="leaderboard-elements">
@@ -86,19 +89,46 @@
           maxlength="8"
           class="hiddenDisplay"
         />
-        <button id="leaderboard-button" class="hiddenDisplay">SUBMIT</button>
+        <button type="button" id="leaderboard-button" class="hiddenDisplay">
+          SUBMIT
+        </button>
       </div>
     </div>
 
-    <div id="button-container">
-      <button id="done-button" class="hiddenDisplay">END</button>
-      <button id="retry-button" class="hiddenDisplay">RETRY</button>
-      <button id="start" class="visibleDisplay">START</button>
-      <div id="hard-mode-container">
-        <input type="checkbox" id="hard-mode" />
-        <label for="hard-mode" id="hard-mode-label">HARD</label>
+    <div id="bottom-dock">
+      <div
+        id="board-shift-zone"
+        class="hiddenDisplay"
+        aria-label="Swipe here to rearrange grid"
+      >
+        <span id="board-shift-hint">Swipe here to rearrange grid</span>
       </div>
-      <button id="swap-button" class="hiddenDisplay">SWAP[5]</button>
+      <div id="button-container">
+        <button type="button" id="retry-button" class="hiddenDisplay">RETRY</button>
+        <button type="button" id="start" class="visibleDisplay">START</button>
+      </div>
+    </div>
+
+    <div id="rules" class="hidden">
+      <h1></h1>
+      <h2>HOW TO PLAY</h2>
+      <p>Swipe your finger on the tile grid to form words</p>
+      <p>Longer words earn more points</p>
+      <p>The same tile can be used multiple times in a word</p>
+      <p>Used letters are replaced by letters at the top</p>
+      <p>Swipe below the grid to rearrange the grid tiles</p>
+      <p>Puzzle resets at midnight</p>
+      <p></p>
+      <p></p>
+      <p>wordhuntercreator@gmail.com</p>
+      <button
+        type="button"
+        id="close-rules"
+        class="header-icon-button"
+        aria-label="Close instructions"
+      >
+        ❌
+      </button>
     </div>
 
     <script src="script.js"></script>
