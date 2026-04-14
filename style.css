@@ -352,7 +352,7 @@ html {
   order: 2;
   width: 86%;
   max-width: 86%;
-  margin: 4px auto 0;
+  margin: 6px auto 0;
   padding: 4px 8px 5px;
   box-sizing: border-box;
   display: grid;
@@ -394,14 +394,13 @@ html {
   width: 100%;
   min-height: 28px;
   height: auto;
-  margin-top: clamp(6px, 1.4vh, 14px);
+  margin-top: clamp(7px, 1.6vh, 15px);
   margin-bottom: clamp(2px, 0.6vh, 6px);
   box-sizing: border-box;
   padding-inline: 0;
 }
 
-#current-word,
-#message-label {
+#current-word {
   position: relative;
   white-space: nowrap; /* prevent text from wrapping to the next line */
   overflow: visible;
@@ -418,10 +417,6 @@ html {
   margin: 0 auto;
   font-size: clamp(1.15rem, 4.6vw, 1.7rem);
   line-height: 1;
-}
-
-#message-label {
-  display: none !important;
 }
 
 /* Clips pan to the main board rectangle so rows/columns disappear at grid edges while shifting. */
@@ -576,6 +571,10 @@ html {
   position: relative;
   width: 100%;
   max-width: 100%;
+  margin-top: 2px;
+  /* Pull #bottom-dock up: flex `margin-top: auto` on the dock eats leftover space;
+     negative margin here reduces the visual gap without changing dock height. */
+  margin-bottom: -12px;
   padding: 0 var(--grid-edge-padding) var(--grid-edge-padding);
   box-sizing: border-box;
   align-self: center;
@@ -671,6 +670,7 @@ html {
   width: 100%;
   min-height: 74px;
   padding-bottom: 0;
+  padding-top: 0;
   box-sizing: border-box;
   display: grid;
   grid-template-areas: "dock";
@@ -690,7 +690,7 @@ html {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: auto;
   box-sizing: border-box;
-  padding: 4px 8px;
+  padding: 2px 8px 4px;
   color: var(--board-shift-hint-color);
   text-shadow: 1px 1px 2px var(--board-shift-hint-text-shadow-color);
   font-size: 0.45rem;
@@ -719,6 +719,7 @@ html {
   width: 100%;
   min-height: 74px;
   padding: 0;
+  margin-top: -10px;
   gap: 12px;
 }
 

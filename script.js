@@ -670,35 +670,30 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
   startButton.addEventListener("click", startGame);
+
+  function setRulesOverlayVisible(isVisible) {
+    rules.classList.toggle("hidden", !isVisible);
+    rules.classList.toggle("visible", isVisible);
+    gameInfoContainer.classList.toggle("hiddenDisplay", isVisible);
+    bottomDock.classList.toggle("hiddenDisplay", isVisible);
+    grid.classList.toggle("hidden", isVisible);
+    grid.classList.toggle("visible", !isVisible);
+    if (gridPan) {
+      gridPan.classList.toggle("hidden", isVisible);
+      gridPan.classList.toggle("visible", !isVisible);
+    }
+    isPaused = isVisible;
+  }
+
   retryButton.addEventListener("click", function () {
     playSound("click", isMuted);
     window.location.reload();
   });
   closeRules.addEventListener("click", function () {
-    rules.classList.remove("visible");
-    rules.classList.add("hidden");
-    gameInfoContainer.classList.remove("hiddenDisplay");
-    bottomDock.classList.remove("hiddenDisplay");
-    grid.classList.remove("hidden");
-    grid.classList.add("visible");
-    if (gridPan) {
-      gridPan.classList.remove("hidden");
-      gridPan.classList.add("visible");
-    }
-    isPaused = false;
+    setRulesOverlayVisible(false);
   });
   rulesButton.addEventListener("click", function () {
-    rules.classList.remove("hidden");
-    rules.classList.add("visible");
-    gameInfoContainer.classList.add("hiddenDisplay");
-    bottomDock.classList.add("hiddenDisplay");
-    grid.classList.remove("visible");
-    grid.classList.add("hidden");
-    if (gridPan) {
-      gridPan.classList.remove("visible");
-      gridPan.classList.add("hidden");
-    }
-    isPaused = true;
+    setRulesOverlayVisible(true);
   });
   muteButton.addEventListener("click", function () {
     if (isMuted) {
@@ -1955,17 +1950,7 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("gameOver", isMuted);
     isGameActive = false;
 
-    rules.classList.remove("visible");
-    rules.classList.add("hidden");
-    gameInfoContainer.classList.remove("hiddenDisplay");
-    bottomDock.classList.remove("hiddenDisplay");
-    grid.classList.remove("hidden");
-    grid.classList.add("visible");
-    if (gridPan) {
-      gridPan.classList.remove("hidden");
-      gridPan.classList.add("visible");
-    }
-    isPaused = false;
+    setRulesOverlayVisible(false);
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
