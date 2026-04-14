@@ -1,9 +1,14 @@
 // colors (game messages / leaderboard; keep in sync with theme intent)
 const greenTextColor = "#07f03a";
 const redTextColor = "red";
+const lightGreenPreviewColor = "#8ff7a8";
+const lightRedPreviewColor = "#ff9b9b";
 const redTextColorLeaderboard = "red";
 const goldTextColor = "#e3af02";
 const happyHuntingColor = "gold";
+const UPCOMING_LABEL = "UPCOMING:";
+const UPCOMING_PREVIEW_MAX = 7;
+const PRE_START_WORDMARK = "WORDHUNTER";
 
 /** Grid dimension (NxN). Must match `text/grids.txt` puzzle shape. */
 const GRID_SIZE = 4;
@@ -30,10 +35,50 @@ const SHIFT_GESTURE_FALLBACK_MS = 800;
 let isMouseDown = false;
 let isGameActive = false;
 let longestWord = "";
-let sponsorMsg = "wordhunter";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
 let playerPosition;
+const LETTER_WEIGHTS = Object.freeze({
+  a: 1,
+  b: 3,
+  c: 3,
+  d: 2,
+  e: 1,
+  f: 4,
+  g: 2,
+  h: 4,
+  i: 1,
+  j: 8,
+  k: 5,
+  l: 1,
+  m: 3,
+  n: 1,
+  o: 1,
+  p: 3,
+  q: 10,
+  qu: 11,
+  r: 1,
+  s: 1,
+  t: 1,
+  u: 1,
+  v: 4,
+  w: 4,
+  x: 8,
+  y: 4,
+  z: 10,
+});
+
+function normalizeTileText(text) {
+  const normalized = String(text || "").trim().toLowerCase();
+  // Keep classic Boggle behavior: standalone q tiles are treated as qu.
+  if (normalized === "q") return "qu";
+  return normalized;
+}
+
+function getLetterWeight(tileText) {
+  const normalized = normalizeTileText(tileText);
+  return LETTER_WEIGHTS[normalized] ?? 1;
+}
 
 /** Max row/column steps per swipe (`n - 1`); a full `n` shift is identity on an n×n board. */
 function shiftMaxStepsPerGesture(n) {
@@ -97,9 +142,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const startButton = document.querySelector("#start");
   startButton.disabled = true;
   const currentWordElement = document.querySelector("#current-word");
-  const nextLettersElement = document.querySelector("#next-letters");
-  nextLettersElement.textContent = sponsorMsg;
+  const queueNextHeaderElement = document.querySelector("#queue-next-header");
+  const nextLettersElement = document.querySelector("#queue-next-values");
+  const queueSackCountElement = document.querySelector("#queue-sack-count");
+  nextLettersElement.textContent = "";
+  if (queueSackCountElement) queueSackCountElement.textContent = "0";
   const scoreElement = document.querySelector("#score");
+  const scoreSwipeSumElement = document.querySelector("#score-swipe-sum");
+  const scoreLengthElement = document.querySelector("#score-length");
+  const scoreWordTotalElement = document.querySelector("#score-word-total");
+  const scoreGameTotalElement = document.querySelector("#score-game-total");
   const gameInfoContainer = document.querySelector("#game-info-container");
   const bottomDock = document.querySelector("#bottom-dock");
   const rules = document.querySelector("#rules");
@@ -108,6 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const boardShiftZone = document.getElementById("board-shift-zone");
+  const buttonContainer = document.getElementById("button-container");
   const retryButton = document.querySelector("#retry-button");
   const gridLineContainer = document.querySelector("#line-container");
   const gridLineWrapper = document.getElementById("grid-line-wrapper");
@@ -116,6 +169,40 @@ document.addEventListener("DOMContentLoaded", () => {
   const leaderboardTable = document.getElementById("leaderboard-table");
   const playerName = document.getElementById("player-name");
   const leaderboardButton = document.getElementById("leaderboard-button");
+
+  function getTileButtonFromEvent(event) {
+    if (!(event.target instanceof Element)) return null;
+    const button = event.target.closest(".grid-button");
+    if (!button || !grid.contains(button)) return null;
+    return button;
+  }
+
+  function getTileText(el) {
+    if (!el) return "";
+    return normalizeTileText(el.dataset.tileText || el.textContent);
+  }
+
+  function setTileText(el, tileText) {
+    const normalized = normalizeTileText(tileText);
+    el.dataset.tileText = normalized;
+
+    let glyph = el.querySelector(".tile-glyph");
+    if (!glyph) {
+      glyph = document.createElement("span");
+      glyph.className = "tile-glyph";
+      el.appendChild(glyph);
+    }
+    glyph.textContent = normalized;
+
+    let badge = el.querySelector(".tile-weight-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "tile-weight-badge";
+      badge.setAttribute("aria-hidden", "true");
+      el.appendChild(badge);
+    }
+    badge.textContent = String(getLetterWeight(normalized));
+  }
 
   let score = 0;
   let currentWord = "";
@@ -292,7 +379,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const colIdx = n - k + c;
         const ch = board[r][colIdx];
         const el = tiles[t++];
-        if (el.textContent !== ch) el.textContent = ch;
+        if (getTileText(el) !== ch) setTileText(el, ch);
       }
     }
     showPreviewTiles(inner, need);
@@ -307,7 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let c = 0; c < k; c++) {
         const ch = board[r][c];
         const el = tiles[t++];
-        if (el.textContent !== ch) el.textContent = ch;
+        if (getTileText(el) !== ch) setTileText(el, ch);
       }
     }
     showPreviewTiles(inner, need);
@@ -323,7 +410,7 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let c = 0; c < n; c++) {
         const ch = board[rowIdx][c];
         const el = tiles[t++];
-        if (el.textContent !== ch) el.textContent = ch;
+        if (getTileText(el) !== ch) setTileText(el, ch);
       }
     }
     showPreviewTiles(inner, need);
@@ -338,7 +425,7 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let c = 0; c < n; c++) {
         const ch = board[innerR][c];
         const el = tiles[t++];
-        if (el.textContent !== ch) el.textContent = ch;
+        if (getTileText(el) !== ch) setTileText(el, ch);
       }
     }
     showPreviewTiles(inner, need);
@@ -572,6 +659,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Call generateGrid() after all files have been fetched
       generateGrid();
+      nextLetters = generateNextLetters();
+      updateNextLetters();
       startButton.disabled = false;
     })
     .catch((error) => {
@@ -630,11 +719,21 @@ document.addEventListener("DOMContentLoaded", () => {
   doneButton.addEventListener("click", endGame);
   leaderboardButton.addEventListener("click", () => getLeaderboard(true));
   updateCurrentWord();
+  currentWordElement.textContent = PRE_START_WORDMARK;
+  currentWordElement.style.color = "white";
 
   boardShiftZone.addEventListener("pointerdown", onShiftPointerDown);
   boardShiftZone.addEventListener("pointermove", onShiftPointerMove);
   boardShiftZone.addEventListener("pointerup", onShiftPointerUp);
   boardShiftZone.addEventListener("pointercancel", onShiftPointerUp);
+  boardShiftZone.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!isGameActive || isPaused) return;
+      if (event.cancelable) event.preventDefault();
+    },
+    { passive: false }
+  );
 
   function resetShiftDragVisualHard() {
     if (gridPan) {
@@ -1242,6 +1341,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function onShiftPointerDown(e) {
     if (!isGameActive || isPaused || shiftAnimating) return;
     if (e.button != null && e.button !== 0) return;
+    if (e.cancelable) e.preventDefault();
     cancelGridShiftAnimations();
     shiftPointerId = e.pointerId;
     shiftStartX = e.clientX;
@@ -1275,6 +1375,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function onShiftPointerMove(e) {
     if (shiftPointerId !== e.pointerId || shiftAnimating) return;
+    if (e.cancelable) e.preventDefault();
     const dx = e.clientX - shiftStartX;
     const dy = e.clientY - shiftStartY;
     const adx = Math.abs(dx);
@@ -1337,6 +1438,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function onShiftPointerUp(e) {
     if (shiftPointerId !== e.pointerId) return;
+    if (e.cancelable) e.preventDefault();
     try {
       boardShiftZone.releasePointerCapture(e.pointerId);
     } catch (_) {}
@@ -1430,7 +1532,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const tiles = grid.children;
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
-        tiles[r * n + c].textContent = board[r][c];
+        setTileText(tiles[r * n + c], board[r][c]);
       }
     }
   }
@@ -1441,12 +1543,11 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("bing2", true);
     playSound("invalid", true);
     isGameActive = true;
-    startButton.style.display = "none"; // Hide start button
+    startButton.classList.add("hiddenDisplay");
+    startButton.classList.remove("visibleDisplay");
+    buttonContainer.classList.add("hiddenDisplay");
     currentWordElement.classList.remove("hidden");
     currentWordElement.classList.add("visible");
-    document
-      .getElementById("next-letters-container")
-      .classList.add("visibleDisplay");
     doneButton.classList.remove("hiddenDisplay");
     doneButton.classList.add("visibleDisplay");
     boardShiftZone.classList.remove("hiddenDisplay");
@@ -1466,7 +1567,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     score = 0;
     currentWord = "";
-    nextLetters = generateNextLetters();
     showMessage("Happy Hunting", 1, happyHuntingColor);
     updateScore();
     updateCurrentWord();
@@ -1484,9 +1584,9 @@ document.addEventListener("DOMContentLoaded", () => {
         board[i][j] = gridLetters[i][j];
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = gridLetters[i][j];
         button.classList.add("grid-button");
         button.classList.add("grid-button--inactive");
+        setTileText(button, gridLetters[i][j]);
         button.disabled = true;
         button.addEventListener("mousedown", handleMouseDown);
         button.addEventListener("mouseover", handleMouseOver);
@@ -1510,8 +1610,43 @@ document.addEventListener("DOMContentLoaded", () => {
     return nextLetters;
   }
 
+  function getLiveWordScoreBreakdown(buttonSequence) {
+    const sequence = Array.isArray(buttonSequence) ? buttonSequence : [];
+    const length = sequence.reduce((total, button) => {
+      return total + getTileText(button).length;
+    }, 0);
+    if (length === 0) {
+      return { letterSum: 0, length: 0, wordTotal: 0 };
+    }
+    const letterSum = sequence.reduce((sum, button) => {
+      return sum + getLetterWeight(getTileText(button));
+    }, 0);
+    return {
+      letterSum,
+      length,
+      wordTotal: letterSum * length,
+    };
+  }
+
+  function updateScoreStrip() {
+    if (
+      !scoreSwipeSumElement ||
+      !scoreLengthElement ||
+      !scoreWordTotalElement ||
+      !scoreGameTotalElement
+    ) {
+      return;
+    }
+    const live = getLiveWordScoreBreakdown(selectedButtons);
+    scoreSwipeSumElement.textContent = String(live.letterSum);
+    scoreLengthElement.textContent = String(live.length);
+    scoreWordTotalElement.textContent = String(live.wordTotal);
+    scoreGameTotalElement.textContent = String(score);
+  }
+
   function updateScore() {
-    scoreElement.textContent = "Score: " + score;
+    if (!scoreElement) return;
+    updateScoreStrip();
   }
 
   function updateCurrentWord() {
@@ -1522,17 +1657,29 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     currentWordElement.textContent = currentWord.toUpperCase();
-    currentWordElement.style.color = "white";
+    if (currentWord.length < 3) {
+      currentWordElement.style.color = "white";
+      return;
+    }
+    currentWordElement.style.color = validateWord(currentWord)
+      ? lightGreenPreviewColor
+      : lightRedPreviewColor;
   }
 
   function updateNextLetters() {
-    let displayedNextLetters = nextLetters.slice(0, 8).join(", ");
-
-    if (nextLetters.length > 8) {
+    if (queueNextHeaderElement) {
+      queueNextHeaderElement.textContent = UPCOMING_LABEL;
+    }
+    let displayedNextLetters = nextLetters
+      .slice(0, UPCOMING_PREVIEW_MAX)
+      .join(", ");
+    if (displayedNextLetters.length > 0) {
       displayedNextLetters += "...";
     }
-
     nextLettersElement.textContent = displayedNextLetters;
+    if (queueSackCountElement) {
+      queueSackCountElement.textContent = String(nextLetters.length);
+    }
   }
 
   // Helper function to calculate the difference in days between two dates
@@ -1556,11 +1703,15 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
     const touch = event.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    const button =
+      element && element instanceof Element
+        ? element.closest(".grid-button")
+        : null;
 
-    if (element && element.classList.contains("grid-button")) {
+    if (button && grid.contains(button)) {
       // create a mock event object
       const mockEvent = {
-        target: element,
+        target: button,
         preventDefault: () => {}, // noop function
       };
 
@@ -1570,8 +1721,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchEnd(event) {
     if (!isGameActive) return;
-    if (event.target.classList.contains("grid-button")) {
-      const mockEvent = { target: event.target, preventDefault: () => {} };
+    const button = getTileButtonFromEvent(event);
+    if (button) {
+      const mockEvent = { target: button, preventDefault: () => {} };
       handleMouseUp(mockEvent);
     }
   }
@@ -1595,33 +1747,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleMouseDown(event) {
     if (!isGameActive) return;
+    const targetButton = getTileButtonFromEvent(event);
+    if (!targetButton) return;
     if (
-      event.target.classList.contains("grid-button") &&
-      event.target.textContent !== "" &&
-      (lastButton === null || isAdjacent(lastButton, event.target))
+      getTileText(targetButton) !== "" &&
+      (lastButton === null || isAdjacent(lastButton, targetButton))
     ) {
       isMouseDown = true;
-      currentWord += event.target.textContent;
-      selectedButtons.push(event.target);
-      selectedButtonSet.add(event.target);
-      event.target.classList.add("selected");
-      lastButton = event.target;
+      currentWord += getTileText(targetButton);
+      selectedButtons.push(targetButton);
+      selectedButtonSet.add(targetButton);
+      targetButton.classList.add("selected");
+      lastButton = targetButton;
       syncSelectionVisitDepth();
       updateCurrentWord();
+      updateScoreStrip();
     }
   }
 
   function handleMouseOver(event) {
     if (!isGameActive) return;
+    const targetButton = getTileButtonFromEvent(event);
+    if (!targetButton) return;
     if (
       isMouseDown &&
-      event.target.textContent !== "" &&
-      (lastButton === null || isAdjacent(lastButton, event.target))
+      getTileText(targetButton) !== "" &&
+      (lastButton === null || isAdjacent(lastButton, targetButton))
     ) {
-      if (event.target === selectedButtons[selectedButtons.length - 2]) {
+      if (targetButton === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
-        if (removedButton.textContent === "qu") {
+        if (getTileText(removedButton) === "qu") {
           currentWord = currentWord.slice(0, -1);
         }
 
@@ -1634,10 +1790,10 @@ document.addEventListener("DOMContentLoaded", () => {
           selectedButtonSet.delete(removedButton);
         }
       } else {
-        currentWord += event.target.textContent;
-        selectedButtons.push(event.target);
-        selectedButtonSet.add(event.target);
-        event.target.classList.add("selected");
+        currentWord += getTileText(targetButton);
+        selectedButtons.push(targetButton);
+        selectedButtonSet.add(targetButton);
+        targetButton.classList.add("selected");
 
         // Add a line from the last button to this one
         if (lastButton) {
@@ -1647,7 +1803,7 @@ document.addEventListener("DOMContentLoaded", () => {
           );
 
           const lastRect = lastButton.getBoundingClientRect();
-          const currRect = event.target.getBoundingClientRect();
+          const currRect = targetButton.getBoundingClientRect();
 
           line.setAttribute(
             "x1",
@@ -1689,9 +1845,10 @@ document.addEventListener("DOMContentLoaded", () => {
           gridLineContainer.appendChild(line);
         }
       }
-      lastButton = event.target;
+      lastButton = targetButton;
       syncSelectionVisitDepth();
       updateCurrentWord();
+      updateScoreStrip();
     }
   }
 
@@ -1706,7 +1863,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             playSound("bing", isMuted);
           }
-          const wordScore = getWordScore(currentWord);
+          const wordScore = getWordScoreFromSelectedTiles(selectedButtons);
           score += wordScore;
           showMessage(
             `${currentWord.toUpperCase()} +${wordScore}`,
@@ -1732,6 +1889,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedButtons = [];
       selectedButtonSet = new Set();
       lastButton = null;
+      updateScoreStrip();
       while (gridLineContainer.firstChild) {
         gridLineContainer.firstChild.remove();
       }
@@ -1756,7 +1914,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const uniqueSelectedButtons = Array.from(selectedButtonSet);
     uniqueSelectedButtons.forEach((button) => {
       const nextLetter = nextLetters.shift() || "";
-      button.textContent = nextLetter;
+      setTileText(button, nextLetter);
       const idx = Array.prototype.indexOf.call(grid.children, button);
       const r = Math.floor(idx / n);
       const c = idx % n;
@@ -1818,8 +1976,12 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
     }
+    selectedButtons = [];
+    selectedButtonSet = new Set();
+    lastButton = null;
     currentWord = "";
     updateCurrentWord();
+    updateScoreStrip();
     while (gridLineContainer.firstChild) {
       gridLineContainer.firstChild.remove();
     }
@@ -1837,6 +1999,9 @@ document.addEventListener("DOMContentLoaded", () => {
     boardShiftZone.classList.remove("visibleDisplay");
 
     // Show Retry button
+    buttonContainer.classList.remove("hiddenDisplay");
+    startButton.classList.add("hiddenDisplay");
+    startButton.classList.remove("visibleDisplay");
     retryButton.classList.remove("hiddenDisplay");
     retryButton.classList.add("visibleDisplay");
 
@@ -1849,7 +2014,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentWordMessageActive = false;
       currentWordElement.textContent = "Copy Score";
       currentWordElement.style.color = happyHuntingColor;
-      nextLettersElement.textContent = sponsorMsg;
+      updateNextLetters();
 
       boardShiftZone.classList.add("hiddenDisplay");
       boardShiftZone.classList.remove("visibleDisplay");
@@ -1993,17 +2158,8 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardTable.appendChild(tbody);
   }
 
-  function getWordScore(word) {
-    // Adjust the score calculation as per your rules
-    if (word.length <= 3) {
-      return word.length;
-    } else {
-      let extraPoints = 0;
-      for (let i = 4; i <= word.length; i++) {
-        extraPoints += i - 2;
-      }
-      return 3 + extraPoints;
-    }
+  function getWordScoreFromSelectedTiles(buttonSequence) {
+    return getLiveWordScoreBreakdown(buttonSequence).wordTotal;
   }
 
   function copyToClipboard(score, longestWord, diffDays) {
