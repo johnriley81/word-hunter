@@ -185,6 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function setTileText(el, tileText) {
     const normalized = normalizeTileText(tileText);
     el.dataset.tileText = normalized;
+    const isBlankTile = normalized === "";
 
     let glyph = el.querySelector(".tile-glyph");
     if (!glyph) {
@@ -201,7 +202,9 @@ document.addEventListener("DOMContentLoaded", () => {
       badge.setAttribute("aria-hidden", "true");
       el.appendChild(badge);
     }
-    badge.textContent = String(getLetterWeight(normalized));
+    badge.textContent = isBlankTile ? "" : String(getLetterWeight(normalized));
+    badge.style.display = isBlankTile ? "none" : "";
+    el.disabled = isBlankTile;
   }
 
   let score = 0;
@@ -1665,10 +1668,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (queueNextHeaderElement) {
       queueNextHeaderElement.textContent = UPCOMING_LABEL;
     }
+    const hasMoreUpcoming = nextLetters.length > UPCOMING_PREVIEW_MAX;
     let displayedNextLetters = nextLetters
       .slice(0, UPCOMING_PREVIEW_MAX)
       .join(", ");
-    if (displayedNextLetters.length > 0) {
+    if (hasMoreUpcoming && displayedNextLetters.length > 0) {
       displayedNextLetters += "...";
     }
     nextLettersElement.textContent = displayedNextLetters;
@@ -1744,6 +1748,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGameActive) return;
     const targetButton = getTileButtonFromEvent(event);
     if (!targetButton) return;
+    if (targetButton.disabled) return;
     if (
       getTileText(targetButton) !== "" &&
       (lastButton === null || isAdjacent(lastButton, targetButton))
@@ -1764,6 +1769,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGameActive) return;
     const targetButton = getTileButtonFromEvent(event);
     if (!targetButton) return;
+    if (targetButton.disabled) return;
     if (
       isMouseDown &&
       getTileText(targetButton) !== "" &&
