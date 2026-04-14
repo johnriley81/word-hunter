@@ -1,27 +1,84 @@
-// colors
-let hardmodeColor = "red";
-let swapOriginalColor = "#ed3d02";
-let swapInUseColor = "#3ba1f5";
-let swapReadyColor = "#0222ed";
-let swapUsedColor = "gray";
-let greenTextColor = "#07f03a";
-let redTextColor = "red";
-let redTextColorLeaderboard = "red";
-let goldTextColor = "#e3af02"
-let happyHuntingColor = "gold"
+// colors (game messages / leaderboard; keep in sync with theme intent)
+const greenTextColor = "#07f03a";
+const redTextColor = "red";
+const redTextColorLeaderboard = "red";
+const goldTextColor = "#e3af02";
+const happyHuntingColor = "gold";
 
+/** Grid dimension (NxN). Must match `text/grids.txt` puzzle shape. */
+const GRID_SIZE = 4;
+/**
+ * First column/row counts after dragging this fraction of one (tile+gap) stride.
+ * After that, each additional full stride adds one more (floor), so one cell of motion ≈ one step.
+ */
+const SHIFT_STRIDE_FIRST_FRAC = 0.4;
+/** Minimum dominant-axis movement before we lock to horizontal vs vertical drag. */
+const SHIFT_AXIS_LOCK_PX = 8;
+/** Pointer travel × this maps into slide offset (2 = half as much drag for the same motion). */
+const SHIFT_SLIDE_SENSITIVITY = 2;
+/** Settle after commit: slightly longer ease-out so tiles read as sliding into place. */
+const SHIFT_SETTLE_MS = 340;
+const SHIFT_SETTLE_EASE = "cubic-bezier(0.2, 0.85, 0.25, 1)";
+/** After commit: ease `#grid-stage` from finger pose to stride snap (ghost tiles ride with it). */
+const SHIFT_COMMIT_SNAP_MS = 220;
+const SHIFT_COMMIT_SNAP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const SHIFT_COMMIT_SNAP_END_GRACE_MS = 140;
+/** Stage return to identity after DOM commit (while `#grid` is hidden); shorter than stride snap cuts blank time. */
+const SHIFT_REJOIN_SNAP_MS = 130;
+const SHIFT_GESTURE_FALLBACK_MS = 800;
 
 let isMouseDown = false;
-let time = 60;
-let intervalId;
 let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "wordhunter";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
-let hardMode = false;
-let asterisk = "";
 let playerPosition;
+
+/** Max row/column steps per swipe (`n - 1`); a full `n` shift is identity on an n×n board. */
+function shiftMaxStepsPerGesture(n) {
+  return Math.max(1, n - 1);
+}
+
+/** Commit step count from drag magnitude (0 .. shiftMaxStepsPerGesture(n)). */
+function shiftCommitStepsFromAxisMag(magPx, stridePx, n) {
+  if (magPx <= 0) return 0;
+  const first = stridePx * SHIFT_STRIDE_FIRST_FRAC;
+  if (magPx < first) return 0;
+  const cap = shiftMaxStepsPerGesture(n);
+  return Math.min(cap, 1 + Math.floor((magPx - first) / stridePx));
+}
+
+/**
+ * Clamp |axis| into the commit band for strip depth `k` (same [low, hi) as strip thresholds).
+ * Continuous within the band so drag does not stick on inner stride plateaus.
+ */
+function clampAxisMagToCommitBandForK(magPx, stridePx, k) {
+  if (k <= 0 || magPx <= 0) return magPx;
+  const first = stridePx * SHIFT_STRIDE_FIRST_FRAC;
+  const low = first + (k - 1) * stridePx;
+  const hiEx = first + k * stridePx;
+  return Math.min(Math.max(magPx, low), hiEx - 1e-6);
+}
+
+/** Snap locked-axis motion into the stride band for the current step count (quantize while dragging). */
+function quantizeShiftVisualAxis(tx, ty, horizontal, stridePx, n) {
+  const rawAxis = horizontal ? tx : ty;
+  const magRaw = Math.abs(rawAxis);
+  if (magRaw <= 0) {
+    return { tx, ty, rawTx: tx, rawTy: ty };
+  }
+  const steps = shiftCommitStepsFromAxisMag(magRaw, stridePx, n);
+  if (steps === 0) {
+    return { tx, ty, rawTx: tx, rawTy: ty };
+  }
+  const sign = rawAxis >= 0 ? 1 : -1;
+  const snapped = clampAxisMagToCommitBandForK(magRaw, stridePx, steps);
+  if (horizontal) {
+    return { tx: sign * snapped, ty: 0, rawTx: tx, rawTy: ty };
+  }
+  return { tx: 0, ty: sign * snapped, rawTx: tx, rawTy: ty };
+}
 let sounds = {
   click: new Audio("sounds/click.wav"),
   bing: new Audio("sounds/bing.wav"),
@@ -29,31 +86,32 @@ let sounds = {
   invalid: new Audio("sounds/invalid.wav"),
   pop: new Audio("sounds/pop.wav"),
   swoosh: new Audio("sounds/swoosh.wav"),
-  tick: new Audio("sounds/tick.wav"),
   gameOver: new Audio("sounds/gameOver.wav"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.querySelector("#grid");
+  const gridPan = document.getElementById("grid-pan");
+  const gridStage = document.getElementById("grid-stage");
+  const shiftPreviewStrip = document.getElementById("shift-preview-strip");
   const startButton = document.querySelector("#start");
   startButton.disabled = true;
   const currentWordElement = document.querySelector("#current-word");
   const nextLettersElement = document.querySelector("#next-letters");
   nextLettersElement.textContent = sponsorMsg;
-  const messageLabel = document.querySelector("#message-label");
-  const timerElement = document.querySelector("#timer");
   const scoreElement = document.querySelector("#score");
+  const gameInfoContainer = document.querySelector("#game-info-container");
+  const bottomDock = document.querySelector("#bottom-dock");
   const rules = document.querySelector("#rules");
   const rulesButton = document.querySelector("#rules-button");
   const muteButton = document.getElementById("mute-button");
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
-  const swapButton = document.querySelector("#swap-button");
+  const boardShiftZone = document.getElementById("board-shift-zone");
   const retryButton = document.querySelector("#retry-button");
-  const hardModeCheckbox = document.getElementById("hard-mode");
-  const hardModeLabel = document.getElementById("hard-mode-label");
-  const hardModeContainer = document.getElementById("hard-mode-container");
   const gridLineContainer = document.querySelector("#line-container");
+  const gridLineWrapper = document.getElementById("grid-line-wrapper");
+  const gridViewport = document.getElementById("grid-viewport");
   const leaderboardElements = document.getElementById("leaderboard-elements");
   const leaderboardTable = document.getElementById("leaderboard-table");
   const playerName = document.getElementById("player-name");
@@ -69,12 +127,411 @@ document.addEventListener("DOMContentLoaded", () => {
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
-  let isSwapEnabled = false;
-  let isSwapValid = false;
-  let swapTiles = [];
+  /** @type {string[][]} Row-major letters; kept in sync with #grid tiles. */
+  let board = [];
   let isPaused = false;
   let isMuted = true;
-  let swapCount = 5;
+
+  let shiftPointerId = null;
+  let shiftStartX = 0;
+  let shiftStartY = 0;
+  let shiftAnimating = false;
+  /** @type {null | boolean} null until axis is chosen from the first meaningful move. */
+  let shiftDragLockedHorizontal = null;
+  let shiftVisualTx = 0;
+  let shiftVisualTy = 0;
+  /** Last strip depth shown by ghost UI; avoids pointer-up stride reflow changing k vs drag. */
+  let shiftVisualStripCount = 0;
+  /** Axis for `shiftVisualStripCount` (same as `updateShiftStageVisual` `horizontal`). */
+  let shiftVisualStripHorizontal = true;
+  /** Pixel-locked grid size during active swipe to prevent live layout distortion. */
+  let shiftLockedGridWidthPx = 0;
+  let shiftLockedGridHeightPx = 0;
+  let currentWordMessageActive = false;
+  let currentWordMessageTimer = null;
+
+  function syncGridViewportSize() {
+    if (!gridViewport) return;
+    // Approach A: keep sizing CSS-driven to avoid JS/CSS drift.
+    gridViewport.style.padding = "";
+    gridViewport.style.width = "";
+    gridViewport.style.height = "";
+  }
+
+  function lockGridSizeForSwipe() {
+    if (shiftLockedGridWidthPx > 0 && shiftLockedGridHeightPx > 0) return;
+    const br = grid.getBoundingClientRect();
+    if (br.width < 1 || br.height < 1) return;
+    // Keep sub-pixel precision so swipe mode doesn't slightly compress tile gaps.
+    shiftLockedGridWidthPx = br.width;
+    shiftLockedGridHeightPx = br.height;
+    grid.style.width = shiftLockedGridWidthPx + "px";
+    grid.style.maxWidth = shiftLockedGridWidthPx + "px";
+    grid.style.height = shiftLockedGridHeightPx + "px";
+  }
+
+  function unlockGridSizeAfterSwipe() {
+    // Keep the measured pixel size applied at rest too; this matches the geometry
+    // seen during swipe and avoids fallback-to-CSS drift/clipping on release.
+    shiftLockedGridWidthPx = 0;
+    shiftLockedGridHeightPx = 0;
+  }
+
+  function syncLineOverlaySize() {
+    if (!gridLineWrapper) return;
+    syncGridViewportSize();
+    const wrap = gridLineWrapper.getBoundingClientRect();
+    const gridR = grid.getBoundingClientRect();
+    const offsetLeft = Math.round(gridR.left - wrap.left);
+    const offsetTop = Math.round(gridR.top - wrap.top);
+    gridLineContainer.style.left = offsetLeft + "px";
+    gridLineContainer.style.top = offsetTop + "px";
+
+    const tiles = grid.querySelectorAll(".grid-button");
+    if (!tiles.length) {
+      gridLineContainer.style.width = grid.offsetWidth + "px";
+      gridLineContainer.style.height = grid.offsetHeight + "px";
+      return;
+    }
+    const gridRect = grid.getBoundingClientRect();
+    let maxBottom = 0;
+    let maxRight = 0;
+    tiles.forEach((tile) => {
+      const br = tile.getBoundingClientRect();
+      maxBottom = Math.max(maxBottom, br.bottom - gridRect.top);
+      maxRight = Math.max(maxRight, br.right - gridRect.left);
+    });
+    gridLineContainer.style.width =
+      Math.ceil(Math.max(grid.offsetWidth, maxRight)) + "px";
+    gridLineContainer.style.height =
+      Math.ceil(Math.max(grid.offsetHeight, maxBottom)) + "px";
+  }
+
+  function ensureShiftPreviewElements() {
+    if (!shiftPreviewStrip) return;
+    let inner = shiftPreviewStrip.querySelector(".shift-preview-inner");
+    if (!inner) {
+      inner = document.createElement("div");
+      inner.className = "shift-preview-inner";
+      shiftPreviewStrip.appendChild(inner);
+    }
+    const cap = GRID_SIZE * GRID_SIZE;
+    while (inner.querySelectorAll(".shift-preview-tile").length < cap) {
+      const d = document.createElement("div");
+      d.className = "grid-button grid-button--active shift-preview-tile";
+      d.setAttribute("aria-hidden", "true");
+      inner.appendChild(d);
+    }
+    inner.querySelectorAll(".shift-preview-tile").forEach((el) => {
+      el.classList.add("grid-button--active");
+      el.classList.remove("grid-button--inactive");
+    });
+  }
+
+  function getGridCellMetrics() {
+    const tile = grid.querySelector(".grid-button");
+    const gap =
+      parseFloat(getComputedStyle(grid).columnGap) ||
+      parseFloat(getComputedStyle(grid).gap) ||
+      20;
+    if (!tile) {
+      return { tw: 72, th: 72, gap };
+    }
+    const br = tile.getBoundingClientRect();
+    return { tw: br.width, th: br.height, gap };
+  }
+
+  function clearShiftPreview() {
+    if (gridStage) {
+      gridStage.classList.remove("grid-stage--col", "grid-stage--strip-end");
+    }
+    if (shiftPreviewStrip) {
+      shiftPreviewStrip.classList.add("shift-preview-strip--hidden");
+      shiftPreviewStrip.style.width = "";
+      shiftPreviewStrip.style.height = "";
+      shiftPreviewStrip.style.opacity = "";
+      shiftPreviewStrip.style.transition = "";
+      shiftPreviewStrip.style.overflow = "";
+      const inner = shiftPreviewStrip.querySelector(".shift-preview-inner");
+      if (inner) {
+        inner.classList.remove(
+          "shift-preview-inner--col",
+          "shift-preview-inner--row"
+        );
+        inner.style.gridTemplateColumns = "";
+        inner.style.gridTemplateRows = "";
+        inner.style.width = "";
+        inner.style.height = "";
+      }
+    }
+  }
+
+  function setPreviewInnerGrid(inner, nRows, nCols, m) {
+    inner.style.gridTemplateColumns = `repeat(${nCols}, ${m.tw}px)`;
+    inner.style.gridTemplateRows = `repeat(${nRows}, ${m.th}px)`;
+    const w = nCols * m.tw + Math.max(0, nCols - 1) * m.gap;
+    const h = nRows * m.th + Math.max(0, nRows - 1) * m.gap;
+    inner.style.width = w + "px";
+    inner.style.height = h + "px";
+  }
+
+  function showPreviewTiles(inner, need) {
+    inner.querySelectorAll(".shift-preview-tile").forEach((el, i) => {
+      el.style.display = i < need ? "" : "none";
+    });
+  }
+
+  function fillPreviewStripHorizontalLeft(inner, k) {
+    const n = GRID_SIZE;
+    const tiles = inner.querySelectorAll(".shift-preview-tile");
+    const need = n * k;
+    let t = 0;
+    /* Row-major order must match CSS grid auto-flow (default row); was column-major → wrong cells for k>1. */
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < k; c++) {
+        const colIdx = n - k + c;
+        const ch = board[r][colIdx];
+        const el = tiles[t++];
+        if (el.textContent !== ch) el.textContent = ch;
+      }
+    }
+    showPreviewTiles(inner, need);
+  }
+
+  function fillPreviewStripHorizontalRight(inner, k) {
+    const n = GRID_SIZE;
+    const tiles = inner.querySelectorAll(".shift-preview-tile");
+    const need = n * k;
+    let t = 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < k; c++) {
+        const ch = board[r][c];
+        const el = tiles[t++];
+        if (el.textContent !== ch) el.textContent = ch;
+      }
+    }
+    showPreviewTiles(inner, need);
+  }
+
+  function fillPreviewStripVerticalTop(inner, k) {
+    const n = GRID_SIZE;
+    const tiles = inner.querySelectorAll(".shift-preview-tile");
+    const need = n * k;
+    let t = 0;
+    for (let innerR = 0; innerR < k; innerR++) {
+      const rowIdx = n - k + innerR;
+      for (let c = 0; c < n; c++) {
+        const ch = board[rowIdx][c];
+        const el = tiles[t++];
+        if (el.textContent !== ch) el.textContent = ch;
+      }
+    }
+    showPreviewTiles(inner, need);
+  }
+
+  function fillPreviewStripVerticalBottom(inner, k) {
+    const n = GRID_SIZE;
+    const tiles = inner.querySelectorAll(".shift-preview-tile");
+    const need = n * k;
+    let t = 0;
+    for (let innerR = 0; innerR < k; innerR++) {
+      for (let c = 0; c < n; c++) {
+        const ch = board[innerR][c];
+        const el = tiles[t++];
+        if (el.textContent !== ch) el.textContent = ch;
+      }
+    }
+    showPreviewTiles(inner, need);
+  }
+
+  /**
+   * After commit: resize preview strip to match the refreshed `#grid` (cell metrics may change).
+   * When `reuseTileText` is true, keep the letters already painted during drag — they are the
+   * wrapped slice and still match the main grid after `applyShift` (refilling from `board`
+   * with the old index math would flash the wrong glyphs for one frame).
+   */
+  function refillShiftPreviewFromBoardAfterCommit(horizontal, signedVis, k, opts) {
+    const reuseTileText = opts && opts.reuseTileText;
+    const n = GRID_SIZE;
+    const m = getGridCellMetrics();
+    const inner = shiftPreviewStrip
+      ? shiftPreviewStrip.querySelector(".shift-preview-inner")
+      : null;
+    if (!inner) return;
+    const need = n * k;
+    if (horizontal) {
+      if (signedVis > 0) {
+        setPreviewInnerGrid(inner, n, k, m);
+        inner.classList.remove("shift-preview-inner--col");
+        inner.classList.add("shift-preview-inner--row");
+        if (!reuseTileText) {
+          fillPreviewStripHorizontalLeft(inner, k);
+        }
+      } else {
+        setPreviewInnerGrid(inner, n, k, m);
+        inner.classList.remove("shift-preview-inner--col");
+        inner.classList.add("shift-preview-inner--row");
+        if (!reuseTileText) {
+          fillPreviewStripHorizontalRight(inner, k);
+        }
+      }
+    } else {
+      if (signedVis > 0) {
+        setPreviewInnerGrid(inner, k, n, m);
+        inner.classList.remove("shift-preview-inner--row");
+        inner.classList.add("shift-preview-inner--col");
+        if (!reuseTileText) {
+          fillPreviewStripVerticalTop(inner, k);
+        }
+      } else {
+        setPreviewInnerGrid(inner, k, n, m);
+        inner.classList.remove("shift-preview-inner--row");
+        inner.classList.add("shift-preview-inner--col");
+        if (!reuseTileText) {
+          fillPreviewStripVerticalBottom(inner, k);
+        }
+      }
+    }
+    showPreviewTiles(inner, need);
+  }
+
+  function updateShiftStageVisual(txVis, tyVis, horizontal, rawTx, rawTy) {
+    if (rawTx === undefined) rawTx = txVis;
+    if (rawTy === undefined) rawTy = tyVis;
+
+    if (!gridStage || !shiftPreviewStrip) {
+      shiftVisualStripCount = 0;
+      grid.style.transition = "none";
+      grid.style.transform = `translate(${txVis}px, ${tyVis}px)`;
+      return;
+    }
+
+    const inner = shiftPreviewStrip.querySelector(".shift-preview-inner");
+    if (!inner) return;
+
+    const n = GRID_SIZE;
+    const m = getGridCellMetrics();
+    const strideX = m.tw + m.gap;
+    const strideY = m.th + m.gap;
+    const gridH = grid.offsetHeight;
+
+    if (horizontal) {
+      gridStage.classList.remove("grid-stage--col");
+      if (txVis > 0) {
+        const magRaw = Math.abs(rawTx);
+        const steps = shiftCommitStepsFromAxisMag(magRaw, strideX, n);
+        if (steps === 0) {
+          shiftVisualStripCount = 0;
+          clearShiftPreview();
+          gridStage.style.transition = "none";
+          gridStage.style.transform = `translate(${txVis}px, 0)`;
+          return;
+        }
+        const k = steps;
+        shiftVisualStripCount = k;
+        shiftVisualStripHorizontal = true;
+        gridStage.classList.remove("grid-stage--strip-end");
+        const ghostW = k * m.tw + Math.max(0, k - 1) * m.gap;
+        shiftPreviewStrip.classList.remove("shift-preview-strip--hidden");
+        shiftPreviewStrip.style.width = ghostW + "px";
+        shiftPreviewStrip.style.height = gridH + "px";
+        inner.classList.remove("shift-preview-inner--col");
+        inner.classList.add("shift-preview-inner--row");
+        setPreviewInnerGrid(inner, n, k, m);
+        fillPreviewStripHorizontalLeft(inner, k);
+        const baseX = -(ghostW + m.gap) + txVis;
+        gridStage.style.transition = "none";
+        gridStage.style.transform = `translate(${baseX}px, 0)`;
+      } else if (txVis < 0) {
+        const magRaw = Math.abs(rawTx);
+        const steps = shiftCommitStepsFromAxisMag(magRaw, strideX, n);
+        if (steps === 0) {
+          shiftVisualStripCount = 0;
+          clearShiftPreview();
+          gridStage.style.transition = "none";
+          gridStage.style.transform = `translate(${txVis}px, 0)`;
+          return;
+        }
+        const k = steps;
+        shiftVisualStripCount = k;
+        shiftVisualStripHorizontal = true;
+        gridStage.classList.add("grid-stage--strip-end");
+        const ghostW = k * m.tw + Math.max(0, k - 1) * m.gap;
+        shiftPreviewStrip.classList.remove("shift-preview-strip--hidden");
+        shiftPreviewStrip.style.width = ghostW + "px";
+        shiftPreviewStrip.style.height = gridH + "px";
+        inner.classList.remove("shift-preview-inner--col");
+        inner.classList.add("shift-preview-inner--row");
+        setPreviewInnerGrid(inner, n, k, m);
+        fillPreviewStripHorizontalRight(inner, k);
+        gridStage.style.transition = "none";
+        gridStage.style.transform = `translate(${txVis}px, 0)`;
+      } else {
+        shiftVisualStripCount = 0;
+        clearShiftPreview();
+        gridStage.style.transition = "none";
+        gridStage.style.transform = "translate(0, 0)";
+      }
+    } else {
+      gridStage.classList.add("grid-stage--col");
+      const gridW = grid.offsetWidth;
+      if (tyVis > 0) {
+        const magRaw = Math.abs(rawTy);
+        const steps = shiftCommitStepsFromAxisMag(magRaw, strideY, n);
+        if (steps === 0) {
+          shiftVisualStripCount = 0;
+          clearShiftPreview();
+          gridStage.style.transition = "none";
+          gridStage.style.transform = `translate(0, ${tyVis}px)`;
+          return;
+        }
+        const k = steps;
+        shiftVisualStripCount = k;
+        shiftVisualStripHorizontal = false;
+        gridStage.classList.remove("grid-stage--strip-end");
+        const ghostH = k * m.th + Math.max(0, k - 1) * m.gap;
+        shiftPreviewStrip.classList.remove("shift-preview-strip--hidden");
+        shiftPreviewStrip.style.width = gridW + "px";
+        shiftPreviewStrip.style.height = ghostH + "px";
+        inner.classList.remove("shift-preview-inner--row");
+        inner.classList.add("shift-preview-inner--col");
+        setPreviewInnerGrid(inner, k, n, m);
+        fillPreviewStripVerticalTop(inner, k);
+        const baseY = -ghostH + tyVis;
+        gridStage.style.transition = "none";
+        gridStage.style.transform = `translate(0, ${baseY}px)`;
+      } else if (tyVis < 0) {
+        const magRaw = Math.abs(rawTy);
+        const steps = shiftCommitStepsFromAxisMag(magRaw, strideY, n);
+        if (steps === 0) {
+          shiftVisualStripCount = 0;
+          clearShiftPreview();
+          gridStage.style.transition = "none";
+          gridStage.style.transform = `translate(0, ${tyVis}px)`;
+          return;
+        }
+        const k = steps;
+        shiftVisualStripCount = k;
+        shiftVisualStripHorizontal = false;
+        gridStage.classList.add("grid-stage--strip-end");
+        const ghostH = k * m.th + Math.max(0, k - 1) * m.gap;
+        shiftPreviewStrip.classList.remove("shift-preview-strip--hidden");
+        shiftPreviewStrip.style.width = gridW + "px";
+        shiftPreviewStrip.style.height = ghostH + "px";
+        inner.classList.remove("shift-preview-inner--row");
+        inner.classList.add("shift-preview-inner--col");
+        setPreviewInnerGrid(inner, k, n, m);
+        fillPreviewStripVerticalBottom(inner, k);
+        gridStage.style.transition = "none";
+        gridStage.style.transform = `translate(0, ${tyVis}px)`;
+      } else {
+        shiftVisualStripCount = 0;
+        clearShiftPreview();
+        gridStage.style.transition = "none";
+        gridStage.style.transform = "translate(0, 0)";
+      }
+    }
+  }
 
   Object.keys(sounds).forEach((key) => {
     sounds[key].load();
@@ -124,8 +581,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
   startButton.addEventListener("click", startGame);
-  hardModeCheckbox.addEventListener("click", handleHardMode);
-  swapButton.addEventListener("click", handleSwap);
   retryButton.addEventListener("click", function () {
     playSound("click", isMuted);
     window.location.reload();
@@ -133,15 +588,27 @@ document.addEventListener("DOMContentLoaded", () => {
   closeRules.addEventListener("click", function () {
     rules.classList.remove("visible");
     rules.classList.add("hidden");
+    gameInfoContainer.classList.remove("hiddenDisplay");
+    bottomDock.classList.remove("hiddenDisplay");
     grid.classList.remove("hidden");
     grid.classList.add("visible");
+    if (gridPan) {
+      gridPan.classList.remove("hidden");
+      gridPan.classList.add("visible");
+    }
     isPaused = false;
   });
   rulesButton.addEventListener("click", function () {
     rules.classList.remove("hidden");
     rules.classList.add("visible");
+    gameInfoContainer.classList.add("hiddenDisplay");
+    bottomDock.classList.add("hiddenDisplay");
     grid.classList.remove("visible");
     grid.classList.add("hidden");
+    if (gridPan) {
+      gridPan.classList.remove("visible");
+      gridPan.classList.add("hidden");
+    }
     isPaused = true;
   });
   muteButton.addEventListener("click", function () {
@@ -154,7 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  messageLabel.addEventListener("click", function () {
+  currentWordElement.addEventListener("click", function () {
     if (!isGameActive) {
       copyToClipboard(score, longestWord, diffDays);
     }
@@ -162,33 +629,840 @@ document.addEventListener("DOMContentLoaded", () => {
 
   doneButton.addEventListener("click", endGame);
   leaderboardButton.addEventListener("click", () => getLeaderboard(true));
+  updateCurrentWord();
+
+  boardShiftZone.addEventListener("pointerdown", onShiftPointerDown);
+  boardShiftZone.addEventListener("pointermove", onShiftPointerMove);
+  boardShiftZone.addEventListener("pointerup", onShiftPointerUp);
+  boardShiftZone.addEventListener("pointercancel", onShiftPointerUp);
+
+  function resetShiftDragVisualHard() {
+    if (gridPan) {
+      gridPan.style.transition = "";
+      gridPan.style.transform = "";
+    }
+    if (gridStage) {
+      gridStage.style.transition = "";
+      gridStage.style.transform = "";
+    }
+    grid.style.transition = "";
+    grid.style.transform = "";
+    clearShiftPreview();
+    shiftVisualTx = 0;
+    shiftVisualTy = 0;
+    shiftVisualStripCount = 0;
+    unlockGridSizeAfterSwipe();
+    if (gridLineWrapper) {
+      gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
+    }
+    syncLineOverlaySize();
+  }
+
+  function finishShiftSwipeAnimation() {
+    if (gridPan) {
+      gridPan.style.transition = "";
+      gridPan.style.transform = "";
+    }
+    if (gridStage) {
+      gridStage.style.transition = "";
+      gridStage.style.transform = "";
+    }
+    grid.style.transition = "";
+    grid.style.transform = "";
+    clearShiftPreview();
+    shiftVisualStripCount = 0;
+    if (gridLineWrapper) {
+      gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
+    }
+    shiftAnimating = false;
+    syncLineOverlaySize();
+    /* Unlock inline grid size on the next paint so commit + overlay settle first. */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        unlockGridSizeAfterSwipe();
+        syncLineOverlaySize();
+      });
+    });
+  }
+
+  function cancelGridShiftAnimations() {
+    if (typeof grid.getAnimations === "function") {
+      grid.getAnimations().forEach((a) => a.cancel());
+    }
+    if (gridStage && typeof gridStage.getAnimations === "function") {
+      gridStage.getAnimations().forEach((a) => a.cancel());
+    }
+  }
+
+  function animateGridSettleFromTo(dx, dy, onDone, durationMs) {
+    const settleMs = durationMs != null ? durationMs : SHIFT_SETTLE_MS;
+    const startT = `translate(${dx}px, ${dy}px)`;
+    const endT = "translate(0px, 0px)";
+    let doneCalled = false;
+    let fallbackTimer = 0;
+
+    const finish = () => {
+      if (doneCalled) return;
+      doneCalled = true;
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+      cancelGridShiftAnimations();
+      grid.style.transform = "";
+      grid.style.transition = "";
+      onDone();
+    };
+
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+      finish();
+      return;
+    }
+
+    fallbackTimer = window.setTimeout(finish, SHIFT_GESTURE_FALLBACK_MS);
+
+    if (typeof grid.animate === "function") {
+      const anim = grid.animate([{ transform: startT }, { transform: endT }], {
+        duration: settleMs,
+        easing: "cubic-bezier(0.2, 0.85, 0.25, 1)",
+        fill: "forwards",
+      });
+      anim.finished
+        .then(() => finish())
+        .catch(() => finish());
+      return;
+    }
+
+    grid.style.transition = "none";
+    grid.style.transform = startT;
+    requestAnimationFrame(() => {
+      grid.style.transition = `transform ${settleMs}ms ${SHIFT_SETTLE_EASE}`;
+      grid.style.transform = endT;
+      const onEnd = (ev) => {
+        if (ev.target !== grid || ev.propertyName !== "transform") return;
+        grid.removeEventListener("transitionend", onEnd);
+        finish();
+      };
+      grid.addEventListener("transitionend", onEnd);
+    });
+  }
+
+  /** Stage transform for snap (same geometry as drag; applied to `#grid-stage` only). */
+  function computeShiftStageTransformString(horizontal, signedAxis, k, m) {
+    if (horizontal) {
+      const tx = signedAxis;
+      if (tx > 0) {
+        const ghostW = k * m.tw + Math.max(0, k - 1) * m.gap;
+        const baseX = -(ghostW + m.gap) + tx;
+        return `translate(${baseX}px, 0)`;
+      }
+      if (tx < 0) {
+        return `translate(${tx}px, 0)`;
+      }
+      return "translate(0px, 0px)";
+    }
+
+    const ty = signedAxis;
+    if (ty > 0) {
+      const ghostH = k * m.th + Math.max(0, k - 1) * m.gap;
+      const baseY = -ghostH + ty;
+      return `translate(0px, ${baseY}px)`;
+    }
+    if (ty < 0) {
+      return `translate(0px, ${ty}px)`;
+    }
+    return "translate(0px, 0px)";
+  }
+
+  function parseStageTranslatePx(transformCss) {
+    if (!transformCss || transformCss === "none") return { x: 0, y: 0 };
+    try {
+      const m = new DOMMatrixReadOnly(transformCss);
+      return { x: m.m41, y: m.m42 };
+    } catch (_) {
+      return { x: 0, y: 0 };
+    }
+  }
+
+  /** Child `#grid` transform that cancels current `#grid-stage` translate (sum ≈ 0 in viewport). */
+  function gridInverseCompensateTranslateString(stageTransformCss) {
+    const { x, y } = parseStageTranslatePx(stageTransformCss);
+    return `translate(${-x}px, ${-y}px)`;
+  }
+
+  function stageTransformsWithinPx(a, b, epsPx) {
+    const pa = parseStageTranslatePx(a);
+    const pb = parseStageTranslatePx(b);
+    return Math.hypot(pa.x - pb.x, pa.y - pb.y) < epsPx;
+  }
+
+  function runShiftSpringBackToZero() {
+    const hadMove = shiftVisualTx !== 0 || shiftVisualTy !== 0;
+    shiftVisualTx = 0;
+    shiftVisualTy = 0;
+    if (!hadMove) {
+      if (gridLineWrapper) {
+        gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
+      }
+      clearShiftPreview();
+      if (gridStage) {
+        gridStage.style.transition = "";
+        gridStage.style.transform = "";
+      }
+      if (gridPan) {
+        gridPan.style.transition = "";
+        gridPan.style.transform = "";
+      }
+      grid.style.transition = "";
+      grid.style.transform = "";
+      syncLineOverlaySize();
+      return;
+    }
+
+    shiftAnimating = true;
+    if (gridLineWrapper) {
+      gridLineWrapper.classList.add("grid-line-wrapper--shift-clipping");
+    }
+
+    const before = grid.getBoundingClientRect();
+    clearShiftPreview();
+    if (gridStage) {
+      gridStage.style.transition = "none";
+      gridStage.style.transform = "";
+    }
+    if (gridPan) {
+      gridPan.style.transition = "none";
+      gridPan.style.transform = "";
+    }
+    grid.style.transition = "none";
+    grid.style.transform = "";
+    void grid.offsetHeight;
+    const after = grid.getBoundingClientRect();
+    const dx = before.left - after.left;
+    const dy = before.top - after.top;
+
+    syncLineOverlaySize();
+    animateGridSettleFromTo(dx, dy, () => {
+      finishShiftSwipeAnimation();
+    });
+  }
+
+  /**
+   * Committed shift: apply board + DOM, keep ghost letters on the preview strip (resize only),
+   * ease `#grid-stage` from the finger pose to the stride snap, then clear preview + stage.
+   */
+  function runShiftSettleAfterDrag(applyShift, meta) {
+    const { horizontal, signedVis, k } = meta;
+    shiftVisualTx = 0;
+    shiftVisualTy = 0;
+
+    shiftAnimating = true;
+    if (gridLineWrapper) {
+      gridLineWrapper.classList.add("grid-line-wrapper--shift-clipping");
+    }
+
+    const useStageSettle =
+      gridStage &&
+      shiftPreviewStrip &&
+      !shiftPreviewStrip.classList.contains("shift-preview-strip--hidden");
+
+    if (!useStageSettle) {
+      const before = grid.getBoundingClientRect();
+      clearShiftPreview();
+      if (gridStage) {
+        gridStage.style.transition = "none";
+        gridStage.style.transform = "";
+      }
+      if (gridPan) {
+        gridPan.style.transition = "none";
+        gridPan.style.transform = "";
+      }
+      grid.style.transition = "none";
+      grid.style.transform = "";
+      applyShift();
+      syncDomFromBoard();
+      void grid.offsetHeight;
+      const after = grid.getBoundingClientRect();
+      const dx = before.left - after.left;
+      const dy = before.top - after.top;
+      playSound("swoosh", isMuted);
+      syncLineOverlaySize();
+      animateGridSettleFromTo(dx, dy, () => {
+        finishShiftSwipeAnimation();
+      });
+      return;
+    }
+
+    /* Pre-apply metrics match the drag transform; post-sync cell size can change. */
+    const mDrag = getGridCellMetrics();
+    let stageTransformFromDrag = gridStage.style.transform;
+    if (!stageTransformFromDrag) {
+      stageTransformFromDrag = computeShiftStageTransformString(
+        horizontal,
+        signedVis,
+        k,
+        mDrag
+      );
+    }
+
+    grid.style.transition = "none";
+    grid.style.transform = "";
+
+    const stride = horizontal
+      ? mDrag.tw + mDrag.gap
+      : mDrag.th + mDrag.gap;
+    const mag = Math.abs(signedVis);
+    const snappedMag = clampAxisMagToCommitBandForK(mag, stride, k);
+    const snappedSigned = signedVis >= 0 ? snappedMag : -snappedMag;
+    const targetTransform = computeShiftStageTransformString(
+      horizontal,
+      snappedSigned,
+      k,
+      mDrag
+    );
+
+    const skipSnapAnimate = stageTransformsWithinPx(
+      stageTransformFromDrag,
+      targetTransform,
+      0.45
+    );
+
+    const useWaapiSettle =
+      typeof gridStage.animate === "function" &&
+      typeof grid.animate === "function";
+
+    let rejoinDone = false;
+    let fallbackTimer;
+    let snapEndTimer = null;
+    /** Non-once listener must be removed explicitly; `once:true` breaks if another property transitions first. */
+    let snapStageTransitionEndHandler = null;
+    /** Web Animations API: stride snap on `#grid-stage`. */
+    let snapWaapiAnim = null;
+    let snapWaapiSafetyTimer = null;
+    /** WAAPI: dual rejoin to identity after commit. */
+    let rejoinWaapiStageAnim = null;
+    let rejoinWaapiGridAnim = null;
+    let rejoinWaapiSafetyTimer = null;
+    let commitDone = false;
+
+    const commitBoardNow = () => {
+      if (commitDone) return;
+      commitDone = true;
+      applyShift();
+      syncDomFromBoard();
+      syncLineOverlaySize();
+    };
+
+    const afterSnapTeardown = () => {
+      if (rejoinDone) {
+        return;
+      }
+      rejoinDone = true;
+      window.clearTimeout(fallbackTimer);
+      if (snapEndTimer != null) {
+        window.clearTimeout(snapEndTimer);
+        snapEndTimer = null;
+      }
+      if (snapWaapiSafetyTimer != null) {
+        window.clearTimeout(snapWaapiSafetyTimer);
+        snapWaapiSafetyTimer = null;
+      }
+      if (snapWaapiAnim) {
+        try {
+          snapWaapiAnim.cancel();
+        } catch (_) {}
+        snapWaapiAnim = null;
+      }
+      if (gridStage && snapStageTransitionEndHandler) {
+        gridStage.removeEventListener(
+          "transitionend",
+          snapStageTransitionEndHandler
+        );
+        snapStageTransitionEndHandler = null;
+      }
+      if (gridStage) {
+        gridStage.style.transition = "";
+      }
+      /* Keep letters visible: cancel stage offset with inverse translate on `#grid` so
+         committed tile text does not flash wrong-frame and the board does not go blank. */
+      const stageCssForComp =
+        gridStage && gridStage.style.transform
+          ? gridStage.style.transform
+          : "none";
+      const gridComp0 = gridInverseCompensateTranslateString(stageCssForComp);
+      grid.style.transition = "none";
+      grid.style.transform = gridComp0;
+      void grid.offsetHeight;
+      clearShiftPreview();
+      commitBoardNow();
+
+      const stageT = gridStage ? gridStage.style.transform : "";
+      const stageAtRest =
+        !stageT ||
+        stageT === "none" ||
+        stageT === "translate(0px, 0px)" ||
+        stageT === "translate(0, 0)";
+
+      let rejoinTimer = null;
+      let rejoinFinished = false;
+      let rejoinStageEnded = false;
+      let rejoinGridEnded = false;
+
+      function onRejoinTransitionEnd(ev) {
+        if (ev.target !== gridStage && ev.target !== grid) {
+          return;
+        }
+        if (ev.propertyName !== "transform" && ev.propertyName !== "translate") {
+          return;
+        }
+        if (rejoinTimer != null) {
+          window.clearTimeout(rejoinTimer);
+          rejoinTimer = null;
+        }
+        if (ev.target === gridStage) {
+          if (rejoinStageEnded) return;
+          rejoinStageEnded = true;
+        } else {
+          if (rejoinGridEnded) return;
+          rejoinGridEnded = true;
+        }
+        if (rejoinStageEnded && rejoinGridEnded) {
+          if (gridStage) {
+            gridStage.removeEventListener(
+              "transitionend",
+              onRejoinTransitionEnd
+            );
+          }
+          grid.removeEventListener("transitionend", onRejoinTransitionEnd);
+          finishRejoin();
+        }
+      }
+
+      function finishRejoin() {
+        if (rejoinFinished) {
+          return;
+        }
+        rejoinFinished = true;
+        if (rejoinWaapiSafetyTimer != null) {
+          window.clearTimeout(rejoinWaapiSafetyTimer);
+          rejoinWaapiSafetyTimer = null;
+        }
+        if (rejoinWaapiStageAnim) {
+          try {
+            rejoinWaapiStageAnim.cancel();
+          } catch (_) {}
+          rejoinWaapiStageAnim = null;
+        }
+        if (rejoinWaapiGridAnim) {
+          try {
+            rejoinWaapiGridAnim.cancel();
+          } catch (_) {}
+          rejoinWaapiGridAnim = null;
+        }
+        if (rejoinTimer != null) {
+          window.clearTimeout(rejoinTimer);
+          rejoinTimer = null;
+        }
+        if (gridStage) {
+          gridStage.removeEventListener(
+            "transitionend",
+            onRejoinTransitionEnd
+          );
+        }
+        grid.removeEventListener("transitionend", onRejoinTransitionEnd);
+        if (gridStage) {
+          gridStage.style.transition = "";
+          gridStage.style.transform = "";
+        }
+        grid.style.transition = "";
+        grid.style.transform = "";
+        finishShiftSwipeAnimation();
+      }
+
+      if (!gridStage || stageAtRest) {
+        finishRejoin();
+        return;
+      }
+
+      if (useWaapiSettle) {
+        const stageFrom =
+          gridStage.style.transform || "translate(0px, 0px)";
+        gridStage.style.transition = "none";
+        void gridStage.offsetHeight;
+        void grid.offsetHeight;
+        rejoinWaapiStageAnim = gridStage.animate(
+          [{ transform: stageFrom }, { transform: "translate(0px, 0px)" }],
+          {
+            duration: SHIFT_REJOIN_SNAP_MS,
+            easing: SHIFT_COMMIT_SNAP_EASE,
+            fill: "forwards",
+          }
+        );
+        rejoinWaapiGridAnim = grid.animate(
+          [{ transform: gridComp0 }, { transform: "translate(0px, 0px)" }],
+          {
+            duration: SHIFT_REJOIN_SNAP_MS,
+            easing: SHIFT_COMMIT_SNAP_EASE,
+            fill: "forwards",
+          }
+        );
+        rejoinWaapiSafetyTimer = window.setTimeout(() => {
+          rejoinWaapiSafetyTimer = null;
+          finishRejoin();
+        }, SHIFT_REJOIN_SNAP_MS + SHIFT_COMMIT_SNAP_END_GRACE_MS);
+        Promise.all([
+          rejoinWaapiStageAnim.finished,
+          rejoinWaapiGridAnim.finished,
+        ])
+          .then(() => {
+            if (rejoinWaapiSafetyTimer != null) {
+              window.clearTimeout(rejoinWaapiSafetyTimer);
+              rejoinWaapiSafetyTimer = null;
+            }
+            if (rejoinFinished) return;
+            finishRejoin();
+          })
+          .catch(() => {});
+      } else {
+        rejoinTimer = window.setTimeout(() => {
+          rejoinTimer = null;
+          finishRejoin();
+        }, SHIFT_REJOIN_SNAP_MS + SHIFT_COMMIT_SNAP_END_GRACE_MS);
+
+        gridStage.style.transition = "none";
+        void gridStage.offsetHeight;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (gridStage) {
+              gridStage.removeEventListener(
+                "transitionend",
+                onRejoinTransitionEnd
+              );
+              gridStage.addEventListener(
+                "transitionend",
+                onRejoinTransitionEnd
+              );
+            }
+            grid.removeEventListener(
+              "transitionend",
+              onRejoinTransitionEnd
+            );
+            grid.addEventListener("transitionend", onRejoinTransitionEnd);
+            gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+            grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+            void grid.offsetHeight;
+            void gridStage.offsetHeight;
+            gridStage.style.transform = "translate(0px, 0px)";
+            grid.style.transform = "translate(0px, 0px)";
+          });
+        });
+      }
+    };
+
+    fallbackTimer = window.setTimeout(() => {
+      afterSnapTeardown();
+    }, SHIFT_GESTURE_FALLBACK_MS);
+
+    playSound("swoosh", isMuted);
+    syncLineOverlaySize();
+
+    if (skipSnapAnimate) {
+      gridStage.style.transition = "none";
+      gridStage.style.transform = targetTransform;
+      void grid.offsetHeight;
+      requestAnimationFrame(() => afterSnapTeardown());
+    } else if (useWaapiSettle) {
+      gridStage.style.transition = "none";
+      gridStage.style.transform = stageTransformFromDrag;
+      void gridStage.offsetHeight;
+      snapWaapiAnim = gridStage.animate(
+        [{ transform: stageTransformFromDrag }, { transform: targetTransform }],
+        {
+          duration: SHIFT_COMMIT_SNAP_MS,
+          easing: SHIFT_COMMIT_SNAP_EASE,
+          fill: "forwards",
+        }
+      );
+      snapWaapiSafetyTimer = window.setTimeout(() => {
+        snapWaapiSafetyTimer = null;
+        afterSnapTeardown();
+      }, SHIFT_COMMIT_SNAP_MS + SHIFT_COMMIT_SNAP_END_GRACE_MS);
+      snapWaapiAnim.finished
+        .then(() => {
+          if (snapWaapiSafetyTimer != null) {
+            window.clearTimeout(snapWaapiSafetyTimer);
+            snapWaapiSafetyTimer = null;
+          }
+          if (rejoinDone) return;
+          afterSnapTeardown();
+        })
+        .catch(() => {});
+    } else {
+      snapStageTransitionEndHandler = (ev) => {
+        if (ev.target !== gridStage) {
+          return;
+        }
+        if (ev.propertyName !== "transform" && ev.propertyName !== "translate") {
+          return;
+        }
+        if (gridStage && snapStageTransitionEndHandler) {
+          gridStage.removeEventListener(
+            "transitionend",
+            snapStageTransitionEndHandler
+          );
+          snapStageTransitionEndHandler = null;
+        }
+        window.clearTimeout(snapEndTimer);
+        snapEndTimer = null;
+        afterSnapTeardown();
+      };
+      snapEndTimer = window.setTimeout(() => {
+        snapEndTimer = null;
+        afterSnapTeardown();
+      }, SHIFT_COMMIT_SNAP_MS + SHIFT_COMMIT_SNAP_END_GRACE_MS);
+      gridStage.style.transition = "none";
+      gridStage.style.transform = stageTransformFromDrag;
+      void gridStage.offsetHeight;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (gridStage && snapStageTransitionEndHandler) {
+            gridStage.removeEventListener(
+              "transitionend",
+              snapStageTransitionEndHandler
+            );
+          }
+          gridStage.addEventListener(
+            "transitionend",
+            snapStageTransitionEndHandler
+          );
+          gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+          gridStage.style.transform = targetTransform;
+        });
+      });
+    }
+  }
+
+  function onShiftPointerDown(e) {
+    if (!isGameActive || isPaused || shiftAnimating) return;
+    if (e.button != null && e.button !== 0) return;
+    cancelGridShiftAnimations();
+    shiftPointerId = e.pointerId;
+    shiftStartX = e.clientX;
+    shiftStartY = e.clientY;
+    shiftDragLockedHorizontal = null;
+    shiftVisualTx = 0;
+    shiftVisualTy = 0;
+    shiftVisualStripCount = 0;
+    shiftVisualStripHorizontal = false;
+    if (gridPan) {
+      gridPan.style.transition = "";
+      gridPan.style.transform = "";
+    }
+    if (gridStage) {
+      gridStage.style.transition = "";
+      gridStage.style.transform = "";
+    }
+    grid.style.transition = "";
+    grid.style.transform = "";
+    clearShiftPreview();
+    unlockGridSizeAfterSwipe();
+    lockGridSizeForSwipe();
+    if (gridLineWrapper) {
+      gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
+    }
+    syncLineOverlaySize();
+    try {
+      boardShiftZone.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+
+  function onShiftPointerMove(e) {
+    if (shiftPointerId !== e.pointerId || shiftAnimating) return;
+    const dx = e.clientX - shiftStartX;
+    const dy = e.clientY - shiftStartY;
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+
+    if (
+      shiftDragLockedHorizontal === null &&
+      Math.max(adx, ady) >= SHIFT_AXIS_LOCK_PX
+    ) {
+      shiftDragLockedHorizontal = adx >= ady;
+    }
+
+    if (shiftDragLockedHorizontal === null) {
+      if (gridPan) {
+        gridPan.style.transition = "none";
+        gridPan.style.transform = "";
+      }
+      if (gridStage) {
+        gridStage.style.transition = "none";
+        gridStage.style.transform = "translate(0, 0)";
+      }
+      grid.style.transition = "none";
+      grid.style.transform = "translate(0, 0)";
+      clearShiftPreview();
+      shiftVisualTx = 0;
+      shiftVisualTy = 0;
+      shiftVisualStripCount = 0;
+      syncLineOverlaySize();
+      return;
+    }
+
+    const n = GRID_SIZE;
+    const m = getGridCellMetrics();
+    const stride = shiftDragLockedHorizontal ? m.tw + m.gap : m.th + m.gap;
+    const maxSlide = shiftMaxStepsPerGesture(n) * stride;
+    const axis = shiftDragLockedHorizontal ? dx : dy;
+    const clamped = Math.max(
+      Math.min(axis * SHIFT_SLIDE_SENSITIVITY, maxSlide),
+      -maxSlide
+    );
+    let tx = 0;
+    let ty = 0;
+    if (shiftDragLockedHorizontal) {
+      tx = clamped;
+    } else {
+      ty = clamped;
+    }
+    const q = quantizeShiftVisualAxis(
+      tx,
+      ty,
+      shiftDragLockedHorizontal,
+      stride,
+      n
+    );
+    updateShiftStageVisual(q.tx, q.ty, shiftDragLockedHorizontal, q.rawTx, q.rawTy);
+    shiftVisualTx = q.tx;
+    shiftVisualTy = q.ty;
+    syncLineOverlaySize();
+  }
+
+  function onShiftPointerUp(e) {
+    if (shiftPointerId !== e.pointerId) return;
+    try {
+      boardShiftZone.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    const lockedHorizontal = shiftDragLockedHorizontal;
+    shiftDragLockedHorizontal = null;
+    shiftPointerId = null;
+    const dx = e.clientX - shiftStartX;
+    const dy = e.clientY - shiftStartY;
+    tryApplyBoardShift(dx, dy, lockedHorizontal);
+  }
+
+  function tryApplyBoardShift(dx, dy, lockedHorizontal) {
+    if (shiftAnimating) return;
+
+    const hadVisual = shiftVisualTx !== 0 || shiftVisualTy !== 0;
+
+    if (!isGameActive || isPaused) {
+      resetShiftDragVisualHard();
+      return;
+    }
+    if (isMouseDown) {
+      if (hadVisual) {
+        runShiftSpringBackToZero();
+      } else {
+        resetShiftDragVisualHard();
+      }
+      return;
+    }
+
+    const n = GRID_SIZE;
+    const m = getGridCellMetrics();
+    const horizontal =
+      lockedHorizontal !== null ? lockedHorizontal : Math.abs(dx) >= Math.abs(dy);
+    const stride = horizontal ? m.tw + m.gap : m.th + m.gap;
+    const magVis = horizontal ? Math.abs(shiftVisualTx) : Math.abs(shiftVisualTy);
+    const signedVis = horizontal ? shiftVisualTx : shiftVisualTy;
+
+    const steps = shiftCommitStepsFromAxisMag(magVis, stride, n);
+    if (steps === 0) {
+      if (hadVisual) {
+        runShiftSpringBackToZero();
+      }
+      return;
+    }
+
+    const applyShift = () => {
+      const signedSteps = signedVis >= 0 ? steps : -steps;
+      if (horizontal) {
+        applyColumnShift(signedSteps);
+      } else {
+        applyRowShift(signedSteps);
+      }
+    };
+    runShiftSettleAfterDrag(applyShift, { horizontal, signedVis, k: steps });
+  }
+
+  /** Positive = shift columns toward increasing c (drag preview “right”); negative = left. */
+  function applyColumnShift(signedSteps) {
+    const n = GRID_SIZE;
+    const kk = Math.abs(signedSteps) % n;
+    if (kk === 0) return;
+    const copy = board.map((row) => row.slice());
+    const right = signedSteps > 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        board[r][c] = right
+          ? copy[r][(c - kk + n * 10) % n]
+          : copy[r][(c + kk) % n];
+      }
+    }
+  }
+
+  /** Positive = shift rows toward increasing r (drag preview “down”); negative = up. */
+  function applyRowShift(signedSteps) {
+    const n = GRID_SIZE;
+    const kk = Math.abs(signedSteps) % n;
+    if (kk === 0) return;
+    const copy = board.map((row) => row.slice());
+    const down = signedSteps > 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        board[r][c] = down
+          ? copy[(r - kk + n * 10) % n][c]
+          : copy[(r + kk) % n][c];
+      }
+    }
+  }
+
+  function syncDomFromBoard() {
+    const n = GRID_SIZE;
+    const tiles = grid.children;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        tiles[r * n + c].textContent = board[r][c];
+      }
+    }
+  }
 
   function startGame() {
     playSound("click", isMuted);
     playSound("bing", true);
     playSound("bing2", true);
     playSound("invalid", true);
-    playSound("tick", true);
     isGameActive = true;
-    timerElement.style.color = "white";
     startButton.style.display = "none"; // Hide start button
-    hardModeContainer.style.display = "none"; // Hide hardMode checkbox
     currentWordElement.classList.remove("hidden");
     currentWordElement.classList.add("visible");
     document
       .getElementById("next-letters-container")
       .classList.add("visibleDisplay");
-    doneButton.classList.remove("hidden");
+    doneButton.classList.remove("hiddenDisplay");
     doneButton.classList.add("visibleDisplay");
-    swapButton.classList.remove("hidden");
-    swapButton.classList.add("visibleDisplay");
+    boardShiftZone.classList.remove("hiddenDisplay");
+    boardShiftZone.classList.add("visibleDisplay");
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].disabled = false; // Enable the buttons
       buttons[i].classList.add("grid-button--active");
       buttons[i].classList.remove("grid-button--inactive");
+      buttons[i].style.color = "";
     }
+
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
+    lockGridSizeForSwipe();
 
     score = 0;
     currentWord = "";
@@ -197,30 +1471,37 @@ document.addEventListener("DOMContentLoaded", () => {
     updateScore();
     updateCurrentWord();
     updateNextLetters();
-    startTimer();
   }
 
   function generateGrid() {
     diffDays = calculateDiffDays();
     const gridLetters = gridsList[diffDays % gridsList.length];
+    board = [];
 
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 4; j++) {
+    for (let i = 0; i < GRID_SIZE; i++) {
+      board[i] = [];
+      for (let j = 0; j < GRID_SIZE; j++) {
+        board[i][j] = gridLetters[i][j];
         const button = document.createElement("button");
+        button.type = "button";
         button.textContent = gridLetters[i][j];
         button.classList.add("grid-button");
         button.classList.add("grid-button--inactive");
         button.disabled = true;
         button.addEventListener("mousedown", handleMouseDown);
         button.addEventListener("mouseover", handleMouseOver);
-        button.addEventListener("touchstart", handleTouchStart);
+        button.addEventListener("touchstart", handleTouchStart, {
+          passive: false,
+        });
         button.addEventListener("touchmove", handleTouchMove);
         grid.appendChild(button);
       }
     }
 
-    gridLineContainer.style.width = grid.offsetWidth + "px";
-    gridLineContainer.style.height = "400px";
+    ensureShiftPreviewElements();
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
+    requestAnimationFrame(lockGridSizeForSwipe);
   }
 
   function generateNextLetters() {
@@ -229,58 +1510,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return nextLetters;
   }
 
-  function handleSwap() {
-    if (isSwapEnabled && isSwapValid) {
-      swapCount = swapCount - 1;
-      playSound("swoosh", isMuted);
-      showMessage(`swapped ${swapTiles[0].textContent} & ${swapTiles[1].textContent}`, 1, happyHuntingColor);
-      // Swap the letters of the two tiles
-      swapLetters(swapTiles[0], swapTiles[1]);
-      swapTiles = [];
-      isSwapEnabled = false;
-      isSwapValid = false;
-      swapButton.textContent = `SWAP[${swapCount}]`;
-      if (swapCount == 0) {
-        swapButton.style.backgroundColor = swapUsedColor;
-        swapButton.disabled = true;
-      } else {
-        swapButton.style.backgroundColor = swapOriginalColor;
-      }
-    } else if (isSwapEnabled) {
-      playSound("click", isMuted);
-      // User tried to swap while it wasn't valid
-      swapTiles.forEach((tile) => tile.classList.remove("selected-swap"));
-      swapTiles = [];
-      isSwapEnabled = false;
-      swapButton.style.backgroundColor = swapOriginalColor;
-      swapButton.textContent = `SWAP[${swapCount}]`;
-      showMessage("Swap exited", 1, happyHuntingColor);
-    } else {
-      playSound("click", isMuted);
-      isSwapEnabled = true;
-      swapButton.style.backgroundColor = swapInUseColor;
-      swapButton.textContent = "BACK";
-      showMessage("select 2 tiles", 1, happyHuntingColor);
-    }
-  }
-
-  function swapLetters(tile1, tile2) {
-    // Swap the letters of tile1 and tile2
-    const temp = tile1.textContent;
-    tile1.textContent = tile2.textContent;
-    tile2.textContent = temp;
-
-    // Reset the selected state of the tiles
-    tile1.classList.remove("selected-swap");
-    tile2.classList.remove("selected-swap");
-  }
-
   function updateScore() {
     scoreElement.textContent = "Score: " + score;
   }
 
   function updateCurrentWord() {
-    currentWordElement.textContent = currentWord;
+    if (currentWordMessageActive) return;
+    if (!currentWord) {
+      currentWordElement.textContent = "";
+      currentWordElement.style.color = "white";
+      return;
+    }
+    currentWordElement.textContent = currentWord.toUpperCase();
+    currentWordElement.style.color = "white";
   }
 
   function updateNextLetters() {
@@ -304,59 +1546,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return diffDays;
   }
 
-  function startTimer() {
-    // Clear the previous timer
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-
-    if (hardMode) {
-      time = 30;
-    } else {
-      time = 60;
-    }
-
-    timerElement.textContent = "Time: " + time;
-    timerElement.style.color = "white";
-
-    intervalId = setInterval(() => {
-      if (isPaused) {
-        return;
-      }
-
-      time -= 1;
-      timerElement.textContent = "Time: " + time;
-
-      if (time <= 10) {
-        playSound("tick", isMuted);
-        timerElement.style.color = time % 2 === 0 ? hardmodeColor : "white";
-      }
-
-      if (time <= 0) {
-        clearInterval(intervalId);
-        endGame();
-      }
-    }, 1000);
-  }
-
-  function handleHardMode() {
-    playSound("click", isMuted);
-    hardMode = hardModeCheckbox.checked;
-    if (hardMode) {
-      hardModeLabel.style.color = hardmodeColor;
-      time = 30;
-      timerElement.textContent = "Time: 30";
-      timerElement.style.color = hardmodeColor;
-      asterisk = "*";
-    } else {
-      hardModeLabel.style.color = "white";
-      time = 60;
-      timerElement.textContent = "Time: 60";
-      timerElement.style.color = "white";
-      asterisk = "";
-    }
-  }
-
   function handleTouchStart(event) {
     if (!isGameActive) return;
     handleMouseDown(event);
@@ -364,7 +1553,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchMove(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) return;
     event.preventDefault();
     const touch = event.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -382,58 +1570,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchEnd(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) return;
     if (event.target.classList.contains("grid-button")) {
       const mockEvent = { target: event.target, preventDefault: () => {} };
       handleMouseUp(mockEvent);
     }
   }
 
+  /** Updates `data-selection-visits` from how often each tile appears in the path. */
+  function syncSelectionVisitDepth() {
+    const counts = new Map();
+    for (const btn of selectedButtons) {
+      counts.set(btn, (counts.get(btn) || 0) + 1);
+    }
+    for (const btn of grid.children) {
+      if (!btn.classList.contains("grid-button")) continue;
+      const n = counts.get(btn);
+      if (n === undefined) {
+        btn.removeAttribute("data-selection-visits");
+      } else {
+        btn.setAttribute("data-selection-visits", String(n));
+      }
+    }
+  }
+
   function handleMouseDown(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) {
-      if (event.target.classList.contains("selected-swap")) {
-        playSound("pop", isMuted);
-        // Deselecting a previously selected tile
-        event.target.classList.remove("selected-swap");
-        swapTiles = swapTiles.filter((tile) => tile !== event.target);
-      } else if (swapTiles.length < 2) {
-        playSound("pop", isMuted);
-        // Selecting a new tile
-        event.target.classList.add("selected-swap");
-        swapTiles.push(event.target);
-      }
-
-      if (swapTiles.length === 2) {
-        isSwapValid = true;
-        swapButton.textContent = "SWAP";
-        swapButton.style.backgroundColor = swapReadyColor;
-      } else {
-        isSwapValid = false;
-        swapButton.textContent = "BACK";
-        swapButton.style.backgroundColor = swapInUseColor;
-      }
-    } else {
-      if (
-        event.target.classList.contains("grid-button") &&
-        event.target.textContent !== "" &&
-        (lastButton === null || isAdjacent(lastButton, event.target))
-      ) {
-        isMouseDown = true;
-        currentWord += event.target.textContent;
-        selectedButtons.push(event.target);
-        selectedButtonSet.add(event.target);
-        event.target.classList.add("selected");
-        lastButton = event.target;
-        messageLabel.textContent = "";
-        updateCurrentWord();
-      }
+    if (
+      event.target.classList.contains("grid-button") &&
+      event.target.textContent !== "" &&
+      (lastButton === null || isAdjacent(lastButton, event.target))
+    ) {
+      isMouseDown = true;
+      currentWord += event.target.textContent;
+      selectedButtons.push(event.target);
+      selectedButtonSet.add(event.target);
+      event.target.classList.add("selected");
+      lastButton = event.target;
+      syncSelectionVisitDepth();
+      updateCurrentWord();
     }
   }
 
   function handleMouseOver(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) return;
     if (
       isMouseDown &&
       event.target.textContent !== "" &&
@@ -511,13 +1690,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       lastButton = event.target;
+      syncSelectionVisitDepth();
       updateCurrentWord();
     }
   }
 
   function handleMouseUp(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) return;
     if (isMouseDown) {
       isMouseDown = false;
       if (currentWord.length > 2) {
@@ -539,7 +1718,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           updateScore();
           replaceLetters();
-          startTimer();
         } else {
           playSound("invalid", isMuted);
           showMessage("INVALID", 1, redTextColor);
@@ -548,6 +1726,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentWord = "";
       selectedButtons.forEach((button) => {
         button.classList.remove("selected");
+        button.removeAttribute("data-selection-visits");
       });
       updateCurrentWord();
       selectedButtons = [];
@@ -560,25 +1739,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isAdjacent(button1, button2) {
+    const n = GRID_SIZE;
     const index1 = Array.prototype.indexOf.call(grid.children, button1);
     const index2 = Array.prototype.indexOf.call(grid.children, button2);
-    const diff = Math.abs(index1 - index2);
-
-    const isHorizontal =
-      diff === 1 && Math.floor(index1 / 4) === Math.floor(index2 / 4);
-    const isVertical = diff === 4;
-    const isDiagonal =
-      (diff === 5 || diff === 3) &&
-      Math.abs(Math.floor(index1 / 4) - Math.floor(index2 / 4)) === 1;
-
-    return isHorizontal || isVertical || isDiagonal;
+    const r1 = Math.floor(index1 / n);
+    const c1 = index1 % n;
+    const r2 = Math.floor(index2 / n);
+    const c2 = index2 % n;
+    const dr = Math.abs(r1 - r2);
+    const dc = Math.abs(c1 - c2);
+    return dr <= 1 && dc <= 1 && dr + dc > 0;
   }
 
   function replaceLetters() {
+    const n = GRID_SIZE;
     const uniqueSelectedButtons = Array.from(selectedButtonSet);
     uniqueSelectedButtons.forEach((button) => {
       const nextLetter = nextLetters.shift() || "";
       button.textContent = nextLetter;
+      const idx = Array.prototype.indexOf.call(grid.children, button);
+      const r = Math.floor(idx / n);
+      const c = idx % n;
+      board[r][c] = nextLetter;
     });
     selectedButtonSet.clear();
     lastButton = null;
@@ -586,31 +1768,46 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showMessage(message, flashTimes = 1, color = "white") {
-    messageLabel.textContent = message;
-    messageLabel.style.color = color; // Set the color
-    messageLabel.classList.remove("hidden");
-    messageLabel.classList.add("visible");
+    if (currentWordMessageTimer) {
+      window.clearTimeout(currentWordMessageTimer);
+      currentWordMessageTimer = null;
+    }
+    currentWordMessageActive = true;
+    currentWordElement.textContent = message;
+    currentWordElement.style.color = color;
 
     if (flashTimes > 1) {
-      setTimeout(() => {
-        messageLabel.classList.remove("visible");
-        messageLabel.classList.add("hidden");
-        setTimeout(() => {
+      currentWordMessageTimer = window.setTimeout(() => {
+        currentWordMessageActive = false;
+        updateCurrentWord();
+        currentWordMessageTimer = window.setTimeout(() => {
           showMessage(message, flashTimes - 1, color);
-        }, 1000);
-      }, 1000);
+        }, 380);
+      }, 820);
     } else {
-      setTimeout(() => {
-        messageLabel.classList.remove("visible");
-        messageLabel.classList.add("hidden");
-      }, 1000);
+      currentWordMessageTimer = window.setTimeout(() => {
+        currentWordMessageActive = false;
+        updateCurrentWord();
+        currentWordMessageTimer = null;
+      }, 1100);
     }
   }
 
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
-    clearInterval(intervalId);
+
+    rules.classList.remove("visible");
+    rules.classList.add("hidden");
+    gameInfoContainer.classList.remove("hiddenDisplay");
+    bottomDock.classList.remove("hiddenDisplay");
+    grid.classList.remove("hidden");
+    grid.classList.add("visible");
+    if (gridPan) {
+      gridPan.classList.remove("hidden");
+      gridPan.classList.add("visible");
+    }
+    isPaused = false;
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
@@ -618,7 +1815,8 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.remove("grid-button--active");
       buttons[i].classList.add("grid-button--inactive");
       buttons[i].classList.remove("selected");
-      buttons[i].style.color = "white";
+      buttons[i].removeAttribute("data-selection-visits");
+      buttons[i].style.color = "";
     }
     currentWord = "";
     updateCurrentWord();
@@ -626,7 +1824,7 @@ document.addEventListener("DOMContentLoaded", () => {
       gridLineContainer.firstChild.remove();
     }
 
-    // Hide Rules, Done and Swap buttons
+    // Hide Rules, Done, shift zone, mute/help
     rulesButton.classList.add("hiddenDisplay");
     rulesButton.classList.add("hidden");
     rulesButton.classList.remove("visible");
@@ -635,8 +1833,8 @@ document.addEventListener("DOMContentLoaded", () => {
     muteButton.classList.remove("visible");
     doneButton.classList.add("hiddenDisplay");
     doneButton.classList.remove("visibleDisplay");
-    swapButton.classList.add("hiddenDisplay");
-    swapButton.classList.remove("visibleDisplay");
+    boardShiftZone.classList.add("hiddenDisplay");
+    boardShiftZone.classList.remove("visibleDisplay");
 
     // Show Retry button
     retryButton.classList.remove("hiddenDisplay");
@@ -648,17 +1846,25 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardTable.classList.add("hidden");
 
     setTimeout(function () {
-      messageLabel.textContent = "Copy Score";
-      messageLabel.style.color = happyHuntingColor;
-      messageLabel.classList.remove("hidden");
-      messageLabel.classList.add("visible");
+      currentWordMessageActive = false;
+      currentWordElement.textContent = "Copy Score";
+      currentWordElement.style.color = happyHuntingColor;
       nextLettersElement.textContent = sponsorMsg;
+
+      boardShiftZone.classList.add("hiddenDisplay");
+      boardShiftZone.classList.remove("visibleDisplay");
 
       // Leaderboard elements
       grid.classList.remove("visible");
       grid.classList.remove("visibleDisplay");
       grid.classList.add("hidden");
       grid.classList.add("hiddenDisplay");
+      if (gridPan) {
+        gridPan.classList.remove("visible");
+        gridPan.classList.remove("visibleDisplay");
+        gridPan.classList.add("hidden");
+        gridPan.classList.add("hiddenDisplay");
+      }
       gridLineContainer.classList.remove("visible");
       gridLineContainer.classList.remove("visibleDisplay");
       gridLineContainer.classList.remove("hiddenDisplay");
@@ -701,7 +1907,7 @@ document.addEventListener("DOMContentLoaded", () => {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
         player: playerName.value,
-        hard: hardMode,
+        hard: false,
         score: score,
         trophy: longestWord,
       });
@@ -737,11 +1943,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // add the new leaderboard rows
     leaderboard.forEach((row, index) => {
       let tr = document.createElement("tr");
-      let [player, hardMode, rowScore, rowTrophy] = row;
+      let [player, rowHardFlag, rowScore, rowTrophy] = row;
 
       // Determine the color of the row
       let color = "white"; // default color
-      if (hardMode === 1) {
+      if (rowHardFlag === 1) {
         color = redTextColorLeaderboard;
       }
       if (
@@ -808,7 +2014,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     navigator.clipboard
       .writeText(
-        `${leaderboardText}WordHunter #${diffDays} 🏹${score}${asterisk}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
+        `${leaderboardText}WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
       )
       .then(function () {
         alert("Score copied to clipboard");

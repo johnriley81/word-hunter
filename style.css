@@ -1,22 +1,51 @@
 :root {
+  --header-control-size: 32px;
+  /* Matches body padding + header strip so overlay controls align with #rules-button / #mute-button */
+  --page-padding: 5px;
+  --logo-rules-padding-y: 2px;
   --page-background-color: #1c1c1e;
   --page-text-color: #ffffff;
   --page-text-shadow-color: black;
-  --box-border-color: #d14402;
+  --box-border-color: #3a1f4d;
   --box-background-color: black;
   --next-letters-text-color: white;
   --next-letters-shadow-color: black;
   --grid-button-border-color: #8c8594;
-  --grid-button-shadow-color: black;
-  --grid-button-inactive-color: #303030;
-  --grid-button-active-color: black;
+  --grid-button-shadow-color: transparent;
+  /* Pre-start / disabled letter tiles */
+  --grid-button-inactive-color: #505050;
+  --grid-button-inactive-text-color: #000000;
+  --grid-button-inactive-border-color: #000000;
+  /* Active (playable) letter tiles */
+  --grid-button-active-color: hwb(44 91% 2%);
+  --grid-button-active-text-color: #3a1f4d;
+  --grid-button-active-border-color: #000000;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
-  --button-background-color: #ed3d02;
-  --button-text-color: white;
-  --selected-tile-color: #3d4f3a;
-  --swap-tile-color: #0222ed;
+  /* START / RETRY (bottom dock) */
+  --button-background-color: #ffffff;
+  --button-text-color: hwb(275 16% 5%);
+  --selected-tile-color: #cbe6ff;
+  --selected-tile-text-color: #1a2d42;
+  /* Each time the path crosses the same tile again, shade steps darker */
+  --selected-tile-visit2-color: #9ec9f2;
+  --selected-tile-visit2-text-color: #142433;
+  --selected-tile-visit3-color: #6fabdf;
+  --selected-tile-visit3-text-color: #0f1822;
+  /* Full-page backdrop (shown behind image while it loads / if image fails). */
+  --body-background-fallback-color: #fce4ec;
+  --body-background-image: url("images/background.png");
+  --header-icon-button-background-color: #ffffff;
+  --rules-overlay-background-color: rgba(0, 0, 0, 0.85);
+  --board-shift-hint-color: #ffffff;
+  --board-shift-hint-text-shadow-color: black;
+  --board-shift-zone-border-color: rgba(255, 255, 255, 0.2);
+  --grid-size: 4;
+  --grid-gap: 10px;
+  --grid-max: 400px;
+  /* Space between tile field and the grid container box */
+  --grid-edge-padding: 12px;
 }
 
 @media screen and (orientation: landscape) {
@@ -36,25 +65,47 @@ body {
   text-transform: uppercase;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-around;
-  height: 100%;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 100%;
+  min-height: 100dvh;
+  height: auto;
   margin: 0;
-  padding: 5px;
-  background-color: var(--page-background-color);
+  padding: var(--page-padding);
+  box-sizing: border-box;
   color: var(--page-text-color);
   overflow: hidden;
-  background: url("images/background.png") no-repeat center center fixed;
+  overscroll-behavior-x: none;
+}
+
+/* Omit #rules: it is `position: fixed` and must not participate as a flex item (would fight #bottom-dock margin-top: auto). */
+body > *:not(#page-background):not(#rules) {
+  position: relative;
+  z-index: 1;
+}
+
+html {
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior-x: none;
+  background-color: var(--body-background-fallback-color);
+}
+
+/* Own layer behind UI so grid/shift transforms do not reparent a `fixed` body background. */
+#page-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--body-background-fallback-color);
+  background-image: var(--body-background-image);
+  background-repeat: no-repeat;
+  background-position: center center;
   -webkit-background-size: cover;
   -moz-background-size: cover;
   -o-background-size: cover;
   background-size: cover;
-  overscroll-behavior-x: none;
-}
-
-html {
-  height: 85vh;
-  overscroll-behavior-x: none;
 }
 
 #logo-rules-container {
@@ -62,21 +113,23 @@ html {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 10%;
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  height: auto;
+  padding: var(--logo-rules-padding-y) 0;
   position: relative;
+  box-sizing: border-box;
 }
 
 #logo {
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-}
-
-@media screen and (max-height: 667px) {
-  #logo {
-    width: 10%;
-    height: 100%;
-  }
+  display: block;
+  height: auto;
+  width: auto;
+  max-height: 72px;
+  max-width: min(288px, 78vw);
+  object-fit: contain;
+  filter: brightness(0);
 }
 
 #rules-button {
@@ -87,29 +140,77 @@ html {
 
 #close-rules {
   position: absolute;
-  right: 5px;
-  top: 5px;
+  right: var(--page-padding);
+  top: calc(var(--page-padding) + var(--logo-rules-padding-y));
+  z-index: 2;
 }
 
 #mute-button {
   position: absolute;
-  right: 50px;
+  right: calc(var(--header-control-size) + 8px);
   top: 0px;
+}
+
+.header-icon-button,
+.header-bar-button {
+  box-sizing: border-box;
+  width: var(--header-control-size);
+  height: var(--header-control-size);
+  min-width: var(--header-control-size);
+  min-height: var(--header-control-size);
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    sans-serif;
+  font-size: clamp(1rem, 4.2vw, 1.2rem);
+  line-height: 1;
+  text-align: center;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--header-icon-button-background-color);
+  color: var(--page-text-color);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.header-bar-button {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+#done-button.header-bar-button.visibleDisplay {
+  display: inline-flex;
 }
 
 #rules {
   position: fixed;
   top: 0;
   left: 0;
+  z-index: 200;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.85);
+  background-color: var(--rules-overlay-background-color);
   font-size: smaller;
   color: var(--page-text-color);
-  display: flex;
   justify-content: top;
   flex-direction: column;
   box-sizing: border-box;
+}
+
+#rules.hidden {
+  display: none !important;
+  pointer-events: none;
+}
+
+#rules.visible {
+  display: flex !important;
+  pointer-events: auto;
 }
 
 #game-info-container {
@@ -122,13 +223,13 @@ html {
 
 .score-timer-container {
   display: flex;
-  justify-content: space-evenly;
+  justify-content: center;
+  align-items: center;
   width: 100%;
   height: 30%;
 }
 
-#score,
-#timer {
+#score {
   border-style: outset;
   border-color: var(--box-border-color);
   background-color: var(--box-background-color);
@@ -136,6 +237,7 @@ html {
 }
 
 #next-letters-container {
+  order: 2;
   height: 20%;
   width: 100%;
   display: flex;
@@ -158,84 +260,183 @@ html {
 }
 
 .current-message-container {
+  order: 3;
   display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
   width: 100%;
-  height: 50%;
+  min-height: 30px;
+  height: auto;
 }
 
 #current-word,
 #message-label {
-  position: absolute; /* added */
-  height: 50%;
+  position: relative;
   white-space: nowrap; /* prevent text from wrapping to the next line */
-  overflow: hidden; /* hide any text that overflows the container */
+  overflow: visible;
   text-overflow: ellipsis; /* show an ellipsis when the text overflows */
   text-shadow: 2px 2px 2px var(--page-text-shadow-color);
   text-align: center; /* center the text horizontally */
   width: 100%; /* added to fill the container width */
 }
 
-#grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  width: 100vw;
-  height: 50%;
+#current-word {
+  z-index: 3;
+  font-size: clamp(1.15rem, 4.6vw, 1.7rem);
+  line-height: 1;
 }
 
-@media (min-width: 768px) {
-  /* apply these styles when the screen is larger than 768px */
-  #grid {
-    max-width: 400px;
-    max-height: 400px;
-  }
+#message-label {
+  display: none !important;
+}
+
+/* Clips pan to the main board rectangle so rows/columns disappear at grid edges while shifting. */
+.grid-viewport {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  flex-shrink: 0;
+}
+
+#grid-pan {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Single transform target for shift gestures; preview strip + #grid are flex children. */
+#grid-stage {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+  height: 100%;
+  transform: translate(0, 0);
+  transform-origin: 0 0;
+  gap: var(--grid-gap);
+}
+
+#grid-stage.grid-stage--col {
+  flex-direction: column;
+}
+
+/* Preview after main grid (negative drag): column to the right or row below. */
+.grid-stage--strip-end #grid {
+  order: 1;
+}
+
+.grid-stage--strip-end .shift-preview-strip {
+  order: 2;
+}
+
+.shift-preview-strip--hidden {
+  display: none !important;
+}
+
+.shift-preview-strip {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.shift-preview-inner {
+  display: grid;
+  gap: var(--grid-gap);
+  width: 100%;
+  height: 100%;
+}
+
+.shift-preview-inner--col {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(var(--grid-size), 1fr);
+}
+
+.shift-preview-inner--row {
+  grid-template-rows: 1fr;
+  grid-template-columns: repeat(var(--grid-size), 1fr);
+}
+
+.shift-preview-tile {
+  pointer-events: none;
+  cursor: default;
+}
+
+#grid {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-size), 1fr);
+  gap: var(--grid-gap);
+  align-content: start;
+  justify-content: start;
+  flex: 0 0 auto;
+  order: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  align-self: auto;
 }
 
 .grid-button {
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  min-height: 0;
   border: 2px solid var(--grid-button-border-color);
-  box-shadow: 0 0 0 4px var(--grid-button-shadow-color);
-  border-radius: 30px;
-  font-size: 1.5rem;
-  font-weight: bold;
+  box-shadow: 0 0 0 3px var(--grid-button-shadow-color);
+  border-radius: 16px;
+  font-size: clamp(1.5rem, 5.8vw, 2.3rem);
+  font-weight: 650;
   font-family: "Gill Sans";
   color: var(--grid-button-text-color);
   text-transform: capitalize;
-  height: calc((100vw - 3 * 20px) / 4);
-  width: calc((100vw - 3 * 20px) / 4);
   user-select: none;
   -webkit-user-select: none;
 }
 
 .grid-button--inactive {
   background-color: var(--grid-button-inactive-color);
+  color: var(--grid-button-inactive-text-color);
+  border-color: var(--grid-button-inactive-border-color);
 }
 
 .grid-button--active {
   background-color: var(--grid-button-active-color);
-}
-
-@media (min-width: 768px) {
-  /* apply these styles when the screen is larger than 768px */
-  .grid-button {
-    height: calc((400px - 3 * 20px) / 4);
-    width: calc((400px - 3 * 20px) / 4);
-  }
+  color: var(--grid-button-active-text-color);
+  border-color: var(--grid-button-active-border-color);
 }
 
 #grid-line-wrapper {
   position: relative;
-  width: 100vw;
-  height: 100vh;
-  @media (min-width: 768px) {
-    max-width: 400px;
-    max-height: 400px;
-  }
+  width: 100%;
+  max-width: 100%;
+  padding: var(--grid-edge-padding);
+  box-sizing: border-box;
+  align-self: center;
+  flex: 0 0 auto;
+  height: auto;
+  z-index: 1;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#grid-line-wrapper.grid-line-wrapper--shift-clipping {
+  overflow: hidden;
 }
 
 #line-container {
@@ -244,6 +445,7 @@ html {
   left: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
   pointer-events: none; /* this allows mouse events to pass through to the buttons underneath */
 }
 
@@ -310,35 +512,64 @@ html {
   white-space: nowrap;
 }
 
-#button-container {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-evenly;
-  align-items: center;
-  height: 10%;
+#bottom-dock {
+  margin-top: auto;
+  flex: 0 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  z-index: 2;
+  position: relative;
 }
 
-#hard-mode-container {
+#board-shift-zone {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 88px;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  box-sizing: border-box;
+  padding: 8px;
+  color: var(--board-shift-hint-color);
+  text-shadow: 1px 1px 2px var(--board-shift-hint-text-shadow-color);
+  font-size: 0.45rem;
+  font-family: "Press Start 2P", cursive;
+  border-top: 1px dashed var(--board-shift-zone-border-color);
+}
+
+#board-shift-zone.visibleDisplay {
+  display: flex;
+}
+
+#board-shift-hint {
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.6;
+}
+
+#button-container {
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  height: 10%;
-  width: 40%;
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 8px 0 12px;
+  gap: 12px;
 }
 
 #start,
-#done-button,
-#swap-button,
 #retry-button {
-  width: 40%; /* adjust this value to create more space around the buttons */
+  width: auto;
+  min-width: min(280px, 85vw);
+  max-width: 90vw;
   font-family: "Press Start 2P", cursive;
-  height: 50%; /* let the browser decide the height based on content and padding */
-  padding: 4%; /* adjust padding to create space around the text */
+  padding: 14px 28px;
   font-size: 1rem;
   text-align: center;
-  margin: 1vh 0;
+  margin: 0;
   border: none;
   background-color: var(--button-background-color);
   color: var(--button-text-color);
@@ -362,6 +593,12 @@ html {
   display: none;
 }
 
+/* ID + display rules beat `.hiddenDisplay` alone; keep overlays able to hide chrome. */
+#game-info-container.hiddenDisplay,
+#bottom-dock.hiddenDisplay {
+  display: none;
+}
+
 .visibleDisplay {
   display:flex;
 }
@@ -372,8 +609,15 @@ html {
 
 .selected {
   background-color: var(--selected-tile-color);
+  color: var(--selected-tile-text-color);
 }
 
-.selected-swap {
-  background-color: var(--swap-tile-color);
+.selected[data-selection-visits="2"] {
+  background-color: var(--selected-tile-visit2-color);
+  color: var(--selected-tile-visit2-text-color);
+}
+
+.selected[data-selection-visits]:not([data-selection-visits="1"]):not([data-selection-visits="2"]) {
+  background-color: var(--selected-tile-visit3-color);
+  color: var(--selected-tile-visit3-text-color);
 }
