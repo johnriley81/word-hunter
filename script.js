@@ -14,7 +14,6 @@ let happyHuntingColor = "gold"
 let isMouseDown = false;
 let time = 60;
 let intervalId;
-let grid;
 let isGameActive = false;
 let longestWord = "";
 let sponsorMsg = "wordhunter";
@@ -23,7 +22,6 @@ let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
 let hardMode = false;
 let asterisk = "";
 let playerPosition;
-let isEndgame = false;
 let sounds = {
   click: new Audio("sounds/click.wav"),
   bing: new Audio("sounds/bing.wav"),
@@ -67,26 +65,25 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedButtons = [];
   let selectedButtonSet = new Set();
   let lastButton = null;
-  let wordList = [];
+  let wordSet = new Set();
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
   let isSwapEnabled = false;
   let isSwapValid = false;
   let swapTiles = [];
-  let scoreValidation = [];
   let isPaused = false;
   let isMuted = true;
   let swapCount = 5;
 
-  for (var key in sounds) {
+  Object.keys(sounds).forEach((key) => {
     sounds[key].load();
-  }
+  });
 
   fetch("text/wordlist.txt")
     .then((response) => response.text())
     .then((data) => {
-      wordList = data.toLowerCase().split("\n");
+      wordSet = new Set(data.toLowerCase().split("\n"));
 
       // Fetch grids.txt after wordlist.txt has been fetched
       return fetch("text/grids.txt");
@@ -164,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   doneButton.addEventListener("click", endGame);
-  leaderboardButton.addEventListener("click", getLeaderboard);
+  leaderboardButton.addEventListener("click", () => getLeaderboard(true));
 
   function startGame() {
     playSound("click", isMuted);
@@ -222,9 +219,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    let svgContainer = document.getElementById("line-container");
-    svgContainer.style.width = grid.offsetWidth + "px";
-    svgContainer.style.height = "400px";
+    gridLineContainer.style.width = grid.offsetWidth + "px";
+    gridLineContainer.style.height = "400px";
   }
 
   function generateNextLetters() {
@@ -363,12 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchStart(event) {
     if (!isGameActive) return;
-    if (isSwapEnabled) {
-      const mockEvent = { target: event.target, preventDefault: () => {} };
-      handleMouseUp(mockEvent);
-    } else {
-      handleMouseDown(event);
-    }
+    handleMouseDown(event);
   }
 
   function handleTouchMove(event) {
@@ -451,13 +442,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.target === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
-        if (removedButton.textContent==="qu"){
+        if (removedButton.textContent === "qu") {
           currentWord = currentWord.slice(0, -1);
         }
 
         // Remove the corresponding line
-        const lineContainer = document.querySelector("#line-container");
-        lineContainer.lastChild.remove();
+        gridLineContainer.lastChild.remove();
 
         // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
@@ -507,20 +497,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // transform line from orange to red
           const wordLength = selectedButtons.length;
-          let color;
-          let lettersChange = 8;
-          if (wordLength <= lettersChange) {
-            colorChange = Math.round(
-              255 - (255 / lettersChange) * (wordLength - 1)
-            );
-            color = `rgb(255, ${colorChange}, 0)`;
-          } else {
-            color = `rgb(255, 0, 0)`;
-          }
+          const lettersChange = 8;
+          const color =
+            wordLength <= lettersChange
+              ? `rgb(255, ${Math.round(
+                  255 - (255 / lettersChange) * (wordLength - 1)
+                )}, 0)`
+              : "rgb(255, 0, 0)";
           line.setAttribute("stroke", color);
           line.setAttribute("stroke-width", "3");
 
-          document.querySelector("#line-container").appendChild(line);
+          gridLineContainer.appendChild(line);
         }
       }
       lastButton = event.target;
@@ -540,12 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             playSound("bing", isMuted);
           }
-          scoreValidation.push([
-            currentWord,
-            getLetters(),
-            selectedButtonSet.size,
-          ]);
-          console.log(scoreValidation);
           const wordScore = getWordScore(currentWord);
           score += wordScore;
           showMessage(
@@ -569,15 +550,11 @@ document.addEventListener("DOMContentLoaded", () => {
         button.classList.remove("selected");
       });
       updateCurrentWord();
-      selectedButtons.forEach((button) => {
-        button.selected = false;
-      });
       selectedButtons = [];
       selectedButtonSet = new Set();
       lastButton = null;
-      const lineContainer = document.querySelector("#line-container");
-      while (lineContainer.firstChild) {
-        lineContainer.firstChild.remove();
+      while (gridLineContainer.firstChild) {
+        gridLineContainer.firstChild.remove();
       }
     }
   }
@@ -599,11 +576,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function replaceLetters() {
     const uniqueSelectedButtons = Array.from(selectedButtonSet);
-    uniqueSelectedButtons.sort(
-      (a, b) =>
-        Array.from(selectedButtonSet).indexOf(a) -
-        Array.from(selectedButtonSet).indexOf(b)
-    );
     uniqueSelectedButtons.forEach((button) => {
       const nextLetter = nextLetters.shift() || "";
       button.textContent = nextLetter;
@@ -614,7 +586,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showMessage(message, flashTimes = 1, color = "white") {
-    const messageLabel = document.querySelector("#message-label");
     messageLabel.textContent = message;
     messageLabel.style.color = color; // Set the color
     messageLabel.classList.remove("hidden");
@@ -638,7 +609,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function endGame() {
     playSound("gameOver", isMuted);
-    isEndgame = true;
     isGameActive = false;
     clearInterval(intervalId);
 
@@ -652,9 +622,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     currentWord = "";
     updateCurrentWord();
-    const lineContainer = document.querySelector("#line-container");
-    while (lineContainer.firstChild) {
-      lineContainer.firstChild.remove();
+    while (gridLineContainer.firstChild) {
+      gridLineContainer.firstChild.remove();
     }
 
     // Hide Rules, Done and Swap buttons
@@ -672,11 +641,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Show Retry button
     retryButton.classList.remove("hiddenDisplay");
     retryButton.classList.add("visibleDisplay");
-
-    // Log user score
-    console.log(
-      `puzzle: ${diffDays}, score: ${score}${asterisk}, trophy: ${longestWord}`
-    );
 
     showMessage("Game Over", 2, happyHuntingColor);
     // Fetch the leaderboard right after game ends
@@ -740,20 +704,18 @@ document.addEventListener("DOMContentLoaded", () => {
         hard: hardMode,
         score: score,
         trophy: longestWord,
-        // scoreValidation: scoreValidation,
       });
     }
 
     // make the API request
-    let response = await fetch(requestURL, requestOptions);
-    console.log(requestOptions.body);
-    let data = await response.json();
+    const response = await fetch(requestURL, requestOptions);
+    const data = await response.json();
 
-    // handle the response
-    let leaderboard = JSON.parse(data["body"]); // get the leaderboard from the response
-    if (score > 50 && playerName.value != "") {
-      leaderboard = JSON.parse(data["body"]).top_10;
-    }
+    const parsedBody = JSON.parse(data["body"]);
+    const leaderboard =
+      score > 50 && playerName.value !== ""
+        ? parsedBody.top_10
+        : parsedBody;
 
     // clear the existing leaderboard table
     leaderboardTable.innerHTML = "";
@@ -788,7 +750,6 @@ document.addEventListener("DOMContentLoaded", () => {
         rowTrophy === longestWord
       ) {
         playerPosition = index + 1;
-        console.log(playerPosition);
         color = goldTextColor;
       }
 
@@ -826,18 +787,6 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardTable.appendChild(tbody);
   }
 
-  function getLetters() {
-    let letters = "";
-    const tiles = document.querySelectorAll(".grid-button"); // replace .grid-button with your actual selector
-
-    tiles.forEach((tile) => {
-      let tileText = tile.textContent; // or .innerText or .innerHTML, whichever contains the letter
-      letters += tileText;
-    });
-
-    return letters;
-  }
-
   function getWordScore(word) {
     // Adjust the score calculation as per your rules
     if (word.length <= 3) {
@@ -871,7 +820,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function validateWord(word) {
-    return wordList.includes(word.toLowerCase());
+    return wordSet.has(word.toLowerCase());
   }
 
   function playSound(name, muted) {
