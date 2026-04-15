@@ -175,6 +175,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const boardShiftZone = document.getElementById("board-shift-zone");
+  const boardShiftHints = document.getElementById("board-shift-hints");
+  const boardShiftDismissButton = document.getElementById("board-shift-dismiss");
   const buttonContainer = document.getElementById("button-container");
   const retryButton = document.querySelector("#retry-button");
   const gridLineContainer = document.querySelector("#line-container");
@@ -217,9 +219,16 @@ document.addEventListener("DOMContentLoaded", () => {
       badge.setAttribute("aria-hidden", "true");
       el.appendChild(badge);
     }
-    badge.textContent = isBlankTile ? "" : String(getLetterWeight(normalized));
+    badge.textContent = isBlankTile
+      ? ""
+      : String(getDisplayedTileWeight(normalized));
     badge.style.display = isBlankTile ? "none" : "";
     el.disabled = isBlankTile;
+    const shouldArmVisual =
+      bigGameHuntArmed &&
+      el.classList.contains("grid-button--active") &&
+      !isBlankTile;
+    el.classList.toggle("grid-button--hunt-armed", shouldArmVisual);
   }
 
   let score = 0;
@@ -242,8 +251,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let shiftStartY = 0;
   /** `performance.now()` at shift pointer down (double-tap detection). */
   let shiftPointerDownAt = 0;
-  /** Last tap `performance.now()` for double-tap-to-end; 0 = none. */
-  let shiftDoubleTapPrevAt = 0;
+  /** Tap streak state for swipe-zone gestures (double = hunt, triple = end). */
+  let shiftTapStreakCount = 0;
+  let shiftTapStreakLastAt = 0;
+  const SHIFT_TAP_STREAK_WINDOW_MS = 340;
+  let shiftTapActionTimer = null;
   let shiftAnimating = false;
   /** @type {null | boolean} null until axis is chosen from the first meaningful move. */
   let shiftDragLockedHorizontal = null;
@@ -261,6 +273,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentWordMessageActive = false;
   let currentWordMessageTimer = null;
   let endgameBlankRestoreFallbackTimer = null;
+  let bigGameHuntUsed = false;
+  let bigGameHuntArmed = false;
+
+  function getDisplayedTileWeight(tileText) {
+    const base = getLetterWeight(tileText);
+    return bigGameHuntArmed ? base * 2 : base;
+  }
 
   function syncGridViewportSize() {
     if (!gridViewport) return;
@@ -268,6 +287,23 @@ document.addEventListener("DOMContentLoaded", () => {
     gridViewport.style.padding = "";
     gridViewport.style.width = "";
     gridViewport.style.height = "";
+  }
+
+  function syncBigGameHuntTileVisualState() {
+    const tiles = document.querySelectorAll(".grid-button");
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      const tileText = getTileText(tile);
+      const shouldArmVisual =
+        bigGameHuntArmed &&
+        tile.classList.contains("grid-button--active") &&
+        tileText !== "";
+      tile.classList.toggle("grid-button--hunt-armed", shouldArmVisual);
+      const badge = tile.querySelector(".tile-weight-badge");
+      if (badge && tileText !== "") {
+        badge.textContent = String(getDisplayedTileWeight(tileText));
+      }
+    }
   }
 
   function lockGridSizeForSwipe() {
@@ -841,6 +877,26 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     { passive: false }
   );
+  if (boardShiftDismissButton && boardShiftHints) {
+    const hideBoardShiftHints = (event) => {
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      boardShiftHints.classList.add("hiddenDisplay");
+      boardShiftDismissButton.classList.add("hiddenDisplay");
+    };
+    /* Safari/Chrome mobile: zone-level touchend preventDefault can suppress click. */
+    boardShiftDismissButton.addEventListener("pointerdown", (event) => {
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+    });
+    boardShiftDismissButton.addEventListener("pointerup", hideBoardShiftHints, {
+      passive: false,
+    });
+    boardShiftDismissButton.addEventListener("touchend", hideBoardShiftHints, {
+      passive: false,
+    });
+    boardShiftDismissButton.addEventListener("click", hideBoardShiftHints);
+  }
 
   function resetShiftDragVisualHard() {
     if (gridPan) {
@@ -1619,17 +1675,65 @@ document.addEventListener("DOMContentLoaded", () => {
       !shiftAnimating &&
       !isMouseDown;
 
+    const runDoubleTapHuntAction = () => {
+      if (bigGameHuntUsed) {
+        showMessage("No more hunting", 1, "white");
+        return;
+      }
+      if (bigGameHuntArmed) {
+        bigGameHuntArmed = false;
+        syncBigGameHuntTileVisualState();
+        showMessage("Nevermind", 1, "white");
+      } else {
+        bigGameHuntArmed = true;
+        syncBigGameHuntTileVisualState();
+        showMessage("Big Game Hunting", 1, happyHuntingColor);
+      }
+    };
+
     if (looksLikeTap) {
       const now = performance.now();
-      if (shiftDoubleTapPrevAt > 0 && now - shiftDoubleTapPrevAt < 340) {
-        shiftDoubleTapPrevAt = 0;
+      if (
+        shiftTapStreakLastAt > 0 &&
+        now - shiftTapStreakLastAt < SHIFT_TAP_STREAK_WINDOW_MS
+      ) {
+        shiftTapStreakCount += 1;
+      } else {
+        shiftTapStreakCount = 1;
+      }
+      shiftTapStreakLastAt = now;
+
+      if (shiftTapStreakCount >= 3) {
+        if (shiftTapActionTimer !== null) {
+          window.clearTimeout(shiftTapActionTimer);
+          shiftTapActionTimer = null;
+        }
+        shiftTapStreakCount = 0;
+        shiftTapStreakLastAt = 0;
         resetShiftDragVisualHard();
         endGame();
         return;
       }
-      shiftDoubleTapPrevAt = now;
+
+      if (shiftTapStreakCount === 2) {
+        if (shiftTapActionTimer !== null) {
+          window.clearTimeout(shiftTapActionTimer);
+        }
+        shiftTapActionTimer = window.setTimeout(() => {
+          shiftTapActionTimer = null;
+          runDoubleTapHuntAction();
+          shiftTapStreakCount = 0;
+          shiftTapStreakLastAt = 0;
+        }, SHIFT_TAP_STREAK_WINDOW_MS);
+      }
+      return;
     } else {
-      shiftDoubleTapPrevAt = 0;
+      if (shiftTapActionTimer !== null) {
+        window.clearTimeout(shiftTapActionTimer);
+        shiftTapActionTimer = null;
+      }
+      shiftTapStreakCount = 0;
+      shiftTapStreakLastAt = 0;
     }
 
     tryApplyBoardShift(dx, dy, lockedHorizontal);
@@ -1727,7 +1831,14 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("bing", true);
     playSound("bing2", true);
     playSound("invalid", true);
-    shiftDoubleTapPrevAt = 0;
+    shiftTapStreakCount = 0;
+    shiftTapStreakLastAt = 0;
+    if (shiftTapActionTimer !== null) {
+      window.clearTimeout(shiftTapActionTimer);
+      shiftTapActionTimer = null;
+    }
+    bigGameHuntUsed = false;
+    bigGameHuntArmed = false;
     isGameActive = true;
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
@@ -1744,6 +1855,7 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.remove("grid-button--inactive");
       buttons[i].style.color = "";
     }
+    syncBigGameHuntTileVisualState();
 
     syncLineOverlaySize();
     requestAnimationFrame(syncLineOverlaySize);
@@ -1822,9 +1934,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const live = getLiveWordScoreBreakdown(selectedButtons);
-    scoreSwipeSumElement.textContent = String(live.letterSum);
+    const huntMultiplier = bigGameHuntArmed ? 2 : 1;
+    const displayedLetterSum = live.letterSum * huntMultiplier;
+    const displayedWordTotal = live.wordTotal * huntMultiplier;
+    scoreSwipeSumElement.textContent = String(displayedLetterSum);
     scoreLengthElement.textContent = String(live.length);
-    scoreWordTotalElement.textContent = String(live.wordTotal);
+    scoreWordTotalElement.textContent = String(displayedWordTotal);
     scoreGameTotalElement.textContent = String(score);
   }
 
@@ -2050,7 +2165,13 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             playSound("bing", isMuted);
           }
-          const wordScore = getWordScoreFromSelectedTiles(selectedButtons);
+          let wordScore = getWordScoreFromSelectedTiles(selectedButtons);
+          if (bigGameHuntArmed) {
+            wordScore *= 2;
+            bigGameHuntArmed = false;
+            bigGameHuntUsed = true;
+            syncBigGameHuntTileVisualState();
+          }
           score += wordScore;
           showMessage(
             `${currentWord.toUpperCase()} +${wordScore}`,
@@ -2110,6 +2231,7 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedButtonSet.clear();
     lastButton = null;
     updateNextLetters();
+    syncBigGameHuntTileVisualState();
   }
 
   function showMessage(message, flashTimes = 1, color = "white") {
@@ -2177,6 +2299,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
+    bigGameHuntArmed = false;
+    bigGameHuntUsed = false;
+    shiftTapStreakCount = 0;
+    shiftTapStreakLastAt = 0;
+    if (shiftTapActionTimer !== null) {
+      window.clearTimeout(shiftTapActionTimer);
+      shiftTapActionTimer = null;
+    }
 
     setRulesOverlayVisible(false);
 
@@ -2189,6 +2319,7 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
     }
+    syncBigGameHuntTileVisualState();
     setEndgameBlankTilesHidden(true);
     sounds.gameOver.removeEventListener(
       "ended",
