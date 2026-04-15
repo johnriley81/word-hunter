@@ -584,16 +584,6 @@ html {
   border-color: var(--grid-button-active-border-color);
 }
 
-.grid-button--hunt-armed.grid-button--active {
-  background-color: #fad99f;
-  color: #000000;
-  border-color: #000000;
-}
-
-.grid-button--hunt-armed .tile-weight-badge {
-  color: #000000;
-}
-
 #grid-line-wrapper {
   position: relative;
   width: 100%;
@@ -772,11 +762,6 @@ html {
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.55);
 }
 
-#board-shift-hunt-hint {
-  color: #5a3f00;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
-}
-
 #board-shift-end-hint {
   color: #cc0000;
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
@@ -870,18 +855,3 @@ html {
   color: var(--selected-tile-visit3-text-color);
 }
 
-/* Keep path-highlighting blue even while hunt mode tint is active. */
-.grid-button--hunt-armed.selected {
-  background-color: var(--selected-tile-color);
-  color: var(--selected-tile-text-color);
-}
-
-.grid-button--hunt-armed.selected[data-selection-visits="2"] {
-  background-color: var(--selected-tile-visit2-color);
-  color: var(--selected-tile-visit2-text-color);
-}
-
-.grid-button--hunt-armed.selected[data-selection-visits]:not([data-selection-visits="1"]):not([data-selection-visits="2"]) {
-  background-color: var(--selected-tile-visit3-color);
-  color: var(--selected-tile-visit3-text-color);
-}

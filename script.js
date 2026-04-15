@@ -38,11 +38,6 @@ const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 
 const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
-  happy_hunting: Object.freeze(["Happy Hunting"]),
-  hunt_cancelled: Object.freeze([
-    "Nevermind",
-    "Not feelin it",
-  ]),
   game_over: Object.freeze(["Game Over"]),
 });
 
@@ -244,14 +239,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     badge.textContent = isBlankTile
       ? ""
-      : String(getDisplayedTileWeight(normalized));
+      : String(getLetterWeight(normalized));
     badge.style.display = isBlankTile ? "none" : "";
     el.disabled = isBlankTile;
-    const shouldArmVisual =
-      bigGameHuntArmed &&
-      el.classList.contains("grid-button--active") &&
-      !isBlankTile;
-    el.classList.toggle("grid-button--hunt-armed", shouldArmVisual);
   }
 
   let score = 0;
@@ -274,11 +264,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let shiftStartY = 0;
   /** `performance.now()` at shift pointer down (double-tap detection). */
   let shiftPointerDownAt = 0;
-  /** Tap streak state for swipe-zone gestures (double = hunt, triple = end). */
-  let shiftTapStreakCount = 0;
-  let shiftTapStreakLastAt = 0;
-  const SHIFT_TAP_STREAK_WINDOW_MS = 340;
-  let shiftTapActionTimer = null;
+  /** Last tap time for double-tap-to-end gesture. */
+  let shiftDoubleTapPrevAt = 0;
   let shiftAnimating = false;
   /** @type {null | boolean} null until axis is chosen from the first meaningful move. */
   let shiftDragLockedHorizontal = null;
@@ -296,8 +283,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentWordMessageActive = false;
   let currentWordMessageTimer = null;
   let endgameBlankRestoreFallbackTimer = null;
-  let bigGameHuntUsed = false;
-  let bigGameHuntArmed = false;
 
   /* Grouped state views to make ownership explicit without changing runtime behavior. */
   const shiftState = {
@@ -306,14 +291,6 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     get animating() {
       return shiftAnimating;
-    },
-  };
-  const huntState = {
-    get used() {
-      return bigGameHuntUsed;
-    },
-    get armed() {
-      return bigGameHuntArmed;
     },
   };
   const selectionState = {
@@ -334,18 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   function clearTapStreak() {
-    shiftTapStreakCount = 0;
-    shiftTapStreakLastAt = 0;
-    if (shiftTapActionTimer !== null) {
-      window.clearTimeout(shiftTapActionTimer);
-      shiftTapActionTimer = null;
-    }
-  }
-
-  function resetHuntState() {
-    bigGameHuntArmed = false;
-    bigGameHuntUsed = false;
-    syncBigGameHuntTileVisualState();
+    shiftDoubleTapPrevAt = 0;
   }
 
   function resetSelectionState() {
@@ -363,34 +329,12 @@ document.addEventListener("DOMContentLoaded", () => {
     shiftVisualStripCount = 0;
   }
 
-  function getDisplayedTileWeight(tileText) {
-    const base = getLetterWeight(tileText);
-    return bigGameHuntArmed ? base * 2 : base;
-  }
-
   function syncGridViewportSize() {
     if (!gridViewport) return;
     // Approach A: keep sizing CSS-driven to avoid JS/CSS drift.
     gridViewport.style.padding = "";
     gridViewport.style.width = "";
     gridViewport.style.height = "";
-  }
-
-  function syncBigGameHuntTileVisualState() {
-    const tiles = document.querySelectorAll(".grid-button");
-    for (let i = 0; i < tiles.length; i++) {
-      const tile = tiles[i];
-      const tileText = getTileText(tile);
-      const shouldArmVisual =
-        bigGameHuntArmed &&
-        tile.classList.contains("grid-button--active") &&
-        tileText !== "";
-      tile.classList.toggle("grid-button--hunt-armed", shouldArmVisual);
-      const badge = tile.querySelector(".tile-weight-badge");
-      if (badge && tileText !== "") {
-        badge.textContent = String(getDisplayedTileWeight(tileText));
-      }
-    }
   }
 
   function lockGridSizeForSwipe() {
@@ -1750,56 +1694,15 @@ document.addEventListener("DOMContentLoaded", () => {
       !shiftAnimating &&
       !isMouseDown;
 
-    const runDoubleTapHuntAction = () => {
-      if (bigGameHuntUsed) {
-        showMessage("No more hunting", 1, "white");
-        return;
-      }
-      if (bigGameHuntArmed) {
-        bigGameHuntArmed = false;
-        syncBigGameHuntTileVisualState();
-        showMessage(
-          pickRandomScenarioMessage("hunt_cancelled", "Nevermind"),
-          1,
-          "white"
-        );
-      } else {
-        bigGameHuntArmed = true;
-        syncBigGameHuntTileVisualState();
-        showMessage("Big Game Hunting", 1, "white");
-      }
-    };
-
     if (looksLikeTap) {
       const now = performance.now();
-      if (
-        shiftTapStreakLastAt > 0 &&
-        now - shiftTapStreakLastAt < SHIFT_TAP_STREAK_WINDOW_MS
-      ) {
-        shiftTapStreakCount += 1;
-      } else {
-        shiftTapStreakCount = 1;
-      }
-      shiftTapStreakLastAt = now;
-
-      if (shiftTapStreakCount >= 3) {
+      if (shiftDoubleTapPrevAt > 0 && now - shiftDoubleTapPrevAt < 325) {
         clearTapStreak();
         resetShiftDragVisualHard();
         endGame();
         return;
       }
-
-      if (shiftTapStreakCount === 2) {
-        if (shiftTapActionTimer !== null) {
-          window.clearTimeout(shiftTapActionTimer);
-        }
-        shiftTapActionTimer = window.setTimeout(() => {
-          shiftTapActionTimer = null;
-          runDoubleTapHuntAction();
-          shiftTapStreakCount = 0;
-          shiftTapStreakLastAt = 0;
-        }, SHIFT_TAP_STREAK_WINDOW_MS);
-      }
+      shiftDoubleTapPrevAt = now;
       return;
     } else {
       clearTapStreak();
@@ -1901,7 +1804,6 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("bing2", true);
     playSound("invalid", true);
     clearTapStreak();
-    resetHuntState();
     isGameActive = true;
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
@@ -1925,11 +1827,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     score = 0;
     currentWord = "";
-    showMessage(
-      pickRandomScenarioMessage("happy_hunting", "Happy Hunting"),
-      1,
-      happyHuntingColor
-    );
+    showMessage("Happy Hunting", 1, happyHuntingColor);
     updateScore();
     updateCurrentWord();
     updateNextLetters();
@@ -2000,12 +1898,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const live = getLiveWordScoreBreakdown(selectedButtons);
-    const huntMultiplier = bigGameHuntArmed ? 2 : 1;
-    const displayedLetterSum = live.letterSum * huntMultiplier;
-    const displayedWordTotal = live.wordTotal * huntMultiplier;
-    scoreSwipeSumElement.textContent = String(displayedLetterSum);
+    scoreSwipeSumElement.textContent = String(live.letterSum);
     scoreLengthElement.textContent = String(live.length);
-    scoreWordTotalElement.textContent = String(displayedWordTotal);
+    scoreWordTotalElement.textContent = String(live.wordTotal);
     scoreGameTotalElement.textContent = String(score);
   }
 
@@ -2231,12 +2126,6 @@ document.addEventListener("DOMContentLoaded", () => {
             playSound("bing", isMuted);
           }
           let wordScore = getWordScoreFromSelectedTiles(selectedButtons);
-          if (bigGameHuntArmed) {
-            wordScore *= 2;
-            bigGameHuntArmed = false;
-            bigGameHuntUsed = true;
-            syncBigGameHuntTileVisualState();
-          }
           score += wordScore;
           showMessage(
             `${currentWord.toUpperCase()} +${wordScore}`,
@@ -2296,7 +2185,6 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedButtonSet.clear();
     lastButton = null;
     updateNextLetters();
-    syncBigGameHuntTileVisualState();
   }
 
   function showMessage(message, flashTimes = 1, color = "white") {
@@ -2364,7 +2252,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
-    resetHuntState();
     clearTapStreak();
 
     setRulesOverlayVisible(false);
@@ -2378,7 +2265,6 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
     }
-    syncBigGameHuntTileVisualState();
     setEndgameBlankTilesHidden(true);
     sounds.gameOver.removeEventListener(
       "ended",
