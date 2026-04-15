@@ -833,6 +833,14 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     { passive: false }
   );
+  boardShiftZone.addEventListener(
+    "touchend",
+    (event) => {
+      if (!isGameActive || isPaused) return;
+      if (event.cancelable) event.preventDefault();
+    },
+    { passive: false }
+  );
 
   function resetShiftDragVisualHard() {
     if (gridPan) {
