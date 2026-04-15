@@ -38,12 +38,12 @@ const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 
 const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
-  happy_hunting: Object.freeze(["Happy Hunting", "go get 'em"]),
+  happy_hunting: Object.freeze(["Happy Hunting"]),
   hunt_cancelled: Object.freeze([
     "Nevermind",
-    "Not feelin' it",
+    "Not feelin it",
   ]),
-  game_over: Object.freeze(["Game Over", "GGs"]),
+  game_over: Object.freeze(["Game Over"]),
 });
 
 let isMouseDown = false;
@@ -1766,7 +1766,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         bigGameHuntArmed = true;
         syncBigGameHuntTileVisualState();
-        showMessage("Big Game Hunting", 1, happyHuntingColor);
+        showMessage("Big Game Hunting", 1, "white");
       }
     };
 
