@@ -124,13 +124,28 @@ function quantizeShiftVisualAxis(tx, ty, horizontal, stridePx, n) {
   }
   return { tx: 0, ty: sign * snapped, rawTx: tx, rawTy: ty };
 }
+
+/** Mid-stride lines at (k + ½) * stride — tick when drag magnitude crosses these. */
+function countShiftMidwayCrossings(prevMag, currMag, stridePx) {
+  if (stridePx <= 0) return 0;
+  const lo = Math.min(prevMag, currMag);
+  const hi = Math.max(prevMag, currMag);
+  let count = 0;
+  for (let k = 0; k < 64; k++) {
+    const t = (k + 0.5) * stridePx;
+    if (t > hi) break;
+    if (t > lo) count++;
+  }
+  return count;
+}
+
 let sounds = {
   click: new Audio("sounds/click.wav"),
   bing: new Audio("sounds/bing.wav"),
   bing2: new Audio("sounds/bing2.wav"),
   invalid: new Audio("sounds/invalid.wav"),
   pop: new Audio("sounds/pop.wav"),
-  swoosh: new Audio("sounds/swoosh.wav"),
+  tick: new Audio("sounds/tick.wav"),
   gameOver: new Audio("sounds/gameOver.wav"),
 };
 
@@ -220,11 +235,15 @@ document.addEventListener("DOMContentLoaded", () => {
   /** @type {string[][]} Row-major letters; kept in sync with #grid tiles. */
   let board = [];
   let isPaused = false;
-  let isMuted = true;
+  let isMuted = false;
 
   let shiftPointerId = null;
   let shiftStartX = 0;
   let shiftStartY = 0;
+  /** `performance.now()` at shift pointer down (double-tap detection). */
+  let shiftPointerDownAt = 0;
+  /** Last tap `performance.now()` for double-tap-to-end; 0 = none. */
+  let shiftDoubleTapPrevAt = 0;
   let shiftAnimating = false;
   /** @type {null | boolean} null until axis is chosen from the first meaningful move. */
   let shiftDragLockedHorizontal = null;
@@ -234,11 +253,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let shiftVisualStripCount = 0;
   /** Axis for `shiftVisualStripCount` (same as `updateShiftStageVisual` `horizontal`). */
   let shiftVisualStripHorizontal = true;
+  /** Last locked-axis swipe magnitude (px) for midway tick detection. */
+  let shiftSwipeTickPrevMag = 0;
   /** Pixel-locked grid size during active swipe to prevent live layout distortion. */
   let shiftLockedGridWidthPx = 0;
   let shiftLockedGridHeightPx = 0;
   let currentWordMessageActive = false;
   let currentWordMessageTimer = null;
+  let endgameBlankRestoreFallbackTimer = null;
 
   function syncGridViewportSize() {
     if (!gridViewport) return;
@@ -714,16 +736,95 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  doneButton.addEventListener("click", endGame);
   leaderboardButton.addEventListener("click", () => getLeaderboard(true));
   updateCurrentWord();
   currentWordElement.textContent = PRE_START_WORDMARK;
   currentWordElement.style.color = "white";
 
-  boardShiftZone.addEventListener("pointerdown", onShiftPointerDown);
-  boardShiftZone.addEventListener("pointermove", onShiftPointerMove);
-  boardShiftZone.addEventListener("pointerup", onShiftPointerUp);
-  boardShiftZone.addEventListener("pointercancel", onShiftPointerUp);
+  /** Web Audio path: Safari throttles rapid `HTMLAudioElement.play()`; scheduled buffers are reliable. */
+  let shiftTickCtx = null;
+  let shiftTickBuffer = null;
+  let shiftTickDecodePromise = null;
+  /** End time of last scheduled tick (ctx.currentTime) so bursts do not overlap incorrectly. */
+  let shiftTickScheduleEnd = 0;
+
+  const SHIFT_TICK_POOL_SIZE = 12;
+  const shiftTickPool = Array.from({ length: SHIFT_TICK_POOL_SIZE }, () => {
+    const a = new Audio("sounds/tick.wav");
+    a.preload = "auto";
+    return a;
+  });
+  let shiftTickPoolIndex = 0;
+
+  function ensureShiftTickAudio() {
+    if (shiftTickDecodePromise) return shiftTickDecodePromise;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) {
+      shiftTickDecodePromise = Promise.resolve();
+      return shiftTickDecodePromise;
+    }
+    shiftTickDecodePromise = (async () => {
+      shiftTickCtx = new Ctx();
+      const res = await fetch("sounds/tick.wav");
+      if (!res.ok) throw new Error("tick fetch failed");
+      const arr = await res.arrayBuffer();
+      const copy = arr.slice(0);
+      shiftTickBuffer = await shiftTickCtx.decodeAudioData(copy);
+    })().catch(() => {
+      shiftTickCtx = null;
+      shiftTickBuffer = null;
+      shiftTickDecodePromise = null;
+    });
+    return shiftTickDecodePromise;
+  }
+
+  function playShiftTicks(count) {
+    if (isMuted || count <= 0) return;
+    const nPlay = Math.min(count, 28);
+    if (shiftTickBuffer && shiftTickCtx) {
+      try {
+        void shiftTickCtx.resume();
+      } catch (_) {}
+      const spacing = 0.0032;
+      const now = shiftTickCtx.currentTime;
+      if (shiftTickScheduleEnd > now + 0.12) {
+        shiftTickScheduleEnd = now;
+      }
+      let t = Math.max(now + 0.0015, shiftTickScheduleEnd);
+      for (let i = 0; i < nPlay; i++) {
+        const src = shiftTickCtx.createBufferSource();
+        src.buffer = shiftTickBuffer;
+        src.connect(shiftTickCtx.destination);
+        src.start(t + i * spacing);
+      }
+      shiftTickScheduleEnd = t + nPlay * spacing;
+      return;
+    }
+    for (let i = 0; i < Math.min(nPlay, 10); i++) {
+      const a = shiftTickPool[shiftTickPoolIndex];
+      shiftTickPoolIndex = (shiftTickPoolIndex + 1) % shiftTickPool.length;
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch (_) {}
+      void a.play().catch(() => {});
+    }
+  }
+
+  void ensureShiftTickAudio();
+
+  boardShiftZone.addEventListener("pointerdown", onShiftPointerDown, {
+    passive: false,
+  });
+  boardShiftZone.addEventListener("pointermove", onShiftPointerMove, {
+    passive: false,
+  });
+  boardShiftZone.addEventListener("pointerup", onShiftPointerUp, {
+    passive: false,
+  });
+  boardShiftZone.addEventListener("pointercancel", onShiftPointerUp, {
+    passive: false,
+  });
   boardShiftZone.addEventListener(
     "touchmove",
     (event) => {
@@ -979,7 +1080,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const after = grid.getBoundingClientRect();
       const dx = before.left - after.left;
       const dy = before.top - after.top;
-      playSound("swoosh", isMuted);
       syncLineOverlaySize();
       animateGridSettleFromTo(dx, dy, () => {
         finishShiftSwipeAnimation();
@@ -1257,7 +1357,6 @@ document.addEventListener("DOMContentLoaded", () => {
       afterSnapTeardown();
     }, SHIFT_GESTURE_FALLBACK_MS);
 
-    playSound("swoosh", isMuted);
     syncLineOverlaySize();
 
     if (skipSnapAnimate) {
@@ -1340,6 +1439,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGameActive || isPaused || shiftAnimating) return;
     if (e.button != null && e.button !== 0) return;
     if (e.cancelable) e.preventDefault();
+    shiftPointerDownAt = performance.now();
+    void ensureShiftTickAudio();
+    if (shiftTickCtx) {
+      void shiftTickCtx.resume().catch(() => {});
+    }
     cancelGridShiftAnimations();
     shiftPointerId = e.pointerId;
     shiftStartX = e.clientX;
@@ -1349,6 +1453,7 @@ document.addEventListener("DOMContentLoaded", () => {
     shiftVisualTy = 0;
     shiftVisualStripCount = 0;
     shiftVisualStripHorizontal = false;
+    shiftSwipeTickPrevMag = 0;
     if (gridPan) {
       gridPan.style.transition = "";
       gridPan.style.transform = "";
@@ -1374,16 +1479,58 @@ document.addEventListener("DOMContentLoaded", () => {
   function onShiftPointerMove(e) {
     if (shiftPointerId !== e.pointerId || shiftAnimating) return;
     if (e.cancelable) e.preventDefault();
-    const dx = e.clientX - shiftStartX;
-    const dy = e.clientY - shiftStartY;
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
 
-    if (
-      shiftDragLockedHorizontal === null &&
-      Math.max(adx, ady) >= SHIFT_AXIS_LOCK_PX
-    ) {
-      shiftDragLockedHorizontal = adx >= ady;
+    const samples =
+      typeof e.getCoalescedEvents === "function"
+        ? (() => {
+            const c = e.getCoalescedEvents();
+            return c.length ? c : [e];
+          })()
+        : [e];
+
+    let tickCrossingsTotal = 0;
+    let tickMagCursor = shiftSwipeTickPrevMag;
+
+    for (let si = 0; si < samples.length; si++) {
+      const sample = samples[si];
+      const sdx = sample.clientX - shiftStartX;
+      const sdy = sample.clientY - shiftStartY;
+      const sadx = Math.abs(sdx);
+      const sady = Math.abs(sdy);
+
+      const wasLocked = shiftDragLockedHorizontal !== null;
+      if (
+        !wasLocked &&
+        Math.max(sadx, sady) >= SHIFT_AXIS_LOCK_PX
+      ) {
+        shiftDragLockedHorizontal = sadx >= sady;
+      }
+
+      if (shiftDragLockedHorizontal === null) {
+        continue;
+      }
+
+      const justLocked = !wasLocked && shiftDragLockedHorizontal !== null;
+      if (justLocked) {
+        tickMagCursor = 0;
+      }
+
+      const n = GRID_SIZE;
+      const m = getGridCellMetrics();
+      const stride = shiftDragLockedHorizontal ? m.tw + m.gap : m.th + m.gap;
+      const maxSlide = shiftMaxStepsPerGesture(n) * stride;
+      const axis = shiftDragLockedHorizontal ? sdx : sdy;
+      const clamped = Math.max(
+        Math.min(axis * SHIFT_SLIDE_SENSITIVITY, maxSlide),
+        -maxSlide
+      );
+      const mag = Math.abs(clamped);
+      tickCrossingsTotal += countShiftMidwayCrossings(
+        tickMagCursor,
+        mag,
+        stride
+      );
+      tickMagCursor = mag;
     }
 
     if (shiftDragLockedHorizontal === null) {
@@ -1401,10 +1548,16 @@ document.addEventListener("DOMContentLoaded", () => {
       shiftVisualTx = 0;
       shiftVisualTy = 0;
       shiftVisualStripCount = 0;
+      shiftSwipeTickPrevMag = 0;
       syncLineOverlaySize();
       return;
     }
 
+    shiftSwipeTickPrevMag = tickMagCursor;
+    playShiftTicks(tickCrossingsTotal);
+
+    const dx = e.clientX - shiftStartX;
+    const dy = e.clientY - shiftStartY;
     const n = GRID_SIZE;
     const m = getGridCellMetrics();
     const stride = shiftDragLockedHorizontal ? m.tw + m.gap : m.th + m.gap;
@@ -1440,11 +1593,37 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       boardShiftZone.releasePointerCapture(e.pointerId);
     } catch (_) {}
+    const dx = e.clientX - shiftStartX;
+    const dy = e.clientY - shiftStartY;
+    const travel = Math.hypot(dx, dy);
+    const pressMs = performance.now() - shiftPointerDownAt;
     const lockedHorizontal = shiftDragLockedHorizontal;
     shiftDragLockedHorizontal = null;
     shiftPointerId = null;
-    const dx = e.clientX - shiftStartX;
-    const dy = e.clientY - shiftStartY;
+
+    const noSwipeAxisLock = lockedHorizontal === null;
+    const looksLikeTap =
+      noSwipeAxisLock &&
+      travel < 20 &&
+      pressMs < 500 &&
+      isGameActive &&
+      !isPaused &&
+      !shiftAnimating &&
+      !isMouseDown;
+
+    if (looksLikeTap) {
+      const now = performance.now();
+      if (shiftDoubleTapPrevAt > 0 && now - shiftDoubleTapPrevAt < 340) {
+        shiftDoubleTapPrevAt = 0;
+        resetShiftDragVisualHard();
+        endGame();
+        return;
+      }
+      shiftDoubleTapPrevAt = now;
+    } else {
+      shiftDoubleTapPrevAt = 0;
+    }
+
     tryApplyBoardShift(dx, dy, lockedHorizontal);
   }
 
@@ -1540,14 +1719,13 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("bing", true);
     playSound("bing2", true);
     playSound("invalid", true);
+    shiftDoubleTapPrevAt = 0;
     isGameActive = true;
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
     buttonContainer.classList.add("hiddenDisplay");
     currentWordElement.classList.remove("hidden");
     currentWordElement.classList.add("visible");
-    doneButton.classList.remove("hiddenDisplay");
-    doneButton.classList.add("visibleDisplay");
     boardShiftZone.classList.remove("hiddenDisplay");
     boardShiftZone.classList.add("visibleDisplay");
 
@@ -1952,6 +2130,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function setEndgameBlankTilesHidden(hide) {
+    const tiles = grid.getElementsByClassName("grid-button");
+    for (let i = 0; i < tiles.length; i++) {
+      const el = tiles[i];
+      if (getTileText(el) === "") {
+        el.classList.toggle("grid-button--endgame-blank-hidden", hide);
+      }
+    }
+  }
+
+  function onGameOverSoundEndedPostGameUi() {
+    if (endgameBlankRestoreFallbackTimer !== null) {
+      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+      endgameBlankRestoreFallbackTimer = null;
+    }
+    sounds.gameOver.removeEventListener(
+      "ended",
+      onGameOverSoundEndedPostGameUi
+    );
+    /* Keep blank tiles hidden for the whole post-game screen (letter tiles only). */
+    if (currentWordMessageTimer) {
+      window.clearTimeout(currentWordMessageTimer);
+      currentWordMessageTimer = null;
+    }
+    currentWordMessageActive = false;
+    currentWordElement.textContent = "Copy Score";
+    currentWordElement.style.color = happyHuntingColor;
+    updateNextLetters();
+    playerName.classList.add("hiddenDisplay");
+    leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardTable.classList.add("hiddenDisplay");
+    leaderboardTable.classList.remove("visibleDisplay");
+    leaderboardElements.classList.remove("visibleDisplay");
+    leaderboardElements.style.display = "none";
+  }
+
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
@@ -1967,6 +2181,22 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
     }
+    setEndgameBlankTilesHidden(true);
+    sounds.gameOver.removeEventListener(
+      "ended",
+      onGameOverSoundEndedPostGameUi
+    );
+    sounds.gameOver.addEventListener(
+      "ended",
+      onGameOverSoundEndedPostGameUi
+    );
+    if (endgameBlankRestoreFallbackTimer !== null) {
+      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+    }
+    endgameBlankRestoreFallbackTimer = window.setTimeout(() => {
+      endgameBlankRestoreFallbackTimer = null;
+      onGameOverSoundEndedPostGameUi();
+    }, 14000);
     selectedButtons = [];
     selectedButtonSet = new Set();
     lastButton = null;
@@ -1997,49 +2227,12 @@ document.addEventListener("DOMContentLoaded", () => {
     retryButton.classList.add("visibleDisplay");
 
     showMessage("Game Over", 2, happyHuntingColor);
-    // Fetch the leaderboard right after game ends
-    getLeaderboard();
-    leaderboardTable.classList.add("hidden");
-
-    setTimeout(function () {
-      currentWordMessageActive = false;
-      currentWordElement.textContent = "Copy Score";
-      currentWordElement.style.color = happyHuntingColor;
-      updateNextLetters();
-
-      boardShiftZone.classList.add("hiddenDisplay");
-      boardShiftZone.classList.remove("visibleDisplay");
-
-      // Leaderboard elements
-      grid.classList.remove("visible");
-      grid.classList.remove("visibleDisplay");
-      grid.classList.add("hidden");
-      grid.classList.add("hiddenDisplay");
-      if (gridPan) {
-        gridPan.classList.remove("visible");
-        gridPan.classList.remove("visibleDisplay");
-        gridPan.classList.add("hidden");
-        gridPan.classList.add("hiddenDisplay");
-      }
-      gridLineContainer.classList.remove("visible");
-      gridLineContainer.classList.remove("visibleDisplay");
-      gridLineContainer.classList.remove("hiddenDisplay");
-      leaderboardElements.classList.add("visibleDisplay");
-      leaderboardElements.classList.remove("hiddenDisplay");
-      leaderboardTable.classList.remove("hidden");
-      leaderboardTable.classList.remove("hiddenDisplay");
-      leaderboardTable.classList.add("visibleDisplay");
-      playerName.classList.remove("hiddenDisplay");
-      playerName.classList.add("hidden");
-      leaderboardButton.classList.remove("hiddenDisplay");
-      leaderboardButton.classList.add("hidden");
-      if (score >= 50) {
-        playerName.classList.remove("hidden");
-        playerName.classList.add("visibleDisplay");
-        leaderboardButton.classList.remove("hidden");
-        leaderboardButton.classList.add("visibleDisplay");
-      }
-    }, 4000);
+    playerName.classList.add("hiddenDisplay");
+    leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardElements.style.display = "none";
+    leaderboardElements.classList.remove("visibleDisplay");
+    leaderboardTable.classList.add("hiddenDisplay");
+    leaderboardTable.classList.remove("visibleDisplay");
   }
 
   async function getLeaderboard(clicked = false) {
