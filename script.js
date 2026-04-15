@@ -31,6 +31,11 @@ const SHIFT_COMMIT_SNAP_END_GRACE_MS = 140;
 /** Stage return to identity after DOM commit (while `#grid` is hidden); shorter than stride snap cuts blank time. */
 const SHIFT_REJOIN_SNAP_MS = 130;
 const SHIFT_GESTURE_FALLBACK_MS = 800;
+const SHIFT_TAP_MAX_TRAVEL_PX = 20;
+const SHIFT_TAP_MAX_PRESS_MS = 500;
+const SCORE_SUBMIT_THRESHOLD = 50;
+const ENDGAME_SOUND_FALLBACK_MS = 14000;
+const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -131,7 +136,7 @@ function countShiftMidwayCrossings(prevMag, currMag, stridePx) {
   const lo = Math.min(prevMag, currMag);
   const hi = Math.max(prevMag, currMag);
   let count = 0;
-  for (let k = 0; k < 64; k++) {
+  for (let k = 0; k < SHIFT_MIDWAY_TICK_STEPS_CAP; k++) {
     const t = (k + 0.5) * stridePx;
     if (t > hi) break;
     if (t > lo) count++;
@@ -275,6 +280,70 @@ document.addEventListener("DOMContentLoaded", () => {
   let endgameBlankRestoreFallbackTimer = null;
   let bigGameHuntUsed = false;
   let bigGameHuntArmed = false;
+
+  /* Grouped state views to make ownership explicit without changing runtime behavior. */
+  const shiftState = {
+    get pointerId() {
+      return shiftPointerId;
+    },
+    get animating() {
+      return shiftAnimating;
+    },
+  };
+  const huntState = {
+    get used() {
+      return bigGameHuntUsed;
+    },
+    get armed() {
+      return bigGameHuntArmed;
+    },
+  };
+  const selectionState = {
+    get isPointerDown() {
+      return isMouseDown;
+    },
+    get selectedCount() {
+      return selectedButtons.length;
+    },
+  };
+  const uiState = {
+    get paused() {
+      return isPaused;
+    },
+    get gameActive() {
+      return isGameActive;
+    },
+  };
+
+  function clearTapStreak() {
+    shiftTapStreakCount = 0;
+    shiftTapStreakLastAt = 0;
+    if (shiftTapActionTimer !== null) {
+      window.clearTimeout(shiftTapActionTimer);
+      shiftTapActionTimer = null;
+    }
+  }
+
+  function resetHuntState() {
+    bigGameHuntArmed = false;
+    bigGameHuntUsed = false;
+    syncBigGameHuntTileVisualState();
+  }
+
+  function resetSelectionState() {
+    selectedButtons = [];
+    selectedButtonSet = new Set();
+    lastButton = null;
+    currentWord = "";
+    updateCurrentWord();
+    updateScoreStrip();
+  }
+
+  function resetShiftVisualState() {
+    shiftVisualTx = 0;
+    shiftVisualTy = 0;
+    shiftVisualStripCount = 0;
+  }
 
   function getDisplayedTileWeight(tileText) {
     const base = getLetterWeight(tileText);
@@ -429,67 +498,51 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function fillPreviewStripHorizontalLeft(inner, k) {
+  function fillPreviewStripWithBoard(inner, k, mapCellToBoard) {
     const n = GRID_SIZE;
     const tiles = inner.querySelectorAll(".shift-preview-tile");
     const need = n * k;
     let t = 0;
-    /* Row-major order must match CSS grid auto-flow (default row); was column-major → wrong cells for k>1. */
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < k; c++) {
-        const colIdx = n - k + c;
-        const ch = board[r][colIdx];
-        const el = tiles[t++];
-        if (getTileText(el) !== ch) setTileText(el, ch);
-      }
+    for (let row = 0; row < need; row++) {
+      const mapped = mapCellToBoard(row, n, k);
+      const ch = board[mapped.r][mapped.c];
+      const el = tiles[t++];
+      if (getTileText(el) !== ch) setTileText(el, ch);
     }
     showPreviewTiles(inner, need);
+  }
+
+  function fillPreviewStripHorizontalLeft(inner, k) {
+    /* Row-major order must match CSS grid auto-flow (default row). */
+    fillPreviewStripWithBoard(inner, k, (idx, n, cols) => {
+      const r = Math.floor(idx / cols);
+      const cInStrip = idx % cols;
+      return { r, c: n - cols + cInStrip };
+    });
   }
 
   function fillPreviewStripHorizontalRight(inner, k) {
-    const n = GRID_SIZE;
-    const tiles = inner.querySelectorAll(".shift-preview-tile");
-    const need = n * k;
-    let t = 0;
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < k; c++) {
-        const ch = board[r][c];
-        const el = tiles[t++];
-        if (getTileText(el) !== ch) setTileText(el, ch);
-      }
-    }
-    showPreviewTiles(inner, need);
+    fillPreviewStripWithBoard(inner, k, (idx, _n, cols) => {
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      return { r, c };
+    });
   }
 
   function fillPreviewStripVerticalTop(inner, k) {
-    const n = GRID_SIZE;
-    const tiles = inner.querySelectorAll(".shift-preview-tile");
-    const need = n * k;
-    let t = 0;
-    for (let innerR = 0; innerR < k; innerR++) {
-      const rowIdx = n - k + innerR;
-      for (let c = 0; c < n; c++) {
-        const ch = board[rowIdx][c];
-        const el = tiles[t++];
-        if (getTileText(el) !== ch) setTileText(el, ch);
-      }
-    }
-    showPreviewTiles(inner, need);
+    fillPreviewStripWithBoard(inner, k, (idx, n, rows) => {
+      const rInStrip = Math.floor(idx / n);
+      const c = idx % n;
+      return { r: n - rows + rInStrip, c };
+    });
   }
 
   function fillPreviewStripVerticalBottom(inner, k) {
-    const n = GRID_SIZE;
-    const tiles = inner.querySelectorAll(".shift-preview-tile");
-    const need = n * k;
-    let t = 0;
-    for (let innerR = 0; innerR < k; innerR++) {
-      for (let c = 0; c < n; c++) {
-        const ch = board[innerR][c];
-        const el = tiles[t++];
-        if (getTileText(el) !== ch) setTileText(el, ch);
-      }
-    }
-    showPreviewTiles(inner, need);
+    fillPreviewStripWithBoard(inner, k, (idx, n) => {
+      const r = Math.floor(idx / n);
+      const c = idx % n;
+      return { r, c };
+    });
   }
 
   /**
@@ -1006,6 +1059,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function computeShiftSnapPlan(horizontal, signedVis, k, mDrag, stageTransformFromDrag) {
+    const stride = horizontal ? mDrag.tw + mDrag.gap : mDrag.th + mDrag.gap;
+    const mag = Math.abs(signedVis);
+    const snappedMag = clampAxisMagToCommitBandForK(mag, stride, k);
+    const snappedSigned = signedVis >= 0 ? snappedMag : -snappedMag;
+    const targetTransform = computeShiftStageTransformString(
+      horizontal,
+      snappedSigned,
+      k,
+      mDrag
+    );
+    const skipSnapAnimate = stageTransformsWithinPx(
+      stageTransformFromDrag,
+      targetTransform,
+      0.45
+    );
+    return { targetTransform, skipSnapAnimate };
+  }
+
   /** Stage transform for snap (same geometry as drag; applied to `#grid-stage` only). */
   function computeShiftStageTransformString(horizontal, signedAxis, k, m) {
     if (horizontal) {
@@ -1166,23 +1238,12 @@ document.addEventListener("DOMContentLoaded", () => {
     grid.style.transition = "none";
     grid.style.transform = "";
 
-    const stride = horizontal
-      ? mDrag.tw + mDrag.gap
-      : mDrag.th + mDrag.gap;
-    const mag = Math.abs(signedVis);
-    const snappedMag = clampAxisMagToCommitBandForK(mag, stride, k);
-    const snappedSigned = signedVis >= 0 ? snappedMag : -snappedMag;
-    const targetTransform = computeShiftStageTransformString(
+    const { targetTransform, skipSnapAnimate } = computeShiftSnapPlan(
       horizontal,
-      snappedSigned,
+      signedVis,
       k,
-      mDrag
-    );
-
-    const skipSnapAnimate = stageTransformsWithinPx(
-      stageTransformFromDrag,
-      targetTransform,
-      0.45
+      mDrag,
+      stageTransformFromDrag
     );
 
     const useWaapiSettle =
@@ -1500,7 +1561,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function onShiftPointerDown(e) {
-    if (!isGameActive || isPaused || shiftAnimating) return;
+    if (!uiState.gameActive || uiState.paused || shiftState.animating) return;
     if (e.button != null && e.button !== 0) return;
     if (e.cancelable) e.preventDefault();
     shiftPointerDownAt = performance.now();
@@ -1513,9 +1574,7 @@ document.addEventListener("DOMContentLoaded", () => {
     shiftStartX = e.clientX;
     shiftStartY = e.clientY;
     shiftDragLockedHorizontal = null;
-    shiftVisualTx = 0;
-    shiftVisualTy = 0;
-    shiftVisualStripCount = 0;
+    resetShiftVisualState();
     shiftVisualStripHorizontal = false;
     shiftSwipeTickPrevMag = 0;
     if (gridPan) {
@@ -1541,7 +1600,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function onShiftPointerMove(e) {
-    if (shiftPointerId !== e.pointerId || shiftAnimating) return;
+    if (shiftState.pointerId !== e.pointerId || shiftState.animating) return;
     if (e.cancelable) e.preventDefault();
 
     const samples =
@@ -1609,9 +1668,7 @@ document.addEventListener("DOMContentLoaded", () => {
       grid.style.transition = "none";
       grid.style.transform = "translate(0, 0)";
       clearShiftPreview();
-      shiftVisualTx = 0;
-      shiftVisualTy = 0;
-      shiftVisualStripCount = 0;
+      resetShiftVisualState();
       shiftSwipeTickPrevMag = 0;
       syncLineOverlaySize();
       return;
@@ -1652,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function onShiftPointerUp(e) {
-    if (shiftPointerId !== e.pointerId) return;
+    if (shiftState.pointerId !== e.pointerId) return;
     if (e.cancelable) e.preventDefault();
     try {
       boardShiftZone.releasePointerCapture(e.pointerId);
@@ -1668,8 +1725,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const noSwipeAxisLock = lockedHorizontal === null;
     const looksLikeTap =
       noSwipeAxisLock &&
-      travel < 20 &&
-      pressMs < 500 &&
+      travel < SHIFT_TAP_MAX_TRAVEL_PX &&
+      pressMs < SHIFT_TAP_MAX_PRESS_MS &&
       isGameActive &&
       !isPaused &&
       !shiftAnimating &&
@@ -1704,12 +1761,7 @@ document.addEventListener("DOMContentLoaded", () => {
       shiftTapStreakLastAt = now;
 
       if (shiftTapStreakCount >= 3) {
-        if (shiftTapActionTimer !== null) {
-          window.clearTimeout(shiftTapActionTimer);
-          shiftTapActionTimer = null;
-        }
-        shiftTapStreakCount = 0;
-        shiftTapStreakLastAt = 0;
+        clearTapStreak();
         resetShiftDragVisualHard();
         endGame();
         return;
@@ -1728,12 +1780,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     } else {
-      if (shiftTapActionTimer !== null) {
-        window.clearTimeout(shiftTapActionTimer);
-        shiftTapActionTimer = null;
-      }
-      shiftTapStreakCount = 0;
-      shiftTapStreakLastAt = 0;
+      clearTapStreak();
     }
 
     tryApplyBoardShift(dx, dy, lockedHorizontal);
@@ -1831,14 +1878,8 @@ document.addEventListener("DOMContentLoaded", () => {
     playSound("bing", true);
     playSound("bing2", true);
     playSound("invalid", true);
-    shiftTapStreakCount = 0;
-    shiftTapStreakLastAt = 0;
-    if (shiftTapActionTimer !== null) {
-      window.clearTimeout(shiftTapActionTimer);
-      shiftTapActionTimer = null;
-    }
-    bigGameHuntUsed = false;
-    bigGameHuntArmed = false;
+    clearTapStreak();
+    resetHuntState();
     isGameActive = true;
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
@@ -1855,7 +1896,6 @@ document.addEventListener("DOMContentLoaded", () => {
       buttons[i].classList.remove("grid-button--inactive");
       buttons[i].style.color = "";
     }
-    syncBigGameHuntTileVisualState();
 
     syncLineOverlaySize();
     requestAnimationFrame(syncLineOverlaySize);
@@ -1995,7 +2035,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleTouchStart(event) {
     if (!isGameActive) return;
-    handleMouseDown(event);
+    const targetButton = getTileButtonFromEvent(event);
+    beginSelectionOnButton(targetButton);
   }
 
   function handleTouchMove(event) {
@@ -2009,23 +2050,13 @@ document.addEventListener("DOMContentLoaded", () => {
         : null;
 
     if (button && grid.contains(button)) {
-      // create a mock event object
-      const mockEvent = {
-        target: button,
-        preventDefault: () => {}, // noop function
-      };
-
-      handleMouseOver(mockEvent);
+      extendSelectionToButton(button);
     }
   }
 
   function handleTouchEnd(event) {
     if (!isGameActive) return;
-    const button = getTileButtonFromEvent(event);
-    if (button) {
-      const mockEvent = { target: button, preventDefault: () => {} };
-      handleMouseUp(mockEvent);
-    }
+    handleMouseUp(event);
   }
 
   /** Updates `data-selection-visits` from how often each tile appears in the path. */
@@ -2045,9 +2076,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function handleMouseDown(event) {
-    if (!isGameActive) return;
-    const targetButton = getTileButtonFromEvent(event);
+  function beginSelectionOnButton(targetButton) {
     if (!targetButton) return;
     if (targetButton.disabled) return;
     if (
@@ -2066,9 +2095,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function handleMouseOver(event) {
+  function handleMouseDown(event) {
     if (!isGameActive) return;
     const targetButton = getTileButtonFromEvent(event);
+    beginSelectionOnButton(targetButton);
+  }
+
+  function extendSelectionToButton(targetButton) {
     if (!targetButton) return;
     if (targetButton.disabled) return;
     if (
@@ -2152,6 +2185,12 @@ document.addEventListener("DOMContentLoaded", () => {
       updateCurrentWord();
       updateScoreStrip();
     }
+  }
+
+  function handleMouseOver(event) {
+    if (!isGameActive) return;
+    const targetButton = getTileButtonFromEvent(event);
+    extendSelectionToButton(targetButton);
   }
 
   function handleMouseUp(event) {
@@ -2299,14 +2338,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
-    bigGameHuntArmed = false;
-    bigGameHuntUsed = false;
-    shiftTapStreakCount = 0;
-    shiftTapStreakLastAt = 0;
-    if (shiftTapActionTimer !== null) {
-      window.clearTimeout(shiftTapActionTimer);
-      shiftTapActionTimer = null;
-    }
+    resetHuntState();
+    clearTapStreak();
 
     setRulesOverlayVisible(false);
 
@@ -2335,13 +2368,8 @@ document.addEventListener("DOMContentLoaded", () => {
     endgameBlankRestoreFallbackTimer = window.setTimeout(() => {
       endgameBlankRestoreFallbackTimer = null;
       onGameOverSoundEndedPostGameUi();
-    }, 14000);
-    selectedButtons = [];
-    selectedButtonSet = new Set();
-    lastButton = null;
-    currentWord = "";
-    updateCurrentWord();
-    updateScoreStrip();
+    }, ENDGAME_SOUND_FALLBACK_MS);
+    resetSelectionState();
     while (gridLineContainer.firstChild) {
       gridLineContainer.firstChild.remove();
     }
@@ -2391,7 +2419,7 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
 
-    if (score > 50 && playerName.value != "") {
+    if (score > SCORE_SUBMIT_THRESHOLD && playerName.value != "") {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
         player: playerName.value,
@@ -2407,7 +2435,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const parsedBody = JSON.parse(data["body"]);
     const leaderboard =
-      score > 50 && playerName.value !== ""
+      score > SCORE_SUBMIT_THRESHOLD && playerName.value !== ""
         ? parsedBody.top_10
         : parsedBody;
 

@@ -46,6 +46,16 @@
   --grid-max: 400px;
   /* Space between tile field and the grid container box */
   --grid-edge-padding: 12px;
+  /* Shared sizing/state tokens */
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --dock-min-height: 74px;
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --z-base: 1;
+  --z-dock: 2;
 }
 
 @media screen and (orientation: landscape) {
@@ -247,7 +257,7 @@ html {
   border-style: outset;
   border-color: var(--box-border-color);
   background-color: var(--box-background-color);
-  border-radius: 14px 14px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-sizing: border-box;
   padding: 2px 10px 3px;
   display: grid;
@@ -370,7 +380,7 @@ html {
   border-style: outset;
   border-color: var(--box-border-color);
   border-top: none;
-  border-radius: 0 0 14px 14px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 #queue-ribbon .queue-ribbon-label,
@@ -414,9 +424,6 @@ html {
     0 0 1px rgba(0, 0, 0, 0.35);
   text-align: center; /* center the text horizontally */
   width: 100%; /* added to fill the container width */
-}
-
-#current-word {
   z-index: 3;
   margin: 0 auto;
   font-size: clamp(1.15rem, 4.6vw, 1.7rem);
@@ -688,14 +695,14 @@ html {
   margin-top: auto;
   flex: 0 0 auto;
   width: 100%;
-  min-height: 74px;
+  min-height: var(--dock-min-height);
   padding-bottom: 0;
   padding-top: 0;
   box-sizing: border-box;
   display: grid;
   grid-template-areas: "dock";
   align-items: stretch;
-  z-index: 2;
+  z-index: var(--z-dock);
   position: relative;
 }
 
@@ -703,7 +710,7 @@ html {
   grid-area: dock;
   flex: 0 0 auto;
   width: 100%;
-  min-height: 74px;
+  min-height: var(--dock-min-height);
   position: relative;
   flex-direction: column;
   align-items: center;
@@ -783,7 +790,7 @@ html {
   align-items: center;
   flex: 0 0 auto;
   width: 100%;
-  min-height: 74px;
+  min-height: var(--dock-min-height);
   padding: 0;
   margin-top: -10px;
   gap: 12px;
@@ -818,15 +825,18 @@ html {
   pointer-events: none;
 }
 
-.hidden {
+.hidden,
+.is-hidden {
   visibility: hidden;
 }
 
-.visible {
+.visible,
+.is-visible {
   visibility: visible;
 }
 
-.hiddenDisplay {
+.hiddenDisplay,
+.is-display-none {
   display: none;
 }
 
@@ -836,8 +846,9 @@ html {
   display: none;
 }
 
-.visibleDisplay {
-  display:flex;
+.visibleDisplay,
+.is-display-flex {
+  display: flex;
 }
 
 #leaderboard-elements.visibleDisplay {
