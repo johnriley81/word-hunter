@@ -30,7 +30,7 @@
         🔚
       </button>
       <img id="logo" src="images/logo.png" alt="logo" />
-      <button type="button" id="mute-button" class="header-icon-button">🔕</button>
+      <button type="button" id="mute-button" class="header-icon-button">🔔</button>
       <button type="button" id="rules-button" class="header-icon-button">❓</button>
     </div>
     <div id="landscape-message" class="hiddenDisplay">
@@ -110,9 +110,12 @@
       <div
         id="board-shift-zone"
         class="hiddenDisplay"
-        aria-label="Swipe here to rearrange grid"
+        aria-label="Swipe here to rearrange the grid. Double tap to end the game."
       >
-        <span id="board-shift-hint">Swipe here to rearrange grid</span>
+        <div id="board-shift-hints">
+          <span id="board-shift-hint">Swipe here to rearrange grid</span>
+          <span id="board-shift-end-hint">Double tap to end game</span>
+        </div>
       </div>
       <div id="button-container">
         <button type="button" id="retry-button" class="hiddenDisplay">RETRY</button>

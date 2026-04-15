@@ -18,7 +18,7 @@
   --grid-button-inactive-border-color: #000000;
   /* Active (playable) letter tiles */
   --grid-button-active-color: hwb(44 91% 2%);
-  --grid-button-active-text-color: #3a1f4d;
+  --grid-button-active-text-color: #1f3165;
   --grid-button-active-border-color: #000000;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
@@ -315,6 +315,7 @@ html {
 
 #score .score-header-total {
   grid-column: 6;
+  color: #e3af02;
 }
 
 #score .score-value-sum {
@@ -339,6 +340,7 @@ html {
 
 #score .score-value-total {
   grid-column: 6;
+  color: #e3af02;
 }
 
 #score .score-operator {
@@ -364,9 +366,11 @@ html {
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 1px 1px 2px var(--page-text-shadow-color);
   background-color: #000000;
-  border: 1px solid var(--grid-button-active-text-color);
+  /* Match #score: same purple frame (outset + --box-border-color), no top line so it reads as one card */
+  border-style: outset;
+  border-color: var(--box-border-color);
   border-top: none;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 14px 14px;
 }
 
 #queue-ribbon .queue-ribbon-label,
@@ -561,6 +565,12 @@ html {
   border-color: var(--grid-button-inactive-border-color);
 }
 
+/* End game: hide empty cells for the rest of the session (letter tiles only until reload). */
+.grid-button.grid-button--endgame-blank-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .grid-button--active {
   background-color: var(--grid-button-active-color);
   color: var(--grid-button-active-text-color);
@@ -684,6 +694,7 @@ html {
   flex: 0 0 auto;
   width: 100%;
   min-height: 74px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   touch-action: none;
@@ -691,8 +702,6 @@ html {
   -webkit-overflow-scrolling: auto;
   box-sizing: border-box;
   padding: 2px 8px 4px;
-  color: var(--board-shift-hint-color);
-  text-shadow: 1px 1px 2px var(--board-shift-hint-text-shadow-color);
   font-size: 0.45rem;
   font-family: "Press Start 2P", cursive;
   border-top: 1px dashed var(--board-shift-zone-border-color);
@@ -703,10 +712,25 @@ html {
   visibility: visible;
 }
 
-#board-shift-hint {
-  pointer-events: none;
+#board-shift-hints {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+#board-shift-hint {
+  color: #000000;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.55);
+}
+
+#board-shift-end-hint {
+  color: #cc0000;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
 #button-container {
