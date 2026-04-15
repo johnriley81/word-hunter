@@ -37,6 +37,15 @@ const SCORE_SUBMIT_THRESHOLD = 50;
 const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 
+const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
+  happy_hunting: Object.freeze(["Happy Hunting", "go get 'em"]),
+  hunt_cancelled: Object.freeze([
+    "Nevermind",
+    "Not feelin' it",
+  ]),
+  game_over: Object.freeze(["Game Over", "GGs"]),
+});
+
 let isMouseDown = false;
 let isGameActive = false;
 let longestWord = "";
@@ -142,6 +151,15 @@ function countShiftMidwayCrossings(prevMag, currMag, stridePx) {
     if (t > lo) count++;
   }
   return count;
+}
+
+function pickRandomScenarioMessage(scenarioKey, fallbackMessage = "") {
+  const variants = SCENARIO_MESSAGE_VARIANTS[scenarioKey];
+  if (!Array.isArray(variants) || variants.length === 0) {
+    return fallbackMessage;
+  }
+  const i = Math.floor(Math.random() * variants.length);
+  return variants[i];
 }
 
 let sounds = {
@@ -1740,7 +1758,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (bigGameHuntArmed) {
         bigGameHuntArmed = false;
         syncBigGameHuntTileVisualState();
-        showMessage("Nevermind", 1, "white");
+        showMessage(
+          pickRandomScenarioMessage("hunt_cancelled", "Nevermind"),
+          1,
+          "white"
+        );
       } else {
         bigGameHuntArmed = true;
         syncBigGameHuntTileVisualState();
@@ -1903,7 +1925,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     score = 0;
     currentWord = "";
-    showMessage("Happy Hunting", 1, happyHuntingColor);
+    showMessage(
+      pickRandomScenarioMessage("happy_hunting", "Happy Hunting"),
+      1,
+      happyHuntingColor
+    );
     updateScore();
     updateCurrentWord();
     updateNextLetters();
@@ -2393,7 +2419,11 @@ document.addEventListener("DOMContentLoaded", () => {
     retryButton.classList.remove("hiddenDisplay");
     retryButton.classList.add("visibleDisplay");
 
-    showMessage("Game Over", 2, happyHuntingColor);
+    showMessage(
+      pickRandomScenarioMessage("game_over", "Game Over"),
+      2,
+      happyHuntingColor
+    );
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardElements.style.display = "none";
