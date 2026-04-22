@@ -823,18 +823,15 @@ line.grid-line--fade-out {
   animation: tileEndgameFlashFade 620ms ease forwards;
 }
 
+/* No mid-sequence brightening — inactive tiles stay gray and only ease darker / more transparent. */
 @keyframes tileEndgameFlashFade {
   0% {
     filter: brightness(1);
     opacity: 1;
   }
-  32% {
-    filter: brightness(1.45);
-    opacity: 1;
-  }
   100% {
-    filter: brightness(0.85);
-    opacity: 0.24;
+    filter: brightness(0.78);
+    opacity: 0.22;
   }
 }
 
