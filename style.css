@@ -61,7 +61,7 @@
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
   /* Connector lines after submit (before fade): tuned for golden active tiles */
-  --word-connector-valid-stroke: #17a452;
+  --word-connector-valid-stroke: #478461;
   --word-connector-invalid-stroke: #c23a3a;
 }
 
