@@ -10,6 +10,8 @@ const happyHuntingColor = "gold";
 const UPCOMING_LABEL = "UPCOMING:";
 const UPCOMING_PREVIEW_MAX = 7;
 const PRE_START_WORDMARK = "WORDHUNTER";
+/** Post-start intro line shown after WORDHUNTER crossfade; keep copy in one place. */
+const INTRO_MESSAGE_TEXT = "Happy Hunting";
 
 /** Grid dimension (NxN). Must match `text/grids.txt` puzzle shape. */
 const GRID_SIZE = 4;
@@ -58,19 +60,28 @@ const GAME_OVER_FLASH_TIMES = 2;
 const WORD_INVALID_SHAKE_MS = 320;
 /** Connector lines fade out after word submit (valid or invalid). */
 const WORD_LINE_FADE_MS = 520;
+/** Drag path: one full amber→…→blue→amber loop spans this many letter-to-letter steps (12 letters), then repeats. */
+const WORD_PATH_COLOR_STEPS = 11;
 /**
- * Valid word replace: green → staggered tile steps (pulse + flip). Wall time grows with n.
- * `WORD_REPLACE_STEP_MS === WORD_LETTER_FLIP_MS` so each flip starts when the previous flip ends (no overlap).
+ * Valid-word replace timing (hold math: `getWordReplaceAnimationHoldMs`; stagger:
+ * `runSuccessPopThenStaggeredFlip`). Durations are mirrored in style.css as
+ * `--word-release-green-ms`, `--word-tile-flip-ms`, `--word-queue-pulse-ms` and set from
+ * these constants on DOMContentLoaded so JS and CSS stay aligned.
+ *
+ * `WORD_REPLACE_STEP_MS === WORD_LETTER_FLIP_MS`: each flip starts when the previous ends.
  */
 const WORD_RELEASE_GREEN_MS = 255;
-/** ~25% faster than 520ms baseline. */
 const WORD_LETTER_FLIP_MS = 416;
-/** Start each next tile when the previous tile’s flip finishes (same span as flip, no overlap). */
 const WORD_REPLACE_STEP_MS = WORD_LETTER_FLIP_MS;
-/** Shorter than flip: when this elapses, sack updates + tile flip start (upcoming pulse CSS matches). */
 const WORD_COMMIT_AFTER_PULSE_MS = 300;
-/** Cleanup / phase-boundary slack after flip animation. */
 const WORD_REPLACE_TAIL_SLACK_MS = 160;
+
+function syncWordReplaceAnimationCssVars() {
+  const root = document.documentElement;
+  root.style.setProperty("--word-release-green-ms", `${WORD_RELEASE_GREEN_MS}ms`);
+  root.style.setProperty("--word-tile-flip-ms", `${WORD_LETTER_FLIP_MS}ms`);
+  root.style.setProperty("--word-queue-pulse-ms", `${WORD_COMMIT_AFTER_PULSE_MS}ms`);
+}
 
 /**
  * Wall time from valid-word submit until the last replacement tile flip finishes
@@ -221,6 +232,7 @@ let sounds = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  syncWordReplaceAnimationCssVars();
   const grid = document.querySelector("#grid");
   const gridPan = document.getElementById("grid-pan");
   const gridStage = document.getElementById("grid-stage");
@@ -251,6 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const buttonContainer = document.getElementById("button-container");
   const retryButton = document.querySelector("#retry-button");
   const gridLineContainer = document.querySelector("#line-container");
+  const SVG_NS = "http://www.w3.org/2000/svg";
   const gridLineWrapper = document.getElementById("grid-line-wrapper");
   const gridViewport = document.getElementById("grid-viewport");
   const leaderboardElements = document.getElementById("leaderboard-elements");
@@ -337,6 +350,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentWordMessageTimer = null;
   let currentWordMessageFadeTimer = null;
   let currentWordMessageEpoch = 0;
+
+  function beginCurrentWordMessageSession() {
+    currentWordMessageEpoch++;
+    const myEpoch = currentWordMessageEpoch;
+    if (currentWordMessageTimer) {
+      window.clearTimeout(currentWordMessageTimer);
+      currentWordMessageTimer = null;
+    }
+    if (currentWordMessageFadeTimer) {
+      window.clearTimeout(currentWordMessageFadeTimer);
+      currentWordMessageFadeTimer = null;
+    }
+    currentWordMessageActive = true;
+    return myEpoch;
+  }
   let endgameBlankRestoreFallbackTimer = null;
   let startUiTransitionTimer = null;
   let endgameTileStartTimer = null;
@@ -426,6 +454,120 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /**
+   * Color along the drag path: `p` is fractional phase in [0,1) (wraps each 12-letter cycle).
+   * Amber → red (~by 5th letter) → pink → blue → amber, then repeats.
+   */
+  function wordPathDragStrokeColorAt(p) {
+    let u = p % 1;
+    if (u < 0) u += 1;
+    const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+    const rRed = 4 / 11;
+    const rPink = 7 / 11;
+    const rBlue = 9 / 11;
+    const am = { r: 255, g: 175, b: 0 };
+    const rd = { r: 255, g: 0, b: 0 };
+    const pk = { r: 255, g: 125, b: 195 };
+    const bl = { r: 85, g: 145, b: 255 };
+    if (u <= rRed) {
+      const t = rRed > 0 ? u / rRed : 0;
+      return `rgb(${lerp(am.r, rd.r, t)},${lerp(am.g, rd.g, t)},${lerp(
+        am.b,
+        rd.b,
+        t
+      )})`;
+    }
+    if (u <= rPink) {
+      const t = (u - rRed) / (rPink - rRed);
+      return `rgb(${lerp(rd.r, pk.r, t)},${lerp(rd.g, pk.g, t)},${lerp(
+        rd.b,
+        pk.b,
+        t
+      )})`;
+    }
+    if (u <= rBlue) {
+      const t = (u - rPink) / (rBlue - rPink);
+      return `rgb(${lerp(pk.r, bl.r, t)},${lerp(pk.g, bl.g, t)},${lerp(
+        pk.b,
+        bl.b,
+        t
+      )})`;
+    }
+    const t = rBlue < 1 ? (u - rBlue) / (1 - rBlue) : 0;
+    return `rgb(${lerp(bl.r, am.r, t)},${lerp(bl.g, am.g, t)},${lerp(
+      bl.b,
+      am.b,
+      t
+    )})`;
+  }
+
+  /** Recompute segment geometry and per-segment gradients so the path blends start→end. */
+  function restyleAllWordConnectorLines() {
+    const lineEls = gridLineContainer.querySelectorAll("line");
+    let defs = gridLineContainer.querySelector("defs");
+    if (lineEls.length === 0) {
+      if (defs) defs.remove();
+      return;
+    }
+    const n = selectedButtons.length;
+    if (n < 2 || lineEls.length !== n - 1) return;
+    if (!defs) {
+      defs = document.createElementNS(SVG_NS, "defs");
+      gridLineContainer.insertBefore(defs, gridLineContainer.firstChild);
+    }
+    defs.replaceChildren();
+    const gridRect = grid.getBoundingClientRect();
+    const colorSpan = WORD_PATH_COLOR_STEPS;
+    const pathColorPhase = (k) => ((k / colorSpan) % 1 + 1) % 1;
+    for (let i = 0; i < lineEls.length; i++) {
+      const line = lineEls[i];
+      const btnA = selectedButtons[i];
+      const btnB = selectedButtons[i + 1];
+      const lastRect = btnA.getBoundingClientRect();
+      const currRect = btnB.getBoundingClientRect();
+      const x1 = lastRect.left + lastRect.width / 2 - gridRect.left;
+      const y1 = lastRect.top + lastRect.height / 2 - gridRect.top;
+      const x2 = currRect.left + currRect.width / 2 - gridRect.left;
+      const y2 = currRect.top + currRect.height / 2 - gridRect.top;
+      line.setAttribute("x1", String(x1));
+      line.setAttribute("y1", String(y1));
+      line.setAttribute("x2", String(x2));
+      line.setAttribute("y2", String(y2));
+      const p0 = pathColorPhase(i);
+      const p1 = pathColorPhase(i + 1);
+      const gradId = `word-conn-path-grad-${i}`;
+      const grad = document.createElementNS(SVG_NS, "linearGradient");
+      grad.setAttribute("id", gradId);
+      grad.setAttribute("gradientUnits", "userSpaceOnUse");
+      grad.setAttribute("x1", String(x1));
+      grad.setAttribute("y1", String(y1));
+      grad.setAttribute("x2", String(x2));
+      grad.setAttribute("y2", String(y2));
+      const stop0 = document.createElementNS(SVG_NS, "stop");
+      stop0.setAttribute("offset", "0%");
+      stop0.setAttribute("stop-color", wordPathDragStrokeColorAt(p0));
+      const stop1 = document.createElementNS(SVG_NS, "stop");
+      stop1.setAttribute("offset", "100%");
+      stop1.setAttribute("stop-color", wordPathDragStrokeColorAt(p1));
+      grad.appendChild(stop0);
+      grad.appendChild(stop1);
+      defs.appendChild(grad);
+      line.setAttribute("stroke", `url(#${gradId})`);
+    }
+  }
+
+  /** Solid silver/red on release (before fade); pairs with `.grid-line--result-*` in CSS. */
+  function applyWordConnectorLineOutcome(isValid) {
+    const lines = gridLineContainer.querySelectorAll("line");
+    const winClass = "grid-line--result-valid";
+    const loseClass = "grid-line--result-invalid";
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      line.classList.remove(winClass, loseClass);
+      line.classList.add(isValid ? winClass : loseClass);
+    }
+  }
+
   /** Fade SVG connector lines then remove them (visual only; DOM cleared after duration). */
   function fadeOutWordConnectorLines(onComplete) {
     const lines = gridLineContainer.querySelectorAll("line");
@@ -474,6 +616,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const runFlipAndFinish = (nextLetter) => {
           if (epoch !== wordReplaceEpoch) return;
+          if (i === 0) {
+            fadeOutWordConnectorLines();
+          }
           button.classList.remove("grid-button--letter-flip");
           void button.offsetWidth;
           button.classList.add("grid-button--letter-flip");
@@ -977,7 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
-  startButton.addEventListener("click", startGame);
+  startButton.addEventListener("click", () => startGame());
 
   function setRulesOverlayVisible(isVisible) {
     rules.classList.toggle("hidden", !isVisible);
@@ -2105,23 +2250,12 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function crossfadeWordmarkToHappyHunting(options = {}) {
     const skipWordmark = options.skipWordmark === true;
-    currentWordMessageEpoch++;
-    const myEpoch = currentWordMessageEpoch;
-    if (currentWordMessageTimer) {
-      window.clearTimeout(currentWordMessageTimer);
-      currentWordMessageTimer = null;
-    }
-    if (currentWordMessageFadeTimer) {
-      window.clearTimeout(currentWordMessageFadeTimer);
-      currentWordMessageFadeTimer = null;
-    }
-
-    currentWordMessageActive = true;
+    const myEpoch = beginCurrentWordMessageSession();
     currentWordElement.classList.remove("current-word--valid-solve");
 
     if (skipWordmark) {
       currentWordElement.classList.add("current-word--soft-hidden");
-      currentWordElement.textContent = "Happy Hunting";
+      currentWordElement.textContent = INTRO_MESSAGE_TEXT;
       currentWordElement.style.color = happyHuntingColor;
       currentWordElement.style.transition = `opacity ${START_TOUCHPAD_FADE_MS}ms ease`;
       requestAnimationFrame(() => {
@@ -2149,7 +2283,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
-        currentWordElement.textContent = "Happy Hunting";
+        currentWordElement.textContent = INTRO_MESSAGE_TEXT;
         currentWordElement.style.color = happyHuntingColor;
         currentWordElement.classList.remove("current-word--soft-hidden");
       }, half);
@@ -2175,6 +2309,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function startGame(arg) {
+    if (arg instanceof MouseEvent) {
+      arg = undefined;
+    }
     const skipWordmarkInIntro =
       arg &&
       typeof arg === "object" &&
@@ -2461,8 +2598,10 @@ document.addEventListener("DOMContentLoaded", () => {
           currentWord = currentWord.slice(0, -1);
         }
 
-        // Remove the corresponding line
-        gridLineContainer.lastChild.remove();
+        // Remove the corresponding line (last segment; defs stay as first child)
+        const linesOnly = gridLineContainer.querySelectorAll("line");
+        if (linesOnly.length) linesOnly[linesOnly.length - 1].remove();
+        restyleAllWordConnectorLines();
 
         // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
@@ -2479,52 +2618,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Add a line from the last button to this one
         if (lastButton) {
-          const line = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "line"
-          );
-
-          const lastRect = lastButton.getBoundingClientRect();
-          const currRect = targetButton.getBoundingClientRect();
-
-          line.setAttribute(
-            "x1",
-            lastRect.left +
-              lastRect.width / 2 -
-              grid.getBoundingClientRect().left
-          );
-          line.setAttribute(
-            "y1",
-            lastRect.top +
-              lastRect.height / 2 -
-              grid.getBoundingClientRect().top
-          );
-          line.setAttribute(
-            "x2",
-            currRect.left +
-              currRect.width / 2 -
-              grid.getBoundingClientRect().left
-          );
-          line.setAttribute(
-            "y2",
-            currRect.top +
-              currRect.height / 2 -
-              grid.getBoundingClientRect().top
-          );
-
-          // transform line from orange to red
-          const wordLength = selectedButtons.length;
-          const lettersChange = 8;
-          const color =
-            wordLength <= lettersChange
-              ? `rgb(255, ${Math.round(
-                  255 - (255 / lettersChange) * (wordLength - 1)
-                )}, 0)`
-              : "rgb(255, 0, 0)";
-          line.setAttribute("stroke", color);
+          const line = document.createElementNS(SVG_NS, "line");
           line.setAttribute("stroke-width", "3");
-
           gridLineContainer.appendChild(line);
+          restyleAllWordConnectorLines();
         }
       }
       lastButton = targetButton;
@@ -2591,7 +2688,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       updateScore();
 
-      fadeOutWordConnectorLines();
+      applyWordConnectorLineOutcome(true);
 
       selectedButtons.forEach((button) => {
         button.classList.remove("selected", "grid-button--selected-enter");
@@ -2608,6 +2705,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       playSound("invalid", isMuted);
       showMessage("INVALID", 1, redTextColor);
+      applyWordConnectorLineOutcome(false);
       fadeOutWordConnectorLines();
       for (let i = 0; i < selectedButtons.length; i++) {
         selectedButtons[i].classList.add("grid-button--invalid-shake");
@@ -2639,17 +2737,7 @@ document.addEventListener("DOMContentLoaded", () => {
     color = "white",
     visibleHoldMs = null
   ) {
-    currentWordMessageEpoch++;
-    const myEpoch = currentWordMessageEpoch;
-    if (currentWordMessageTimer) {
-      window.clearTimeout(currentWordMessageTimer);
-      currentWordMessageTimer = null;
-    }
-    if (currentWordMessageFadeTimer) {
-      window.clearTimeout(currentWordMessageFadeTimer);
-      currentWordMessageFadeTimer = null;
-    }
-    currentWordMessageActive = true;
+    const myEpoch = beginCurrentWordMessageSession();
     currentWordElement.textContent = message;
     currentWordElement.style.color = color;
     currentWordElement.classList.remove("current-word--soft-hidden");
