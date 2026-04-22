@@ -42,7 +42,7 @@
   --board-shift-hint-text-shadow-color: black;
   --board-shift-zone-border-color: rgba(255, 255, 255, 0.2);
   --grid-size: 4;
-  --grid-gap: 10px;
+  --grid-gap: 13px;
   --grid-max: 400px;
   /* Space between tile field and the grid container box */
   --grid-edge-padding: 12px;
@@ -56,6 +56,13 @@
   --space-sm: 8px;
   --z-base: 1;
   --z-dock: 2;
+  /* Word-replace durations: WORD_RELEASE_GREEN_MS, WORD_LETTER_FLIP_MS, WORD_COMMIT_AFTER_PULSE_MS in script.js */
+  --word-release-green-ms: 255ms;
+  --word-tile-flip-ms: 416ms;
+  --word-queue-pulse-ms: 300ms;
+  /* Connector lines after submit (before fade): tuned for golden active tiles */
+  --word-connector-valid-stroke: #478461;
+  --word-connector-invalid-stroke: #c23a3a;
 }
 
 @media screen and (orientation: landscape) {
@@ -396,6 +403,25 @@ html {
   text-overflow: clip;
 }
 
+.queue-ribbon-letter--head {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+@keyframes queueRibbonLetterPulse {
+  0%,
+  100% {
+    letter-spacing: 0.02em;
+  }
+  50% {
+    letter-spacing: 0.07em;
+  }
+}
+
+.queue-ribbon-letter--pulse {
+  animation: queueRibbonLetterPulse var(--word-queue-pulse-ms) cubic-bezier(0.42, 0, 0.2, 1) 1 forwards;
+}
+
 #queue-sack-count {
   text-align: right;
 }
@@ -428,6 +454,27 @@ html {
   margin: 0 auto;
   font-size: clamp(1.15rem, 4.6vw, 1.7rem);
   line-height: 1;
+  opacity: 1;
+  transition: opacity 180ms ease-out;
+}
+
+#current-word.current-word--soft-hidden {
+  opacity: 0;
+}
+
+/* Valid word: pulse while tile-replace animation runs (hold timed in JS). */
+#current-word.current-word--valid-solve {
+  animation: currentWordValidSolveFlash 0.42s ease-in-out infinite;
+}
+
+@keyframes currentWordValidSolveFlash {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2) saturate(1.06);
+  }
 }
 
 /* Clips pan to the main board rectangle so rows/columns disappear at grid edges while shifting. */
@@ -572,10 +619,223 @@ html {
   border-color: var(--grid-button-inactive-border-color);
 }
 
+@keyframes tilePaletteToActive {
+  from {
+    background-color: var(--grid-button-inactive-color);
+    color: var(--grid-button-inactive-text-color);
+    border-color: var(--grid-button-inactive-border-color);
+  }
+  to {
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+    border-color: var(--grid-button-active-border-color);
+  }
+}
+
+@keyframes tilePaletteToInactive {
+  from {
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+    border-color: var(--grid-button-active-border-color);
+  }
+  to {
+    background-color: var(--grid-button-inactive-color);
+    color: var(--grid-button-inactive-text-color);
+    border-color: var(--grid-button-inactive-border-color);
+  }
+}
+
+.grid-button.grid-button--palette-to-active {
+  animation: tilePaletteToActive var(--tile-palette-ms, 420ms) ease forwards;
+}
+
+.grid-button.grid-button--palette-to-inactive {
+  animation: tilePaletteToInactive var(--tile-palette-ms, 420ms) ease forwards;
+}
+
+@keyframes selectedTileEnter {
+  from {
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+  }
+  to {
+    background-color: var(--selected-tile-color);
+    color: var(--selected-tile-text-color);
+  }
+}
+
+.grid-button.grid-button--selected-enter.selected {
+  animation: selectedTileEnter 160ms ease forwards;
+}
+
+/* Invalid word (phase A): shake path tiles + pulse connector lines */
+@keyframes tileInvalidShake {
+  0% {
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+  12% {
+    background-color: #f0a0a0;
+    color: #5c1212;
+  }
+  18% {
+    transform: translateX(-5px);
+    filter: brightness(1.06) saturate(1.12);
+    background-color: #ff8f8f;
+    color: #4a0f0f;
+  }
+  36% {
+    transform: translateX(5px);
+    filter: brightness(1.04) saturate(1.1);
+    background-color: #f59b9b;
+    color: #521010;
+  }
+  54% {
+    transform: translateX(-4px);
+    filter: brightness(1.03);
+    background-color: #ff9494;
+    color: #4a0f0f;
+  }
+  72% {
+    transform: translateX(3px);
+    filter: brightness(1.02);
+    background-color: #eba6a6;
+    color: #561212;
+  }
+  100% {
+    transform: translateX(0);
+    filter: brightness(1);
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+  }
+}
+
+.grid-button.grid-button--invalid-shake {
+  animation: tileInvalidShake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes gridLineFadeOut {
+  from {
+    stroke-opacity: 1;
+    opacity: 1;
+  }
+  to {
+    stroke-opacity: 0;
+    opacity: 0;
+  }
+}
+
+#line-container line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#line-container line.grid-line--result-valid {
+  stroke: var(--word-connector-valid-stroke);
+}
+
+#line-container line.grid-line--result-invalid {
+  stroke: var(--word-connector-invalid-stroke);
+}
+
+line.grid-line--fade-out {
+  animation: gridLineFadeOut 520ms ease-out forwards;
+}
+
+/* Valid word (phase A): brief highlight, no size change (green phase follows). */
+@keyframes tileWordSuccessPop {
+  0% {
+    filter: brightness(1);
+  }
+  45% {
+    filter: brightness(1.1) saturate(1.06);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+.grid-button.grid-button--word-success {
+  animation: tileWordSuccessPop 195ms cubic-bezier(0.25, 0.9, 0.32, 1) both;
+}
+
+/*
+ * Word-replace green / flip: animation lengths use --word-*-ms from script.js
+ * (WORD_RELEASE_GREEN_MS, WORD_LETTER_FLIP_MS) on DOMContentLoaded.
+ */
+/* Valid word: quick green on release, then staggered flip per tile */
+@keyframes tileWordReleaseGreen {
+  0% {
+    filter: brightness(1);
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+  }
+  100% {
+    filter: brightness(1.04) saturate(1.03);
+    background-color: #bff9d5;
+    color: #1a4530;
+  }
+}
+
+.grid-button.grid-button--word-release-green {
+  animation: tileWordReleaseGreen var(--word-release-green-ms) cubic-bezier(0.25, 0.9, 0.32, 1) forwards;
+}
+
+@keyframes tileLetterFlip {
+  0% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.1);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.grid-button.grid-button--letter-flip {
+  transform-origin: center center;
+  animation: tileLetterFlip var(--word-tile-flip-ms) cubic-bezier(0.42, 0, 0.2, 1) forwards;
+}
+
+@keyframes tileLetterSwapIn {
+  from {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.grid-button.grid-button--letter-swap-in {
+  animation: tileLetterSwapIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+}
+
 /* End game: hide empty cells for the rest of the session (letter tiles only until reload). */
 .grid-button.grid-button--endgame-blank-hidden {
   visibility: hidden;
   pointer-events: none;
+}
+
+.grid-button.grid-button--endgame-exit {
+  animation: tileEndgameFlashFade 620ms ease forwards;
+}
+
+@keyframes tileEndgameFlashFade {
+  0% {
+    filter: brightness(1);
+    opacity: 1;
+  }
+  32% {
+    filter: brightness(1.45);
+    opacity: 1;
+  }
+  100% {
+    filter: brightness(0.85);
+    opacity: 0.24;
+  }
 }
 
 .grid-button--active {
@@ -735,6 +995,8 @@ html {
   cursor: pointer;
   z-index: 1;
   touch-action: manipulation;
+  opacity: 1;
+  transition: opacity 320ms ease;
 }
 
 #board-shift-dismiss:focus-visible {
@@ -751,6 +1013,13 @@ html {
   text-align: center;
   line-height: 1.5;
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+#board-shift-zone.board-shift-zone--instructions-fading #board-shift-hints,
+#board-shift-zone.board-shift-zone--instructions-fading #board-shift-dismiss {
+  opacity: 0;
 }
 
 #board-shift-hints.hiddenDisplay {
@@ -834,6 +1103,26 @@ html {
 .visibleDisplay,
 .is-display-flex {
   display: flex;
+}
+
+.dock-fade-out {
+  opacity: 0;
+  transition: opacity 420ms ease;
+  pointer-events: none;
+}
+
+.dock-fade-in {
+  opacity: 1;
+  animation: dockFadeIn 420ms ease;
+}
+
+@keyframes dockFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 #leaderboard-elements.visibleDisplay {
