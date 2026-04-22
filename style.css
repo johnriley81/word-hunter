@@ -51,6 +51,7 @@
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
+  --current-word-fade-ms: 220ms;
   --word-connector-valid-stroke: #478461;
   --word-connector-invalid-stroke: #c23a3a;
 }
@@ -443,11 +444,13 @@ html {
   font-size: clamp(1.15rem, 4.6vw, 1.7rem);
   line-height: 1;
   opacity: 1;
-  transition: opacity 180ms ease-out;
+  transition: opacity var(--current-word-fade-ms, 220ms) ease-out;
 }
 
 #current-word.current-word--soft-hidden {
   opacity: 0;
+  filter: brightness(1);
+  animation: none;
 }
 
 #current-word.current-word--valid-solve {

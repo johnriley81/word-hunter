@@ -28,7 +28,7 @@ const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 const START_TOUCHPAD_FADE_MS = 420;
 const TILE_PALETTE_MS = 420;
-const CURRENT_WORD_FADE_MS = 180;
+const CURRENT_WORD_FADE_MS = 220;
 const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
 const ENDGAME_TILE_FLASH_MS = 260;
@@ -43,8 +43,9 @@ const WORD_LINE_FADE_MS = 520;
 const WORD_PATH_COLOR_STEPS = 11;
 const WORD_RELEASE_GREEN_MS = 255;
 const WORD_LETTER_FLIP_MS = 416;
-const WORD_REPLACE_STEP_MS = WORD_LETTER_FLIP_MS;
+const WORD_REPLACE_FLIP_OVERLAP_MS = Math.floor(WORD_LETTER_FLIP_MS / 2);
 const WORD_COMMIT_AFTER_PULSE_MS = 300;
+const WORD_COMMIT_CHAIN_PULSE_MS = 48;
 const WORD_REPLACE_TAIL_SLACK_MS = 160;
 
 function syncWordReplaceAnimationCssVars() {
@@ -52,14 +53,17 @@ function syncWordReplaceAnimationCssVars() {
   root.style.setProperty("--word-release-green-ms", `${WORD_RELEASE_GREEN_MS}ms`);
   root.style.setProperty("--word-tile-flip-ms", `${WORD_LETTER_FLIP_MS}ms`);
   root.style.setProperty("--word-queue-pulse-ms", `${WORD_COMMIT_AFTER_PULSE_MS}ms`);
+  root.style.setProperty("--current-word-fade-ms", `${CURRENT_WORD_FADE_MS}ms`);
 }
 
 function getWordReplaceAnimationHoldMs(tileCount) {
   const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
   const greenPhaseMs = WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS;
+  const gapBetweenFlipStarts =
+    WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
   const afterGreenMs =
-    (n - 1) * WORD_REPLACE_STEP_MS +
     WORD_COMMIT_AFTER_PULSE_MS +
+    (n - 1) * gapBetweenFlipStarts +
     WORD_LETTER_FLIP_MS +
     WORD_REPLACE_TAIL_SLACK_MS;
   return greenPhaseMs + afterGreenMs;
@@ -550,6 +554,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (head) {
         head.classList.add("queue-ribbon-letter--pulse");
       }
+      const pulseMs =
+        i === 0 ? WORD_COMMIT_AFTER_PULSE_MS : WORD_COMMIT_CHAIN_PULSE_MS;
       window.setTimeout(() => {
         if (epoch !== wordReplaceEpoch) return;
         const button = tilesToReplace[i];
@@ -603,14 +609,20 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         afterHeadGone();
-      }, WORD_COMMIT_AFTER_PULSE_MS);
+      }, pulseMs);
     };
 
     const startPhaseB = () => {
       if (epoch !== wordReplaceEpoch || phaseBStarted) return;
       phaseBStarted = true;
-      for (let i = 0; i < n; i++) {
-        window.setTimeout(() => runTileStep(i), i * WORD_REPLACE_STEP_MS);
+      const gapBetweenFlipStarts =
+        WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
+      window.setTimeout(() => runTileStep(0), 0);
+      for (let i = 1; i < n; i++) {
+        const flipStartMs =
+          WORD_COMMIT_AFTER_PULSE_MS + i * gapBetweenFlipStarts;
+        const delayMs = flipStartMs - WORD_COMMIT_CHAIN_PULSE_MS;
+        window.setTimeout(() => runTileStep(i), delayMs);
       }
     };
 
@@ -2629,6 +2641,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return dr <= 1 && dc <= 1 && dr + dc > 0;
   }
 
+  function beginCurrentWordOpacityFade(myEpoch) {
+    currentWordElement.style.transition = `opacity ${CURRENT_WORD_FADE_MS}ms ease-out`;
+    currentWordElement.classList.remove("current-word--valid-solve");
+    requestAnimationFrame(() => {
+      if (myEpoch !== currentWordMessageEpoch) return;
+      currentWordElement.classList.add("current-word--soft-hidden");
+    });
+  }
+
   function showMessage(
     message,
     flashTimes = 1,
@@ -2636,6 +2657,7 @@ document.addEventListener("DOMContentLoaded", () => {
     visibleHoldMs = null
   ) {
     const myEpoch = beginCurrentWordMessageSession();
+    currentWordElement.style.transition = "";
     currentWordElement.textContent = message;
     currentWordElement.style.color = color;
     currentWordElement.classList.remove("current-word--soft-hidden");
@@ -2652,10 +2674,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (flashTimes > 1) {
       currentWordMessageTimer = window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
-        currentWordElement.classList.remove("current-word--valid-solve");
-        currentWordElement.classList.add("current-word--soft-hidden");
+        beginCurrentWordOpacityFade(myEpoch);
         currentWordMessageFadeTimer = window.setTimeout(() => {
           if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordElement.style.transition = "";
           currentWordMessageActive = false;
           updateCurrentWord();
           currentWordMessageTimer = window.setTimeout(() => {
@@ -2667,10 +2689,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       currentWordMessageTimer = window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
-        currentWordElement.classList.remove("current-word--valid-solve");
-        currentWordElement.classList.add("current-word--soft-hidden");
+        beginCurrentWordOpacityFade(myEpoch);
         currentWordMessageFadeTimer = window.setTimeout(() => {
           if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordElement.style.transition = "";
           currentWordMessageActive = false;
           updateCurrentWord();
           currentWordMessageTimer = null;
