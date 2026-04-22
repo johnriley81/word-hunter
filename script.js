@@ -2387,7 +2387,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (slice.length === 0) {
-      nextLettersElement.textContent = "-";
+      nextLettersElement.textContent = "";
       return;
     }
 
