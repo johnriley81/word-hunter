@@ -1,6 +1,4 @@
-// colors (game messages / leaderboard; keep in sync with theme intent)
 const greenTextColor = "#07f03a";
-/** INVALID flash: softer than CSS `red` (#f00); lighter / whiter than pure scarlet. */
 const redTextColor = "#f76d6d";
 const lightGreenPreviewColor = "#8ff7a8";
 const lightRedPreviewColor = "#ff9b9b";
@@ -10,28 +8,17 @@ const happyHuntingColor = "gold";
 const UPCOMING_LABEL = "UPCOMING:";
 const UPCOMING_PREVIEW_MAX = 7;
 const PRE_START_WORDMARK = "WORDHUNTER";
-/** Post-start intro line shown after WORDHUNTER crossfade; keep copy in one place. */
 const INTRO_MESSAGE_TEXT = "Happy Hunting";
 
-/** Grid dimension (NxN). Must match `text/grids.txt` puzzle shape. */
 const GRID_SIZE = 4;
-/**
- * First column/row counts after dragging this fraction of one (tile+gap) stride.
- * After that, each additional full stride adds one more (floor), so one cell of motion ≈ one step.
- */
 const SHIFT_STRIDE_FIRST_FRAC = 0.4;
-/** Minimum dominant-axis movement before we lock to horizontal vs vertical drag. */
 const SHIFT_AXIS_LOCK_PX = 8;
-/** Pointer travel × this maps into slide offset (2 = half as much drag for the same motion). */
 const SHIFT_SLIDE_SENSITIVITY = 2;
-/** Settle after commit: slightly longer ease-out so tiles read as sliding into place. */
 const SHIFT_SETTLE_MS = 340;
 const SHIFT_SETTLE_EASE = "cubic-bezier(0.2, 0.85, 0.25, 1)";
-/** After commit: ease `#grid-stage` from finger pose to stride snap (ghost tiles ride with it). */
 const SHIFT_COMMIT_SNAP_MS = 220;
 const SHIFT_COMMIT_SNAP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SHIFT_COMMIT_SNAP_END_GRACE_MS = 140;
-/** Stage return to identity after DOM commit (while `#grid` is hidden); shorter than stride snap cuts blank time. */
 const SHIFT_REJOIN_SNAP_MS = 130;
 const SHIFT_GESTURE_FALLBACK_MS = 800;
 const SHIFT_TAP_MAX_TRAVEL_PX = 20;
@@ -40,36 +27,20 @@ const SCORE_SUBMIT_THRESHOLD = 50;
 const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 const START_TOUCHPAD_FADE_MS = 420;
-/** Letter tile inactive ↔ active palette crossfade (match start dock fade). */
 const TILE_PALETTE_MS = 420;
 const CURRENT_WORD_FADE_MS = 180;
 const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
-/** Time each message stays at full opacity before fade-out (all flashes use the same duration). */
 const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
 const ENDGAME_TILE_FLASH_MS = 260;
 const ENDGAME_TILE_FADE_MS = 360;
 const ENDGAME_TILE_SEQUENCE_MS = ENDGAME_TILE_FLASH_MS + ENDGAME_TILE_FADE_MS;
-/** Pull Copy Score / post-game UI earlier; capped so tile gate never goes negative. */
 const COPY_SCORE_REVEAL_LEAD_MS = 1000;
-/** Allow post-game UI when game-over SFX is this many ms from ending (requires known `duration`). */
 const COPY_SCORE_SOUND_UI_LEAD_MS = 1500;
-/** Wait this long after Game Over finishes flashing before starting the tile fade. */
 const ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS = 500;
 const GAME_OVER_FLASH_TIMES = 2;
-/** Word submit feedback — phase A: invalid shake / valid pop-then-swap. */
 const WORD_INVALID_SHAKE_MS = 320;
-/** Connector lines fade out after word submit (valid or invalid). */
 const WORD_LINE_FADE_MS = 520;
-/** Drag path: one full amber→…→blue→amber loop spans this many letter-to-letter steps (12 letters), then repeats. */
 const WORD_PATH_COLOR_STEPS = 11;
-/**
- * Valid-word replace timing (hold math: `getWordReplaceAnimationHoldMs`; stagger:
- * `runSuccessPopThenStaggeredFlip`). Durations are mirrored in style.css as
- * `--word-release-green-ms`, `--word-tile-flip-ms`, `--word-queue-pulse-ms` and set from
- * these constants on DOMContentLoaded so JS and CSS stay aligned.
- *
- * `WORD_REPLACE_STEP_MS === WORD_LETTER_FLIP_MS`: each flip starts when the previous ends.
- */
 const WORD_RELEASE_GREEN_MS = 255;
 const WORD_LETTER_FLIP_MS = 416;
 const WORD_REPLACE_STEP_MS = WORD_LETTER_FLIP_MS;
@@ -83,10 +54,6 @@ function syncWordReplaceAnimationCssVars() {
   root.style.setProperty("--word-queue-pulse-ms", `${WORD_COMMIT_AFTER_PULSE_MS}ms`);
 }
 
-/**
- * Wall time from valid-word submit until the last replacement tile flip finishes
- * (green release → staggered steps → pulse/commit → flip + cleanup).
- */
 function getWordReplaceAnimationHoldMs(tileCount) {
   const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
   const greenPhaseMs = WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS;
@@ -98,7 +65,6 @@ function getWordReplaceAnimationHoldMs(tileCount) {
   return greenPhaseMs + afterGreenMs;
 }
 
-/** Green word + score: begin opacity fade this much before replace animation ends. */
 const WORD_SUCCESS_MESSAGE_FADE_EARLY_MS = 250;
 
 const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
@@ -143,7 +109,6 @@ const LETTER_WEIGHTS = Object.freeze({
 
 function normalizeTileText(text) {
   const normalized = String(text || "").trim().toLowerCase();
-  // Keep classic Boggle behavior: standalone q tiles are treated as qu.
   if (normalized === "q") return "qu";
   return normalized;
 }
@@ -153,12 +118,10 @@ function getLetterWeight(tileText) {
   return LETTER_WEIGHTS[normalized] ?? 1;
 }
 
-/** Max row/column steps per swipe (`n - 1`); a full `n` shift is identity on an n×n board. */
 function shiftMaxStepsPerGesture(n) {
   return Math.max(1, n - 1);
 }
 
-/** Commit step count from drag magnitude (0 .. shiftMaxStepsPerGesture(n)). */
 function shiftCommitStepsFromAxisMag(magPx, stridePx, n) {
   if (magPx <= 0) return 0;
   const first = stridePx * SHIFT_STRIDE_FIRST_FRAC;
@@ -167,10 +130,6 @@ function shiftCommitStepsFromAxisMag(magPx, stridePx, n) {
   return Math.min(cap, 1 + Math.floor((magPx - first) / stridePx));
 }
 
-/**
- * Clamp |axis| into the commit band for strip depth `k` (same [low, hi) as strip thresholds).
- * Continuous within the band so drag does not stick on inner stride plateaus.
- */
 function clampAxisMagToCommitBandForK(magPx, stridePx, k) {
   if (k <= 0 || magPx <= 0) return magPx;
   const first = stridePx * SHIFT_STRIDE_FIRST_FRAC;
@@ -179,7 +138,6 @@ function clampAxisMagToCommitBandForK(magPx, stridePx, k) {
   return Math.min(Math.max(magPx, low), hiEx - 1e-6);
 }
 
-/** Snap locked-axis motion into the stride band for the current step count (quantize while dragging). */
 function quantizeShiftVisualAxis(tx, ty, horizontal, stridePx, n) {
   const rawAxis = horizontal ? tx : ty;
   const magRaw = Math.abs(rawAxis);
@@ -198,7 +156,6 @@ function quantizeShiftVisualAxis(tx, ty, horizontal, stridePx, n) {
   return { tx: 0, ty: sign * snapped, rawTx: tx, rawTy: ty };
 }
 
-/** Mid-stride lines at (k + ½) * stride — tick when drag magnitude crosses these. */
 function countShiftMidwayCrossings(prevMag, currMag, stridePx) {
   if (stridePx <= 0) return 0;
   const lo = Math.min(prevMag, currMag);
@@ -320,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
-  /** @type {string[][]} Row-major letters; kept in sync with #grid tiles. */
+  /** @type {string[][]} */
   let board = [];
   let isPaused = false;
   let isMuted = false;
@@ -328,22 +285,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let shiftPointerId = null;
   let shiftStartX = 0;
   let shiftStartY = 0;
-  /** `performance.now()` at shift pointer down (double-tap detection). */
   let shiftPointerDownAt = 0;
-  /** Last tap time for double-tap-to-end gesture. */
   let shiftDoubleTapPrevAt = 0;
   let shiftAnimating = false;
-  /** @type {null | boolean} null until axis is chosen from the first meaningful move. */
+  /** @type {null | boolean} */
   let shiftDragLockedHorizontal = null;
   let shiftVisualTx = 0;
   let shiftVisualTy = 0;
-  /** Last strip depth shown by ghost UI; avoids pointer-up stride reflow changing k vs drag. */
   let shiftVisualStripCount = 0;
-  /** Axis for `shiftVisualStripCount` (same as `updateShiftStageVisual` `horizontal`). */
   let shiftVisualStripHorizontal = true;
-  /** Last locked-axis swipe magnitude (px) for midway tick detection. */
   let shiftSwipeTickPrevMag = 0;
-  /** Pixel-locked grid size during active swipe to prevent live layout distortion. */
   let shiftLockedGridWidthPx = 0;
   let shiftLockedGridHeightPx = 0;
   let currentWordMessageActive = false;
@@ -375,11 +326,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let endgameSoundEarlyTimer = null;
   let tilePaletteTransitionTimer = null;
   let wordSubmitFeedbackTimer = null;
-  /** Invalidates in-flight replace timeouts; paired with `wordReplaceLockGen` for input guard. */
   let wordReplaceEpoch = 0;
-  /** Non-zero while success pop + staggered flip runs; blocks new tile selection. */
   let wordReplaceLockGen = 0;
-  /* Grouped state views to make ownership explicit without changing runtime behavior. */
   const shiftState = {
     get pointerId() {
       return shiftPointerId;
@@ -425,7 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /** After mouse/touch up: clear path, selection, and word-feedback animation classes. */
   function finishWordDragCleanup(options = {}) {
     const skipLines = options.skipLines === true;
     clearWordSubmitFeedbackTimer();
@@ -454,10 +401,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Color along the drag path: `p` is fractional phase in [0,1) (wraps each 12-letter cycle).
-   * Amber → red (~by 5th letter) → pink → blue → amber, then repeats.
-   */
   function wordPathDragStrokeColorAt(p) {
     let u = p % 1;
     if (u < 0) u += 1;
@@ -501,7 +444,6 @@ document.addEventListener("DOMContentLoaded", () => {
     )})`;
   }
 
-  /** Recompute segment geometry and per-segment gradients so the path blends start→end. */
   function restyleAllWordConnectorLines() {
     const lineEls = gridLineContainer.querySelectorAll("line");
     let defs = gridLineContainer.querySelector("defs");
@@ -556,7 +498,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /** Solid silver/red on release (before fade); pairs with `.grid-line--result-*` in CSS. */
   function applyWordConnectorLineOutcome(isValid) {
     const lines = gridLineContainer.querySelectorAll("line");
     const winClass = "grid-line--result-valid";
@@ -568,7 +509,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /** Fade SVG connector lines then remove them (visual only; DOM cleared after duration). */
   function fadeOutWordConnectorLines(onComplete) {
     const lines = gridLineContainer.querySelectorAll("line");
     if (lines.length === 0) {
@@ -708,7 +648,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function syncGridViewportSize() {
     if (!gridViewport) return;
-    // Approach A: keep sizing CSS-driven to avoid JS/CSS drift.
     gridViewport.style.padding = "";
     gridViewport.style.width = "";
     gridViewport.style.height = "";
@@ -718,7 +657,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (shiftLockedGridWidthPx > 0 && shiftLockedGridHeightPx > 0) return;
     const br = grid.getBoundingClientRect();
     if (br.width < 1 || br.height < 1) return;
-    // Keep sub-pixel precision so swipe mode doesn't slightly compress tile gaps.
     shiftLockedGridWidthPx = br.width;
     shiftLockedGridHeightPx = br.height;
     grid.style.width = shiftLockedGridWidthPx + "px";
@@ -727,8 +665,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function unlockGridSizeAfterSwipe() {
-    // Keep the measured pixel size applied at rest too; this matches the geometry
-    // seen during swipe and avoids fallback-to-CSS drift/clipping on release.
     shiftLockedGridWidthPx = 0;
     shiftLockedGridHeightPx = 0;
   }
@@ -852,7 +788,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function fillPreviewStripHorizontalLeft(inner, k) {
-    /* Row-major order must match CSS grid auto-flow (default row). */
     fillPreviewStripWithBoard(inner, k, (idx, n, cols) => {
       const r = Math.floor(idx / cols);
       const cInStrip = idx % cols;
@@ -884,12 +819,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * After commit: resize preview strip to match the refreshed `#grid` (cell metrics may change).
-   * When `reuseTileText` is true, keep the letters already painted during drag — they are the
-   * wrapped slice and still match the main grid after `applyShift` (refilling from `board`
-   * with the old index math would flash the wrong glyphs for one frame).
-   */
   function refillShiftPreviewFromBoardAfterCommit(horizontal, signedVis, k, opts) {
     const reuseTileText = opts && opts.reuseTileText;
     const n = GRID_SIZE;
@@ -1082,7 +1011,6 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((data) => {
       wordSet = new Set(data.toLowerCase().split("\n"));
 
-      // Fetch grids.txt after wordlist.txt has been fetched
       return fetch("text/grids.txt");
     })
     .then((response) => response.text())
@@ -1096,7 +1024,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // Fetch nextletters.txt after grids.txt has been fetched
       return fetch("text/nextletters.txt");
     })
     .then((response) => response.text())
@@ -1110,7 +1037,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // Call generateGrid() after all files have been fetched
       generateGrid();
       nextLetters = generateNextLetters();
       updateNextLetters();
@@ -1169,11 +1095,9 @@ document.addEventListener("DOMContentLoaded", () => {
   currentWordElement.textContent = PRE_START_WORDMARK;
   currentWordElement.style.color = "white";
 
-  /** Web Audio path: Safari throttles rapid `HTMLAudioElement.play()`; scheduled buffers are reliable. */
   let shiftTickCtx = null;
   let shiftTickBuffer = null;
   let shiftTickDecodePromise = null;
-  /** End time of last scheduled tick (ctx.currentTime) so bursts do not overlap incorrectly. */
   let shiftTickScheduleEnd = 0;
 
   const SHIFT_TICK_POOL_SIZE = 12;
@@ -1308,7 +1232,6 @@ document.addEventListener("DOMContentLoaded", () => {
         BOARD_SHIFT_HINTS_FADE_MS + 80
       );
     };
-    /* Safari/Chrome mobile: zone-level touchend preventDefault can suppress click. */
     boardShiftDismissButton.addEventListener("pointerdown", (event) => {
       if (event.cancelable) event.preventDefault();
       event.stopPropagation();
@@ -1362,7 +1285,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     shiftAnimating = false;
     syncLineOverlaySize();
-    /* Unlock inline grid size on the next paint so commit + overlay settle first. */
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         unlockGridSizeAfterSwipe();
@@ -1449,7 +1371,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return { targetTransform, skipSnapAnimate };
   }
 
-  /** Stage transform for snap (same geometry as drag; applied to `#grid-stage` only). */
   function computeShiftStageTransformString(horizontal, signedAxis, k, m) {
     if (horizontal) {
       const tx = signedAxis;
@@ -1486,7 +1407,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /** Child `#grid` transform that cancels current `#grid-stage` translate (sum ≈ 0 in viewport). */
   function gridInverseCompensateTranslateString(stageTransformCss) {
     const { x, y } = parseStageTranslatePx(stageTransformCss);
     return `translate(${-x}px, ${-y}px)`;
@@ -1549,10 +1469,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * Committed shift: apply board + DOM, keep ghost letters on the preview strip (resize only),
-   * ease `#grid-stage` from the finger pose to the stride snap, then clear preview + stage.
-   */
   function runShiftSettleAfterDrag(applyShift, meta) {
     const { horizontal, signedVis, k } = meta;
     shiftVisualTx = 0;
@@ -1594,7 +1510,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    /* Pre-apply metrics match the drag transform; post-sync cell size can change. */
     const mDrag = getGridCellMetrics();
     let stageTransformFromDrag = gridStage.style.transform;
     if (!stageTransformFromDrag) {
@@ -1624,12 +1539,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let rejoinDone = false;
     let fallbackTimer;
     let snapEndTimer = null;
-    /** Non-once listener must be removed explicitly; `once:true` breaks if another property transitions first. */
     let snapStageTransitionEndHandler = null;
-    /** Web Animations API: stride snap on `#grid-stage`. */
     let snapWaapiAnim = null;
     let snapWaapiSafetyTimer = null;
-    /** WAAPI: dual rejoin to identity after commit. */
     let rejoinWaapiStageAnim = null;
     let rejoinWaapiGridAnim = null;
     let rejoinWaapiSafetyTimer = null;
@@ -1673,8 +1585,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (gridStage) {
         gridStage.style.transition = "";
       }
-      /* Keep letters visible: cancel stage offset with inverse translate on `#grid` so
-         committed tile text does not flash wrong-frame and the board does not go blank. */
       const stageCssForComp =
         gridStage && gridStage.style.transform
           ? gridStage.style.transform
@@ -2165,7 +2075,6 @@ document.addEventListener("DOMContentLoaded", () => {
     runShiftSettleAfterDrag(applyShift, { horizontal, signedVis, k: steps });
   }
 
-  /** Positive = shift columns toward increasing c (drag preview “right”); negative = left. */
   function applyColumnShift(signedSteps) {
     const n = GRID_SIZE;
     const kk = Math.abs(signedSteps) % n;
@@ -2181,7 +2090,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /** Positive = shift rows toward increasing r (drag preview “down”); negative = up. */
   function applyRowShift(signedSteps) {
     const n = GRID_SIZE;
     const kk = Math.abs(signedSteps) % n;
@@ -2244,10 +2152,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }, durationMs);
   }
 
-  /**
-   * WORDHUNTER → Happy Hunting over `START_TOUCHPAD_FADE_MS`, aligned with dock/tile start fades.
-   * @param {{ skipWordmark?: boolean }} options If true (retry → immediate start), fade in only Happy Hunting so Copy Score / WORDHUNTER never flashes.
-   */
   function crossfadeWordmarkToHappyHunting(options = {}) {
     const skipWordmark = options.skipWordmark === true;
     const myEpoch = beginCurrentWordMessageSession();
@@ -2487,7 +2391,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    /* e.g. "A, B, C, D, E..." then "B, C, D, E, F..." */
     const headSpan = document.createElement("span");
     headSpan.className = "queue-ribbon-letter--head";
     headSpan.textContent = String(slice[0]);
@@ -2502,7 +2405,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Helper function to calculate the difference in days between two dates
   function calculateDiffDays() {
     const now = new Date();
     const start = new Date(2023, 4, 20);
@@ -2539,7 +2441,6 @@ document.addEventListener("DOMContentLoaded", () => {
     handleMouseUp(event);
   }
 
-  /** Updates `data-selection-visits` from how often each tile appears in the path. */
   function syncSelectionVisitDepth() {
     const counts = new Map();
     for (const btn of selectedButtons) {
@@ -2598,12 +2499,10 @@ document.addEventListener("DOMContentLoaded", () => {
           currentWord = currentWord.slice(0, -1);
         }
 
-        // Remove the corresponding line (last segment; defs stay as first child)
         const linesOnly = gridLineContainer.querySelectorAll("line");
         if (linesOnly.length) linesOnly[linesOnly.length - 1].remove();
         restyleAllWordConnectorLines();
 
-        // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
           removedButton.classList.remove("selected");
           removedButton.classList.remove("grid-button--selected-enter");
@@ -2616,7 +2515,6 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedButtonSet.add(targetButton);
         targetButton.classList.add("selected");
 
-        // Add a line from the last button to this one
         if (lastButton) {
           const line = document.createElementNS(SVG_NS, "line");
           line.setAttribute("stroke-width", "3");
@@ -2953,7 +2851,6 @@ document.addEventListener("DOMContentLoaded", () => {
       gridLineContainer.firstChild.remove();
     }
 
-    // Hide Rules, Done, shift zone, mute/help
     rulesButton.classList.add("hiddenDisplay");
     rulesButton.classList.add("hidden");
     rulesButton.classList.remove("visible");
@@ -2965,7 +2862,6 @@ document.addEventListener("DOMContentLoaded", () => {
     boardShiftZone.classList.add("hiddenDisplay");
     boardShiftZone.classList.remove("visibleDisplay");
 
-    // Show Retry button
     buttonContainer.classList.remove("hiddenDisplay");
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
@@ -2992,7 +2888,6 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardTable.classList.remove("visibleDisplay");
   }
 
-  /** Soft reset to the same state as after initial fetch (keep mute + dismissed swipe hints). */
   function resetRoundToPregame(options = {}) {
     const forImmediateStart = options.forImmediateStart === true;
     isGameActive = false;
@@ -3085,7 +2980,6 @@ document.addEventListener("DOMContentLoaded", () => {
     retryButton.classList.remove("visibleDisplay");
 
     if (forImmediateStart) {
-      /* Retry → startGame(): keep START hidden so it never flashes before Happy Hunting. */
       boardShiftZone.classList.remove("dock-fade-in");
       boardShiftZone.classList.add("hiddenDisplay");
       boardShiftZone.classList.remove("visibleDisplay");
@@ -3118,8 +3012,6 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardElements.classList.remove("visibleDisplay");
     leaderboardTable.classList.add("hiddenDisplay");
     leaderboardTable.classList.remove("visibleDisplay");
-
-    /* Swipe hint dismissal preserved on purpose (vs full reload). */
 
     const tiles = grid.querySelectorAll(".grid-button");
     for (let i = 0; i < tiles.length; i++) {
@@ -3167,7 +3059,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // make the API request
     const response = await fetch(requestURL, requestOptions);
     const data = await response.json();
 
@@ -3177,13 +3068,10 @@ document.addEventListener("DOMContentLoaded", () => {
         ? parsedBody.top_10
         : parsedBody;
 
-    // clear the existing leaderboard table
     leaderboardTable.innerHTML = "";
 
-    // create a table body
     let tbody = document.createElement("tbody");
 
-    // add the table header
     let headerRow = document.createElement("tr");
     ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
       let th = document.createElement("th");
@@ -3194,13 +3082,11 @@ document.addEventListener("DOMContentLoaded", () => {
     headerRow.style.color = "white";
     tbody.appendChild(headerRow);
 
-    // add the new leaderboard rows
     leaderboard.forEach((row, index) => {
       let tr = document.createElement("tr");
       let [player, rowHardFlag, rowScore, rowTrophy] = row;
 
-      // Determine the color of the row
-      let color = "white"; // default color
+      let color = "white";
       if (rowHardFlag === 1) {
         color = redTextColorLeaderboard;
       }
@@ -3220,7 +3106,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       tr.style.color = color;
 
-      // Determine the displayed position (medal or number)
       let positionDisplay;
       if (index === 0) {
         positionDisplay = "🥇";
@@ -3233,7 +3118,6 @@ document.addEventListener("DOMContentLoaded", () => {
           let td = document.createElement("td");
           td.textContent = cellText;
 
-          // Add class for first and third columns
           if (cellIndex === 0 || cellIndex === 2) {
             td.classList.add("centered-cell");
           }

@@ -1,6 +1,5 @@
 :root {
   --header-control-size: 32px;
-  /* Matches body padding + header strip so overlay controls align with #rules-button / #mute-button */
   --page-padding: 5px;
   --logo-rules-padding-y: 2px;
   --page-background-color: #1c1c1e;
@@ -12,28 +11,23 @@
   --next-letters-shadow-color: black;
   --grid-button-border-color: #8c8594;
   --grid-button-shadow-color: transparent;
-  /* Pre-start / disabled letter tiles */
   --grid-button-inactive-color: #505050;
   --grid-button-inactive-text-color: #000000;
   --grid-button-inactive-border-color: #000000;
-  /* Active (playable) letter tiles */
   --grid-button-active-color: hwb(44 91% 2%);
   --grid-button-active-text-color: #1f3165;
   --grid-button-active-border-color: #000000;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
-  /* START / RETRY (bottom dock) */
   --button-background-color: #ffffff;
   --button-text-color: hwb(275 16% 5%);
   --selected-tile-color: #cbe6ff;
   --selected-tile-text-color: #1a2d42;
-  /* Each time the path crosses the same tile again, shade steps darker */
   --selected-tile-visit2-color: #9ec9f2;
   --selected-tile-visit2-text-color: #142433;
   --selected-tile-visit3-color: #6fabdf;
   --selected-tile-visit3-text-color: #0f1822;
-  /* Full-page backdrop (shown behind image while it loads / if image fails). */
   --body-background-fallback-color: #fce4ec;
   --body-background-image: url("images/background.png");
   --header-icon-button-background-color: #ffffff;
@@ -44,9 +38,7 @@
   --grid-size: 4;
   --grid-gap: 13px;
   --grid-max: 400px;
-  /* Space between tile field and the grid container box */
   --grid-edge-padding: 12px;
-  /* Shared sizing/state tokens */
   --radius-sm: 4px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -56,11 +48,9 @@
   --space-sm: 8px;
   --z-base: 1;
   --z-dock: 2;
-  /* Word-replace durations: WORD_RELEASE_GREEN_MS, WORD_LETTER_FLIP_MS, WORD_COMMIT_AFTER_PULSE_MS in script.js */
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
-  /* Connector lines after submit (before fade): tuned for golden active tiles */
   --word-connector-valid-stroke: #478461;
   --word-connector-invalid-stroke: #c23a3a;
 }
@@ -105,7 +95,6 @@ body {
   background-size: cover;
 }
 
-/* Omit #rules: it is `position: fixed` and must not participate as a flex item (would fight #bottom-dock margin-top: auto). */
 body > *:not(#page-background):not(#rules) {
   position: relative;
   z-index: 1;
@@ -383,7 +372,6 @@ html {
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 1px 1px 2px var(--page-text-shadow-color);
   background-color: #000000;
-  /* Match #score: same purple frame (outset + --box-border-color), no top line so it reads as one card */
   border-style: outset;
   border-color: var(--box-border-color);
   border-top: none;
@@ -442,14 +430,14 @@ html {
 
 #current-word {
   position: relative;
-  white-space: nowrap; /* prevent text from wrapping to the next line */
+  white-space: nowrap;
   overflow: visible;
-  text-overflow: ellipsis; /* show an ellipsis when the text overflows */
+  text-overflow: ellipsis;
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.45),
     0 0 1px rgba(0, 0, 0, 0.35);
-  text-align: center; /* center the text horizontally */
-  width: 100%; /* added to fill the container width */
+  text-align: center;
+  width: 100%;
   z-index: 3;
   margin: 0 auto;
   font-size: clamp(1.15rem, 4.6vw, 1.7rem);
@@ -462,7 +450,6 @@ html {
   opacity: 0;
 }
 
-/* Valid word: pulse while tile-replace animation runs (hold timed in JS). */
 #current-word.current-word--valid-solve {
   animation: currentWordValidSolveFlash 0.42s ease-in-out infinite;
 }
@@ -477,7 +464,6 @@ html {
   }
 }
 
-/* Clips pan to the main board rectangle so rows/columns disappear at grid edges while shifting. */
 .grid-viewport {
   position: relative;
   box-sizing: border-box;
@@ -497,7 +483,6 @@ html {
   padding: 0;
 }
 
-/* Single transform target for shift gestures; preview strip + #grid are flex children. */
 #grid-stage {
   box-sizing: border-box;
   display: flex;
@@ -514,7 +499,6 @@ html {
   flex-direction: column;
 }
 
-/* Preview after main grid (negative drag): column to the right or row below. */
 .grid-stage--strip-end #grid {
   order: 1;
 }
@@ -668,7 +652,6 @@ html {
   animation: selectedTileEnter 160ms ease forwards;
 }
 
-/* Invalid word (phase A): shake path tiles + pulse connector lines */
 @keyframes tileInvalidShake {
   0% {
     transform: translateX(0);
@@ -742,7 +725,6 @@ line.grid-line--fade-out {
   animation: gridLineFadeOut 520ms ease-out forwards;
 }
 
-/* Valid word (phase A): brief highlight, no size change (green phase follows). */
 @keyframes tileWordSuccessPop {
   0% {
     filter: brightness(1);
@@ -759,11 +741,6 @@ line.grid-line--fade-out {
   animation: tileWordSuccessPop 195ms cubic-bezier(0.25, 0.9, 0.32, 1) both;
 }
 
-/*
- * Word-replace green / flip: animation lengths use --word-*-ms from script.js
- * (WORD_RELEASE_GREEN_MS, WORD_LETTER_FLIP_MS) on DOMContentLoaded.
- */
-/* Valid word: quick green on release, then staggered flip per tile */
 @keyframes tileWordReleaseGreen {
   0% {
     filter: brightness(1);
@@ -813,7 +790,6 @@ line.grid-line--fade-out {
   animation: tileLetterSwapIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
 }
 
-/* End game: hide empty cells for the rest of the session (letter tiles only until reload). */
 .grid-button.grid-button--endgame-blank-hidden {
   visibility: hidden;
   pointer-events: none;
@@ -828,13 +804,9 @@ line.grid-line--fade-out {
     filter: brightness(1);
     opacity: 1;
   }
-  32% {
-    filter: brightness(1.45);
-    opacity: 1;
-  }
   100% {
-    filter: brightness(0.85);
-    opacity: 0.24;
+    filter: brightness(0.78);
+    opacity: 0.22;
   }
 }
 
@@ -849,8 +821,6 @@ line.grid-line--fade-out {
   width: 100%;
   max-width: 100%;
   margin-top: 2px;
-  /* Pull #bottom-dock up: flex `margin-top: auto` on the dock eats leftover space;
-     negative margin here reduces the visual gap without changing dock height. */
   margin-bottom: -12px;
   padding: 0 var(--grid-edge-padding) var(--grid-edge-padding);
   box-sizing: border-box;
@@ -875,7 +845,7 @@ line.grid-line--fade-out {
   width: 100%;
   height: 100%;
   overflow: visible;
-  pointer-events: none; /* this allows mouse events to pass through to the buttons underneath */
+  pointer-events: none;
 }
 
 #leaderboard-elements {
@@ -923,7 +893,7 @@ line.grid-line--fade-out {
 #leaderboard-button {
   height: 10%;
   max-height: 30px;
-  width: fit-content; /* Adjust this as necessary */
+  width: fit-content;
   font-family: "Press Start 2P", cursive;
   padding: 3%;
   font-size: 1rem;
@@ -1071,7 +1041,6 @@ line.grid-line--fade-out {
   touch-action: manipulation;
 }
 
-/* For dock layers, keep geometry stable when hidden. */
 #board-shift-zone.hiddenDisplay,
 #button-container.hiddenDisplay {
   display: flex !important;
@@ -1094,7 +1063,6 @@ line.grid-line--fade-out {
   display: none;
 }
 
-/* ID + display rules beat `.hiddenDisplay` alone; keep overlays able to hide chrome. */
 #game-info-container.hiddenDisplay,
 #bottom-dock.hiddenDisplay {
   display: none;
