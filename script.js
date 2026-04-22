@@ -1,6 +1,7 @@
 // colors (game messages / leaderboard; keep in sync with theme intent)
 const greenTextColor = "#07f03a";
-const redTextColor = "red";
+/** INVALID flash: softer than CSS `red` (#f00); lighter / whiter than pure scarlet. */
+const redTextColor = "#f76d6d";
 const lightGreenPreviewColor = "#8ff7a8";
 const lightRedPreviewColor = "#ff9b9b";
 const redTextColorLeaderboard = "red";
@@ -36,6 +37,58 @@ const SHIFT_TAP_MAX_PRESS_MS = 500;
 const SCORE_SUBMIT_THRESHOLD = 50;
 const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
+const START_TOUCHPAD_FADE_MS = 420;
+/** Letter tile inactive ↔ active palette crossfade (match start dock fade). */
+const TILE_PALETTE_MS = 420;
+const CURRENT_WORD_FADE_MS = 180;
+const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
+/** Time each message stays at full opacity before fade-out (all flashes use the same duration). */
+const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
+const ENDGAME_TILE_FLASH_MS = 260;
+const ENDGAME_TILE_FADE_MS = 360;
+const ENDGAME_TILE_SEQUENCE_MS = ENDGAME_TILE_FLASH_MS + ENDGAME_TILE_FADE_MS;
+/** Pull Copy Score / post-game UI earlier; capped so tile gate never goes negative. */
+const COPY_SCORE_REVEAL_LEAD_MS = 1000;
+/** Allow post-game UI when game-over SFX is this many ms from ending (requires known `duration`). */
+const COPY_SCORE_SOUND_UI_LEAD_MS = 1500;
+/** Wait this long after Game Over finishes flashing before starting the tile fade. */
+const ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS = 500;
+const GAME_OVER_FLASH_TIMES = 2;
+/** Word submit feedback — phase A: invalid shake / valid pop-then-swap. */
+const WORD_INVALID_SHAKE_MS = 320;
+/** Connector lines fade out after word submit (valid or invalid). */
+const WORD_LINE_FADE_MS = 520;
+/**
+ * Valid word replace: green → staggered tile steps (pulse + flip). Wall time grows with n.
+ * `WORD_REPLACE_STEP_MS === WORD_LETTER_FLIP_MS` so each flip starts when the previous flip ends (no overlap).
+ */
+const WORD_RELEASE_GREEN_MS = 255;
+/** ~25% faster than 520ms baseline. */
+const WORD_LETTER_FLIP_MS = 416;
+/** Start each next tile when the previous tile’s flip finishes (same span as flip, no overlap). */
+const WORD_REPLACE_STEP_MS = WORD_LETTER_FLIP_MS;
+/** Shorter than flip: when this elapses, sack updates + tile flip start (upcoming pulse CSS matches). */
+const WORD_COMMIT_AFTER_PULSE_MS = 300;
+/** Cleanup / phase-boundary slack after flip animation. */
+const WORD_REPLACE_TAIL_SLACK_MS = 160;
+
+/**
+ * Wall time from valid-word submit until the last replacement tile flip finishes
+ * (green release → staggered steps → pulse/commit → flip + cleanup).
+ */
+function getWordReplaceAnimationHoldMs(tileCount) {
+  const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
+  const greenPhaseMs = WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS;
+  const afterGreenMs =
+    (n - 1) * WORD_REPLACE_STEP_MS +
+    WORD_COMMIT_AFTER_PULSE_MS +
+    WORD_LETTER_FLIP_MS +
+    WORD_REPLACE_TAIL_SLACK_MS;
+  return greenPhaseMs + afterGreenMs;
+}
+
+/** Green word + score: begin opacity fade this much before replace animation ends. */
+const WORD_SUCCESS_MESSAGE_FADE_EARLY_MS = 250;
 
 const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
   game_over: Object.freeze(["Game Over"]),
@@ -282,8 +335,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let shiftLockedGridHeightPx = 0;
   let currentWordMessageActive = false;
   let currentWordMessageTimer = null;
+  let currentWordMessageFadeTimer = null;
+  let currentWordMessageEpoch = 0;
   let endgameBlankRestoreFallbackTimer = null;
-
+  let startUiTransitionTimer = null;
+  let endgameTileStartTimer = null;
+  let endgameTileRevealTimer = null;
+  let endgamePostUiReady = false;
+  let endgameSoundReady = false;
+  let endgameUiShown = false;
+  let endgameSoundEarlyTimer = null;
+  let tilePaletteTransitionTimer = null;
+  let wordSubmitFeedbackTimer = null;
+  /** Invalidates in-flight replace timeouts; paired with `wordReplaceLockGen` for input guard. */
+  let wordReplaceEpoch = 0;
+  /** Non-zero while success pop + staggered flip runs; blocks new tile selection. */
+  let wordReplaceLockGen = 0;
   /* Grouped state views to make ownership explicit without changing runtime behavior. */
   const shiftState = {
     get pointerId() {
@@ -321,6 +388,171 @@ document.addEventListener("DOMContentLoaded", () => {
     currentWord = "";
     updateCurrentWord();
     updateScoreStrip();
+  }
+
+  function clearWordSubmitFeedbackTimer() {
+    if (wordSubmitFeedbackTimer !== null) {
+      window.clearTimeout(wordSubmitFeedbackTimer);
+      wordSubmitFeedbackTimer = null;
+    }
+  }
+
+  /** After mouse/touch up: clear path, selection, and word-feedback animation classes. */
+  function finishWordDragCleanup(options = {}) {
+    const skipLines = options.skipLines === true;
+    clearWordSubmitFeedbackTimer();
+    currentWord = "";
+    selectedButtons.forEach((button) => {
+      button.classList.remove(
+        "selected",
+        "grid-button--selected-enter",
+        "grid-button--invalid-shake",
+        "grid-button--word-success",
+        "grid-button--word-release-green",
+        "grid-button--letter-flip",
+        "grid-button--letter-swap-in"
+      );
+      button.removeAttribute("data-selection-visits");
+    });
+    updateCurrentWord();
+    selectedButtons = [];
+    selectedButtonSet = new Set();
+    lastButton = null;
+    updateScoreStrip();
+    if (!skipLines) {
+      while (gridLineContainer.firstChild) {
+        gridLineContainer.firstChild.remove();
+      }
+    }
+  }
+
+  /** Fade SVG connector lines then remove them (visual only; DOM cleared after duration). */
+  function fadeOutWordConnectorLines(onComplete) {
+    const lines = gridLineContainer.querySelectorAll("line");
+    if (lines.length === 0) {
+      if (onComplete) onComplete();
+      return;
+    }
+    for (let i = 0; i < lines.length; i++) {
+      lines[i].classList.add("grid-line--fade-out");
+    }
+    window.setTimeout(() => {
+      while (gridLineContainer.firstChild) {
+        gridLineContainer.firstChild.remove();
+      }
+      if (onComplete) onComplete();
+    }, WORD_LINE_FADE_MS + 40);
+  }
+
+  function bumpWordReplaceEpoch() {
+    wordReplaceEpoch++;
+    wordReplaceLockGen = 0;
+  }
+
+  function runSuccessPopThenStaggeredFlip(tilesToReplace) {
+    wordReplaceEpoch++;
+    const epoch = wordReplaceEpoch;
+    const n = tilesToReplace.length;
+    const gridN = GRID_SIZE;
+    if (n === 0) {
+      return;
+    }
+    wordReplaceLockGen = epoch;
+
+    let phaseBStarted = false;
+    let greenDoneCount = 0;
+
+    const runTileStep = (i) => {
+      if (epoch !== wordReplaceEpoch) return;
+      const head = nextLettersElement.querySelector(".queue-ribbon-letter--head");
+      if (head) {
+        head.classList.add("queue-ribbon-letter--pulse");
+      }
+      window.setTimeout(() => {
+        if (epoch !== wordReplaceEpoch) return;
+        const button = tilesToReplace[i];
+
+        const runFlipAndFinish = (nextLetter) => {
+          if (epoch !== wordReplaceEpoch) return;
+          button.classList.remove("grid-button--letter-flip");
+          void button.offsetWidth;
+          button.classList.add("grid-button--letter-flip");
+
+          const midMs = Math.max(40, Math.floor(WORD_LETTER_FLIP_MS / 2));
+          window.setTimeout(() => {
+            if (epoch !== wordReplaceEpoch) return;
+            setTileText(button, nextLetter);
+            const idx = Array.prototype.indexOf.call(grid.children, button);
+            const r = Math.floor(idx / gridN);
+            const c = idx % gridN;
+            board[r][c] = nextLetter;
+          }, midMs);
+
+          const onFlipEnd = (e) => {
+            if (e.target !== button) return;
+            button.removeEventListener("animationend", onFlipEnd);
+            button.classList.remove("grid-button--letter-flip");
+            button.classList.remove("grid-button--word-release-green");
+          };
+          button.addEventListener("animationend", onFlipEnd);
+
+          window.setTimeout(() => {
+            if (epoch !== wordReplaceEpoch) return;
+            button.classList.remove("grid-button--letter-flip");
+            button.classList.remove("grid-button--word-release-green");
+            button.removeEventListener("animationend", onFlipEnd);
+            if (i === n - 1) {
+              lastButton = null;
+              wordReplaceLockGen = 0;
+            }
+          }, WORD_LETTER_FLIP_MS + WORD_REPLACE_TAIL_SLACK_MS);
+        };
+
+        let didShift = false;
+        const afterHeadGone = () => {
+          if (epoch !== wordReplaceEpoch || didShift) return;
+          didShift = true;
+          const nextLetter = nextLetters.shift() || "";
+          updateNextLetters();
+          runFlipAndFinish(nextLetter);
+        };
+
+        afterHeadGone();
+      }, WORD_COMMIT_AFTER_PULSE_MS);
+    };
+
+    const startPhaseB = () => {
+      if (epoch !== wordReplaceEpoch || phaseBStarted) return;
+      phaseBStarted = true;
+      for (let i = 0; i < n; i++) {
+        window.setTimeout(() => runTileStep(i), i * WORD_REPLACE_STEP_MS);
+      }
+    };
+
+    for (let i = 0; i < n; i++) {
+      const b = tilesToReplace[i];
+      b.classList.remove("grid-button--word-success");
+      b.classList.add("grid-button--word-release-green");
+    }
+
+    for (let i = 0; i < n; i++) {
+      const btn = tilesToReplace[i];
+      btn.addEventListener(
+        "animationend",
+        () => {
+          greenDoneCount++;
+          if (greenDoneCount >= n) {
+            startPhaseB();
+          }
+        },
+        { once: true }
+      );
+    }
+
+    window.setTimeout(() => {
+      if (epoch !== wordReplaceEpoch || phaseBStarted) return;
+      startPhaseB();
+    }, WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS);
   }
 
   function resetShiftVisualState() {
@@ -762,8 +994,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   retryButton.addEventListener("click", function () {
-    playSound("click", isMuted);
-    window.location.reload();
+    resetRoundToPregame({ forImmediateStart: true });
+    startGame({ skipWordmarkInIntro: true });
   });
   closeRules.addEventListener("click", function () {
     setRulesOverlayVisible(false);
@@ -893,11 +1125,43 @@ document.addEventListener("DOMContentLoaded", () => {
     { passive: false }
   );
   if (boardShiftDismissButton && boardShiftHints) {
+    let boardShiftHintsHideInProgress = false;
+    const BOARD_SHIFT_HINTS_FADE_MS = 320;
     const hideBoardShiftHints = (event) => {
       if (event.cancelable) event.preventDefault();
       event.stopPropagation();
-      boardShiftHints.classList.add("hiddenDisplay");
-      boardShiftDismissButton.classList.add("hiddenDisplay");
+      if (
+        boardShiftHintsHideInProgress ||
+        boardShiftHints.classList.contains("hiddenDisplay")
+      ) {
+        return;
+      }
+      boardShiftHintsHideInProgress = true;
+      boardShiftZone.classList.add("board-shift-zone--instructions-fading");
+      let finalized = false;
+      const finalize = () => {
+        if (finalized) return;
+        finalized = true;
+        boardShiftHints.removeEventListener("transitionend", onTransitionEnd);
+        window.clearTimeout(fallbackTimer);
+        boardShiftHints.classList.add("hiddenDisplay");
+        boardShiftDismissButton.classList.add("hiddenDisplay");
+        boardShiftZone.classList.remove(
+          "board-shift-zone--instructions-fading"
+        );
+        boardShiftHintsHideInProgress = false;
+      };
+      const onTransitionEnd = (e) => {
+        if (e.target !== boardShiftHints || e.propertyName !== "opacity") {
+          return;
+        }
+        finalize();
+      };
+      boardShiftHints.addEventListener("transitionend", onTransitionEnd);
+      const fallbackTimer = window.setTimeout(
+        finalize,
+        BOARD_SHIFT_HINTS_FADE_MS + 80
+      );
     };
     /* Safari/Chrome mobile: zone-level touchend preventDefault can suppress click. */
     boardShiftDismissButton.addEventListener("pointerdown", (event) => {
@@ -1798,28 +2062,161 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function startGame() {
+  function runGridTilePaletteTransition(direction, durationMs, onComplete) {
+    if (tilePaletteTransitionTimer !== null) {
+      window.clearTimeout(tilePaletteTransitionTimer);
+      tilePaletteTransitionTimer = null;
+    }
+    const tiles = grid.querySelectorAll(".grid-button");
+    for (let i = 0; i < tiles.length; i++) {
+      const el = tiles[i];
+      el.classList.remove(
+        "grid-button--palette-to-active",
+        "grid-button--palette-to-inactive"
+      );
+    }
+    const cls =
+      direction === "toActive"
+        ? "grid-button--palette-to-active"
+        : "grid-button--palette-to-inactive";
+    const durStr = `${durationMs}ms`;
+    for (let i = 0; i < tiles.length; i++) {
+      const el = tiles[i];
+      el.style.setProperty("--tile-palette-ms", durStr);
+      el.classList.add(cls);
+    }
+    tilePaletteTransitionTimer = window.setTimeout(() => {
+      tilePaletteTransitionTimer = null;
+      for (let i = 0; i < tiles.length; i++) {
+        const el = tiles[i];
+        el.classList.remove(
+          "grid-button--palette-to-active",
+          "grid-button--palette-to-inactive"
+        );
+        el.style.removeProperty("--tile-palette-ms");
+      }
+      if (onComplete) onComplete();
+    }, durationMs);
+  }
+
+  /**
+   * WORDHUNTER → Happy Hunting over `START_TOUCHPAD_FADE_MS`, aligned with dock/tile start fades.
+   * @param {{ skipWordmark?: boolean }} options If true (retry → immediate start), fade in only Happy Hunting so Copy Score / WORDHUNTER never flashes.
+   */
+  function crossfadeWordmarkToHappyHunting(options = {}) {
+    const skipWordmark = options.skipWordmark === true;
+    currentWordMessageEpoch++;
+    const myEpoch = currentWordMessageEpoch;
+    if (currentWordMessageTimer) {
+      window.clearTimeout(currentWordMessageTimer);
+      currentWordMessageTimer = null;
+    }
+    if (currentWordMessageFadeTimer) {
+      window.clearTimeout(currentWordMessageFadeTimer);
+      currentWordMessageFadeTimer = null;
+    }
+
+    currentWordMessageActive = true;
+    currentWordElement.classList.remove("current-word--valid-solve");
+
+    if (skipWordmark) {
+      currentWordElement.classList.add("current-word--soft-hidden");
+      currentWordElement.textContent = "Happy Hunting";
+      currentWordElement.style.color = happyHuntingColor;
+      currentWordElement.style.transition = `opacity ${START_TOUCHPAD_FADE_MS}ms ease`;
+      requestAnimationFrame(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        requestAnimationFrame(() => {
+          if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordElement.classList.remove("current-word--soft-hidden");
+        });
+      });
+    } else {
+      currentWordElement.textContent = PRE_START_WORDMARK;
+      currentWordElement.style.color = "white";
+      currentWordElement.classList.remove("current-word--soft-hidden");
+
+      const half = Math.max(1, Math.floor(START_TOUCHPAD_FADE_MS / 2));
+      currentWordElement.style.transition = `opacity ${half}ms ease`;
+
+      requestAnimationFrame(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        requestAnimationFrame(() => {
+          if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordElement.classList.add("current-word--soft-hidden");
+        });
+      });
+
+      window.setTimeout(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.textContent = "Happy Hunting";
+        currentWordElement.style.color = happyHuntingColor;
+        currentWordElement.classList.remove("current-word--soft-hidden");
+      }, half);
+    }
+
+    window.setTimeout(() => {
+      if (myEpoch !== currentWordMessageEpoch) return;
+      currentWordElement.style.transition = "";
+    }, START_TOUCHPAD_FADE_MS);
+
+    const holdBeforeFade = CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS;
+    currentWordMessageTimer = window.setTimeout(() => {
+      if (myEpoch !== currentWordMessageEpoch) return;
+      currentWordElement.classList.add("current-word--soft-hidden");
+      currentWordMessageFadeTimer = window.setTimeout(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordMessageActive = false;
+        updateCurrentWord();
+        currentWordMessageTimer = null;
+        currentWordMessageFadeTimer = null;
+      }, CURRENT_WORD_FADE_MS);
+    }, START_TOUCHPAD_FADE_MS + holdBeforeFade);
+  }
+
+  function startGame(arg) {
+    const skipWordmarkInIntro =
+      arg &&
+      typeof arg === "object" &&
+      arg.skipWordmarkInIntro === true;
     playSound("click", isMuted);
     playSound("bing", true);
     playSound("bing2", true);
     playSound("invalid", true);
     clearTapStreak();
     isGameActive = true;
-    startButton.classList.add("hiddenDisplay");
-    startButton.classList.remove("visibleDisplay");
-    buttonContainer.classList.add("hiddenDisplay");
-    currentWordElement.classList.remove("hidden");
-    currentWordElement.classList.add("visible");
+    startButton.disabled = true;
+    startButton.classList.add("dock-fade-out");
+    buttonContainer.classList.remove("hiddenDisplay");
+    buttonContainer.classList.add("dock-fade-out");
     boardShiftZone.classList.remove("hiddenDisplay");
     boardShiftZone.classList.add("visibleDisplay");
-
-    const buttons = grid.getElementsByClassName("grid-button");
-    for (let i = 0; i < buttons.length; i++) {
-      buttons[i].disabled = false; // Enable the buttons
-      buttons[i].classList.add("grid-button--active");
-      buttons[i].classList.remove("grid-button--inactive");
-      buttons[i].style.color = "";
+    boardShiftZone.classList.add("dock-fade-in");
+    if (startUiTransitionTimer !== null) {
+      window.clearTimeout(startUiTransitionTimer);
     }
+    startUiTransitionTimer = window.setTimeout(() => {
+      buttonContainer.classList.add("hiddenDisplay");
+      buttonContainer.classList.remove("dock-fade-out");
+      startButton.classList.add("hiddenDisplay");
+      startButton.classList.remove("visibleDisplay");
+      startButton.classList.remove("dock-fade-out");
+      boardShiftZone.classList.remove("dock-fade-in");
+      startUiTransitionTimer = null;
+    }, START_TOUCHPAD_FADE_MS);
+    currentWordElement.classList.remove("hidden");
+    currentWordElement.classList.add("visible");
+
+    runGridTilePaletteTransition("toActive", TILE_PALETTE_MS, () => {
+      const buttons = grid.getElementsByClassName("grid-button");
+      for (let i = 0; i < buttons.length; i++) {
+        buttons[i].disabled = false;
+        buttons[i].classList.add("grid-button--active");
+        buttons[i].classList.remove("grid-button--inactive");
+        buttons[i].style.color = "";
+        buttons[i].classList.remove("grid-button--endgame-exit");
+      }
+    });
 
     syncLineOverlaySize();
     requestAnimationFrame(syncLineOverlaySize);
@@ -1827,13 +2224,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     score = 0;
     currentWord = "";
-    showMessage("Happy Hunting", 1, happyHuntingColor);
+    crossfadeWordmarkToHappyHunting({
+      skipWordmark: skipWordmarkInIntro,
+    });
     updateScore();
     updateCurrentWord();
     updateNextLetters();
   }
 
   function generateGrid() {
+    while (grid.firstChild) {
+      grid.removeChild(grid.firstChild);
+    }
     diffDays = calculateDiffDays();
     const gridLetters = gridsList[diffDays % gridsList.length];
     board = [];
@@ -1866,7 +2268,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function generateNextLetters() {
     diffDays = calculateDiffDays();
-    nextLetters = nextLettersList[diffDays % nextLettersList.length];
+    const idx = diffDays % nextLettersList.length;
+    const raw = nextLettersList[idx];
+    nextLetters = Array.isArray(raw) ? raw.slice() : [];
     return nextLetters;
   }
 
@@ -1911,6 +2315,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateCurrentWord() {
     if (currentWordMessageActive) return;
+    currentWordElement.classList.remove("current-word--soft-hidden");
     if (!currentWord) {
       currentWordElement.textContent = "";
       currentWordElement.style.color = "white";
@@ -1930,16 +2335,33 @@ document.addEventListener("DOMContentLoaded", () => {
     if (queueNextHeaderElement) {
       queueNextHeaderElement.textContent = UPCOMING_LABEL;
     }
-    const hasMoreUpcoming = nextLetters.length > UPCOMING_PREVIEW_MAX;
-    let displayedNextLetters = nextLetters
-      .slice(0, UPCOMING_PREVIEW_MAX)
-      .join(", ");
-    if (hasMoreUpcoming && displayedNextLetters.length > 0) {
-      displayedNextLetters += "...";
+    while (nextLettersElement.firstChild) {
+      nextLettersElement.removeChild(nextLettersElement.firstChild);
     }
-    nextLettersElement.textContent = displayedNextLetters;
+    const slice = nextLetters.slice(0, UPCOMING_PREVIEW_MAX);
+    const hasMoreUpcoming = nextLetters.length > UPCOMING_PREVIEW_MAX;
+
     if (queueSackCountElement) {
       queueSackCountElement.textContent = String(nextLetters.length);
+    }
+
+    if (slice.length === 0) {
+      nextLettersElement.textContent = "-";
+      return;
+    }
+
+    /* e.g. "A, B, C, D, E..." then "B, C, D, E, F..." */
+    const headSpan = document.createElement("span");
+    headSpan.className = "queue-ribbon-letter--head";
+    headSpan.textContent = String(slice[0]);
+    nextLettersElement.appendChild(headSpan);
+    if (slice.length > 1) {
+      nextLettersElement.appendChild(
+        document.createTextNode(", " + slice.slice(1).join(", "))
+      );
+    }
+    if (hasMoreUpcoming) {
+      nextLettersElement.appendChild(document.createTextNode("..."));
     }
   }
 
@@ -2000,6 +2422,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function beginSelectionOnButton(targetButton) {
     if (!targetButton) return;
     if (targetButton.disabled) return;
+    if (wordReplaceLockGen !== 0) return;
     if (
       getTileText(targetButton) !== "" &&
       (lastButton === null || isAdjacent(lastButton, targetButton))
@@ -2030,6 +2453,7 @@ document.addEventListener("DOMContentLoaded", () => {
       getTileText(targetButton) !== "" &&
       (lastButton === null || isAdjacent(lastButton, targetButton))
     ) {
+      let extendedWithNewTile = false;
       if (targetButton === selectedButtons[selectedButtons.length - 2]) {
         const removedButton = selectedButtons.pop();
         currentWord = currentWord.slice(0, -1);
@@ -2043,9 +2467,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // Check if this button is still part of the word
         if (!selectedButtons.includes(removedButton)) {
           removedButton.classList.remove("selected");
+          removedButton.classList.remove("grid-button--selected-enter");
           selectedButtonSet.delete(removedButton);
         }
       } else {
+        extendedWithNewTile = true;
         currentWord += getTileText(targetButton);
         selectedButtons.push(targetButton);
         selectedButtonSet.add(targetButton);
@@ -2103,6 +2529,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       lastButton = targetButton;
       syncSelectionVisitDepth();
+      if (extendedWithNewTile) {
+        const v = targetButton.getAttribute("data-selection-visits");
+        if (v === "1") {
+          targetButton.classList.add("grid-button--selected-enter");
+          const onSelectedEnterEnd = (e) => {
+            if (e.target !== targetButton) return;
+            targetButton.removeEventListener("animationend", onSelectedEnterEnd);
+            targetButton.classList.remove("grid-button--selected-enter");
+          };
+          targetButton.addEventListener("animationend", onSelectedEnterEnd);
+        }
+      }
       updateCurrentWord();
       updateScoreStrip();
     }
@@ -2116,45 +2554,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleMouseUp(event) {
     if (!isGameActive) return;
-    if (isMouseDown) {
-      isMouseDown = false;
-      if (currentWord.length > 2) {
-        if (validateWord(currentWord)) {
-          if (currentWord.length >= 5) {
-            playSound("bing2", isMuted);
-          } else {
-            playSound("bing", isMuted);
-          }
-          let wordScore = getWordScoreFromSelectedTiles(selectedButtons);
-          score += wordScore;
-          showMessage(
-            `${currentWord.toUpperCase()} +${wordScore}`,
-            1,
-            greenTextColor
-          );
-          if (currentWord.length >= longestWord.length) {
-            longestWord = currentWord;
-          }
-          updateScore();
-          replaceLetters();
-        } else {
-          playSound("invalid", isMuted);
-          showMessage("INVALID", 1, redTextColor);
-        }
+    if (!isMouseDown) return;
+    isMouseDown = false;
+
+    if (currentWord.length <= 2) {
+      if (gridLineContainer.querySelector("line")) {
+        finishWordDragCleanup({ skipLines: true });
+        fadeOutWordConnectorLines();
+      } else {
+        finishWordDragCleanup();
       }
-      currentWord = "";
+      return;
+    }
+
+    if (validateWord(currentWord)) {
+      if (currentWord.length >= 5) {
+        playSound("bing2", isMuted);
+      } else {
+        playSound("bing", isMuted);
+      }
+      let wordScore = getWordScoreFromSelectedTiles(selectedButtons);
+      score += wordScore;
+      const tilesToReplace = Array.from(selectedButtonSet);
+      showMessage(
+        `${currentWord.toUpperCase()} +${wordScore}`,
+        1,
+        greenTextColor,
+        Math.max(
+          0,
+          getWordReplaceAnimationHoldMs(tilesToReplace.length) -
+            WORD_SUCCESS_MESSAGE_FADE_EARLY_MS
+        )
+      );
+      if (currentWord.length >= longestWord.length) {
+        longestWord = currentWord;
+      }
+      updateScore();
+
+      fadeOutWordConnectorLines();
+
       selectedButtons.forEach((button) => {
-        button.classList.remove("selected");
+        button.classList.remove("selected", "grid-button--selected-enter");
         button.removeAttribute("data-selection-visits");
       });
-      updateCurrentWord();
       selectedButtons = [];
       selectedButtonSet = new Set();
       lastButton = null;
+      updateCurrentWord();
       updateScoreStrip();
-      while (gridLineContainer.firstChild) {
-        gridLineContainer.firstChild.remove();
+      currentWord = "";
+
+      runSuccessPopThenStaggeredFlip(tilesToReplace);
+    } else {
+      playSound("invalid", isMuted);
+      showMessage("INVALID", 1, redTextColor);
+      fadeOutWordConnectorLines();
+      for (let i = 0; i < selectedButtons.length; i++) {
+        selectedButtons[i].classList.add("grid-button--invalid-shake");
       }
+      clearWordSubmitFeedbackTimer();
+      wordSubmitFeedbackTimer = window.setTimeout(() => {
+        wordSubmitFeedbackTimer = null;
+        finishWordDragCleanup();
+      }, WORD_INVALID_SHAKE_MS);
     }
   }
 
@@ -2171,46 +2633,74 @@ document.addEventListener("DOMContentLoaded", () => {
     return dr <= 1 && dc <= 1 && dr + dc > 0;
   }
 
-  function replaceLetters() {
-    const n = GRID_SIZE;
-    const uniqueSelectedButtons = Array.from(selectedButtonSet);
-    uniqueSelectedButtons.forEach((button) => {
-      const nextLetter = nextLetters.shift() || "";
-      setTileText(button, nextLetter);
-      const idx = Array.prototype.indexOf.call(grid.children, button);
-      const r = Math.floor(idx / n);
-      const c = idx % n;
-      board[r][c] = nextLetter;
-    });
-    selectedButtonSet.clear();
-    lastButton = null;
-    updateNextLetters();
-  }
-
-  function showMessage(message, flashTimes = 1, color = "white") {
+  function showMessage(
+    message,
+    flashTimes = 1,
+    color = "white",
+    visibleHoldMs = null
+  ) {
+    currentWordMessageEpoch++;
+    const myEpoch = currentWordMessageEpoch;
     if (currentWordMessageTimer) {
       window.clearTimeout(currentWordMessageTimer);
       currentWordMessageTimer = null;
     }
+    if (currentWordMessageFadeTimer) {
+      window.clearTimeout(currentWordMessageFadeTimer);
+      currentWordMessageFadeTimer = null;
+    }
     currentWordMessageActive = true;
     currentWordElement.textContent = message;
     currentWordElement.style.color = color;
+    currentWordElement.classList.remove("current-word--soft-hidden");
+    currentWordElement.classList.remove("current-word--valid-solve");
+
+    const holdBeforeFade =
+      visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1
+        ? visibleHoldMs
+        : CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS;
+    if (visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1) {
+      currentWordElement.classList.add("current-word--valid-solve");
+    }
 
     if (flashTimes > 1) {
       currentWordMessageTimer = window.setTimeout(() => {
-        currentWordMessageActive = false;
-        updateCurrentWord();
-        currentWordMessageTimer = window.setTimeout(() => {
-          showMessage(message, flashTimes - 1, color);
-        }, 380);
-      }, 820);
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.classList.remove("current-word--valid-solve");
+        currentWordElement.classList.add("current-word--soft-hidden");
+        currentWordMessageFadeTimer = window.setTimeout(() => {
+          if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordMessageActive = false;
+          updateCurrentWord();
+          currentWordMessageTimer = window.setTimeout(() => {
+            if (myEpoch !== currentWordMessageEpoch) return;
+            showMessage(message, flashTimes - 1, color);
+          }, 380);
+        }, CURRENT_WORD_FADE_MS);
+      }, CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS);
     } else {
       currentWordMessageTimer = window.setTimeout(() => {
-        currentWordMessageActive = false;
-        updateCurrentWord();
-        currentWordMessageTimer = null;
-      }, 1100);
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.classList.remove("current-word--valid-solve");
+        currentWordElement.classList.add("current-word--soft-hidden");
+        currentWordMessageFadeTimer = window.setTimeout(() => {
+          if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordMessageActive = false;
+          updateCurrentWord();
+          currentWordMessageTimer = null;
+          currentWordMessageFadeTimer = null;
+        }, CURRENT_WORD_FADE_MS);
+      }, holdBeforeFade);
     }
+  }
+
+  function getShowMessageDurationMs(flashTimes) {
+    const flashes = Math.max(1, Number(flashTimes) || 1);
+    const onMs = CURRENT_WORD_MESSAGE_ON_MS;
+    if (flashes === 1) {
+      return onMs;
+    }
+    return flashes * onMs + (flashes - 1) * 380;
   }
 
   function setEndgameBlankTilesHidden(hide) {
@@ -2223,21 +2713,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function onGameOverSoundEndedPostGameUi() {
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
-      endgameBlankRestoreFallbackTimer = null;
-    }
-    sounds.gameOver.removeEventListener(
-      "ended",
-      onGameOverSoundEndedPostGameUi
-    );
-    /* Keep blank tiles hidden for the whole post-game screen (letter tiles only). */
+  function maybeShowPostGameUi() {
+    if (!endgamePostUiReady || !endgameSoundReady || endgameUiShown) return;
+    endgameUiShown = true;
     if (currentWordMessageTimer) {
       window.clearTimeout(currentWordMessageTimer);
       currentWordMessageTimer = null;
     }
+    if (currentWordMessageFadeTimer) {
+      window.clearTimeout(currentWordMessageFadeTimer);
+      currentWordMessageFadeTimer = null;
+    }
     currentWordMessageActive = false;
+    currentWordElement.classList.remove("current-word--soft-hidden");
+    currentWordElement.classList.remove("current-word--valid-solve");
     currentWordElement.textContent = "Copy Score";
     currentWordElement.style.color = happyHuntingColor;
     updateNextLetters();
@@ -2249,9 +2738,79 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardElements.style.display = "none";
   }
 
+  function triggerEndgameTileExitAnimation() {
+    const tiles = grid.getElementsByClassName("grid-button");
+    for (let i = 0; i < tiles.length; i++) {
+      tiles[i].classList.remove("grid-button--endgame-exit");
+    }
+    requestAnimationFrame(() => {
+      for (let i = 0; i < tiles.length; i++) {
+        tiles[i].classList.add("grid-button--endgame-exit");
+      }
+    });
+    if (endgameTileRevealTimer !== null) {
+      window.clearTimeout(endgameTileRevealTimer);
+    }
+    endgameTileRevealTimer = window.setTimeout(() => {
+      endgamePostUiReady = true;
+      endgameTileRevealTimer = null;
+      maybeShowPostGameUi();
+    }, Math.max(0, ENDGAME_TILE_SEQUENCE_MS + 80 - COPY_SCORE_REVEAL_LEAD_MS));
+  }
+
+  function scheduleGameOverSoundUiReadyEarly() {
+    if (endgameSoundEarlyTimer !== null) {
+      window.clearTimeout(endgameSoundEarlyTimer);
+      endgameSoundEarlyTimer = null;
+    }
+    const dur = sounds.gameOver.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    const delay = Math.max(0, dur * 1000 - COPY_SCORE_SOUND_UI_LEAD_MS);
+    endgameSoundEarlyTimer = window.setTimeout(() => {
+      endgameSoundEarlyTimer = null;
+      if (endgameUiShown) return;
+      endgameSoundReady = true;
+      maybeShowPostGameUi();
+    }, delay);
+  }
+
+  function onGameOverSoundEndedPostGameUi() {
+    if (endgameSoundEarlyTimer !== null) {
+      window.clearTimeout(endgameSoundEarlyTimer);
+      endgameSoundEarlyTimer = null;
+    }
+    if (endgameBlankRestoreFallbackTimer !== null) {
+      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+      endgameBlankRestoreFallbackTimer = null;
+    }
+    sounds.gameOver.removeEventListener(
+      "ended",
+      onGameOverSoundEndedPostGameUi
+    );
+    endgameSoundReady = true;
+    maybeShowPostGameUi();
+  }
+
   function endGame() {
     playSound("gameOver", isMuted);
     isGameActive = false;
+    clearWordSubmitFeedbackTimer();
+    bumpWordReplaceEpoch();
+    endgamePostUiReady = false;
+    endgameSoundReady = false;
+    endgameUiShown = false;
+    if (endgameSoundEarlyTimer !== null) {
+      window.clearTimeout(endgameSoundEarlyTimer);
+      endgameSoundEarlyTimer = null;
+    }
+    if (endgameTileStartTimer !== null) {
+      window.clearTimeout(endgameTileStartTimer);
+      endgameTileStartTimer = null;
+    }
+    if (endgameTileRevealTimer !== null) {
+      window.clearTimeout(endgameTileRevealTimer);
+      endgameTileRevealTimer = null;
+    }
     clearTapStreak();
 
     setRulesOverlayVisible(false);
@@ -2259,12 +2818,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].disabled = true;
-      buttons[i].classList.remove("grid-button--active");
-      buttons[i].classList.add("grid-button--inactive");
       buttons[i].classList.remove("selected");
+      buttons[i].classList.remove("grid-button--selected-enter");
+      buttons[i].classList.remove(
+        "grid-button--invalid-shake",
+        "grid-button--word-success",
+        "grid-button--word-release-green",
+        "grid-button--letter-flip",
+        "grid-button--letter-swap-in"
+      );
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
+      buttons[i].classList.remove("grid-button--endgame-exit");
     }
+    runGridTilePaletteTransition("toInactive", TILE_PALETTE_MS, () => {
+      const tiles = grid.getElementsByClassName("grid-button");
+      for (let i = 0; i < tiles.length; i++) {
+        tiles[i].classList.remove("grid-button--active");
+        tiles[i].classList.add("grid-button--inactive");
+      }
+    });
     setEndgameBlankTilesHidden(true);
     sounds.gameOver.removeEventListener(
       "ended",
@@ -2274,6 +2847,12 @@ document.addEventListener("DOMContentLoaded", () => {
       "ended",
       onGameOverSoundEndedPostGameUi
     );
+    sounds.gameOver.addEventListener(
+      "loadedmetadata",
+      scheduleGameOverSoundUiReadyEarly,
+      { once: true }
+    );
+    scheduleGameOverSoundUiReadyEarly();
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
     }
@@ -2307,8 +2886,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showMessage(
       pickRandomScenarioMessage("game_over", "Game Over"),
-      2,
+      GAME_OVER_FLASH_TIMES,
       happyHuntingColor
+    );
+    endgameTileStartTimer = window.setTimeout(() => {
+      endgameTileStartTimer = null;
+      triggerEndgameTileExitAnimation();
+    },
+      getShowMessageDurationMs(GAME_OVER_FLASH_TIMES) +
+        ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
     );
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
@@ -2316,6 +2902,154 @@ document.addEventListener("DOMContentLoaded", () => {
     leaderboardElements.classList.remove("visibleDisplay");
     leaderboardTable.classList.add("hiddenDisplay");
     leaderboardTable.classList.remove("visibleDisplay");
+  }
+
+  /** Soft reset to the same state as after initial fetch (keep mute + dismissed swipe hints). */
+  function resetRoundToPregame(options = {}) {
+    const forImmediateStart = options.forImmediateStart === true;
+    isGameActive = false;
+    isPaused = false;
+    isMouseDown = false;
+    clearTapStreak();
+
+    if (endgameBlankRestoreFallbackTimer !== null) {
+      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+      endgameBlankRestoreFallbackTimer = null;
+    }
+    if (endgameSoundEarlyTimer !== null) {
+      window.clearTimeout(endgameSoundEarlyTimer);
+      endgameSoundEarlyTimer = null;
+    }
+    if (endgameTileStartTimer !== null) {
+      window.clearTimeout(endgameTileStartTimer);
+      endgameTileStartTimer = null;
+    }
+    if (endgameTileRevealTimer !== null) {
+      window.clearTimeout(endgameTileRevealTimer);
+      endgameTileRevealTimer = null;
+    }
+    if (tilePaletteTransitionTimer !== null) {
+      window.clearTimeout(tilePaletteTransitionTimer);
+      tilePaletteTransitionTimer = null;
+    }
+    clearWordSubmitFeedbackTimer();
+    bumpWordReplaceEpoch();
+    if (startUiTransitionTimer !== null) {
+      window.clearTimeout(startUiTransitionTimer);
+      startUiTransitionTimer = null;
+    }
+    if (currentWordMessageTimer) {
+      window.clearTimeout(currentWordMessageTimer);
+      currentWordMessageTimer = null;
+    }
+    if (currentWordMessageFadeTimer) {
+      window.clearTimeout(currentWordMessageFadeTimer);
+      currentWordMessageFadeTimer = null;
+    }
+
+    sounds.gameOver.removeEventListener(
+      "ended",
+      onGameOverSoundEndedPostGameUi
+    );
+    try {
+      sounds.gameOver.pause();
+      sounds.gameOver.currentTime = 0;
+    } catch (_) {}
+
+    endgamePostUiReady = false;
+    endgameSoundReady = false;
+    endgameUiShown = false;
+    currentWordMessageActive = false;
+
+    shiftAnimating = false;
+    shiftPointerId = null;
+    shiftDragLockedHorizontal = null;
+    playerPosition = undefined;
+
+    score = 0;
+    longestWord = "";
+
+    resetShiftDragVisualHard();
+    grid.style.width = "";
+    grid.style.maxWidth = "";
+    grid.style.height = "";
+
+    while (gridLineContainer.firstChild) {
+      gridLineContainer.firstChild.remove();
+    }
+    resetSelectionState();
+
+    generateGrid();
+    generateNextLetters();
+    updateNextLetters();
+    updateScore();
+
+    setRulesOverlayVisible(false);
+
+    rulesButton.classList.remove("hiddenDisplay", "hidden");
+    muteButton.classList.remove("hiddenDisplay", "hidden");
+
+    doneButton.classList.add("hiddenDisplay");
+    doneButton.classList.remove("visibleDisplay");
+
+    buttonContainer.classList.remove("hiddenDisplay");
+    retryButton.classList.add("hiddenDisplay");
+    retryButton.classList.remove("visibleDisplay");
+
+    if (forImmediateStart) {
+      /* Retry → startGame(): keep START hidden so it never flashes before Happy Hunting. */
+      boardShiftZone.classList.remove("dock-fade-in");
+      boardShiftZone.classList.add("hiddenDisplay");
+      boardShiftZone.classList.remove("visibleDisplay");
+      startButton.classList.add("hiddenDisplay");
+      startButton.classList.remove("visibleDisplay");
+      startButton.classList.remove("dock-fade-out");
+      startButton.disabled = true;
+    } else {
+      boardShiftZone.classList.add("hiddenDisplay");
+      boardShiftZone.classList.remove("visibleDisplay", "dock-fade-in");
+      startButton.classList.remove("hiddenDisplay");
+      startButton.classList.add("visibleDisplay");
+      startButton.disabled = false;
+      startButton.classList.remove("dock-fade-out");
+    }
+
+    currentWordElement.classList.remove("current-word--soft-hidden");
+    currentWordElement.classList.remove("current-word--valid-solve");
+    currentWordElement.style.color = "white";
+    if (!forImmediateStart) {
+      currentWordElement.textContent = PRE_START_WORDMARK;
+    }
+
+    playerName.classList.add("hiddenDisplay");
+    playerName.disabled = false;
+    leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardButton.disabled = false;
+    leaderboardButton.style.backgroundColor = "";
+    leaderboardElements.style.display = "none";
+    leaderboardElements.classList.remove("visibleDisplay");
+    leaderboardTable.classList.add("hiddenDisplay");
+    leaderboardTable.classList.remove("visibleDisplay");
+
+    /* Swipe hint dismissal preserved on purpose (vs full reload). */
+
+    const tiles = grid.querySelectorAll(".grid-button");
+    for (let i = 0; i < tiles.length; i++) {
+      tiles[i].classList.remove(
+        "grid-button--palette-to-active",
+        "grid-button--palette-to-inactive",
+        "grid-button--selected-enter",
+        "grid-button--invalid-shake",
+        "grid-button--word-success",
+        "grid-button--word-release-green",
+        "grid-button--letter-flip",
+        "grid-button--letter-swap-in",
+        "grid-button--endgame-exit"
+      );
+    }
+
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
   }
 
   async function getLeaderboard(clicked = false) {
