@@ -37,6 +37,7 @@
   --rules-accent-red: #f76d6d;
   --rules-accent-green: #07f03a;
   --rules-accent-pink: #ff7eb9;
+  --rules-accent-purple: #b388ff;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-text-shadow-color: black;
@@ -349,6 +350,11 @@ html {
   font-weight: 700;
 }
 
+.rules-accent-purple {
+  color: var(--rules-accent-purple);
+  font-weight: 700;
+}
+
 .rules-multiply {
   font-weight: 700;
 }
@@ -360,6 +366,11 @@ html {
 
 .rules-shell .rules-gesture-phrase {
   color: var(--selected-tile-visit2-color);
+  font-style: italic;
+}
+
+.rules-shell .rules-endgame-gesture {
+  color: var(--rules-accent-red);
   font-style: italic;
 }
 
