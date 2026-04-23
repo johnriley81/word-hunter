@@ -215,7 +215,7 @@ export function createLeaderboardController(rt) {
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
       const displayTrophyCell = trophyStr || "";
 
-      const positionDisplay = String(index + 1);
+      const positionDisplay = `${index + 1}.`;
 
       [
         positionDisplay,
