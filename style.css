@@ -60,6 +60,10 @@
   --z-base: 1;
   --z-dock: 2;
   --z-grid-stage: 3;
+  --z-leaderboard-overlay: 4;
+  /* Overwritten from script.js (POSTGAME / leaderboard timings). */
+  --leaderboard-postgame-fade-ms: 600ms;
+  --endgame-tile-exit-ms: 300ms;
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
@@ -618,6 +622,7 @@ html {
   margin-bottom: clamp(2px, 0.6vh, 6px);
   box-sizing: border-box;
   padding-inline: 0;
+  overflow: visible;
 }
 
 #current-word {
@@ -625,6 +630,7 @@ html {
   white-space: nowrap;
   overflow: visible;
   text-overflow: ellipsis;
+  -webkit-font-smoothing: antialiased;
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.45),
     0 0 1px rgba(0, 0, 0, 0.35);
@@ -675,6 +681,8 @@ html {
   height: 100%;
   margin: 0;
   padding: 0;
+  position: relative;
+  z-index: var(--z-base);
 }
 
 #grid-stage {
@@ -990,7 +998,7 @@ line.grid-line--fade-out {
 }
 
 .grid-button.grid-button--endgame-exit {
-  animation: tileEndgameFlashFade 620ms ease forwards;
+  animation: tileEndgameFlashFade var(--endgame-tile-exit-ms) ease forwards;
 }
 
 @keyframes tileEndgameFlashFade {
@@ -1044,32 +1052,198 @@ line.grid-line--fade-out {
 
 #leaderboard-elements {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
+  inset: 0;
+  z-index: var(--z-leaderboard-overlay);
+  box-sizing: border-box;
+  display: none;
   flex-direction: column;
-  justify-content: space-around;
-  align-items: center;
+  justify-content: stretch;
+  align-items: stretch;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  visibility: hidden;
+  /* Delay visibility:hidden until opacity finishes so fade-out is visible */
+  transition: opacity var(--leaderboard-postgame-fade-ms) ease,
+    visibility 0s linear var(--leaderboard-postgame-fade-ms);
   pointer-events: none;
 }
 
-#leaderboard-table {
-  font-size: smaller;
-  height: 80%;
-  width: auto;
-  min-width: 80%;
-  max-width: 95%;
-  margin: auto;
-  justify-content: center;
-  display: flex;
+#leaderboard-elements.leaderboard-elements--visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--leaderboard-postgame-fade-ms) ease, visibility 0s;
 }
 
-#leaderboard-table td,
+.leaderboard-panel {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 16px;
+  border: 2px solid var(--grid-button-border-color);
+  box-shadow: 0 0 0 3px var(--grid-button-shadow-color);
+  background: rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.leaderboard-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#leaderboard-table {
+  font-family: "Press Start 2P", cursive;
+  font-size: clamp(0.4rem, 3.6vw, 0.62rem);
+  line-height: 1.45;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  table-layout: fixed;
+  display: table;
+}
+
 #leaderboard-table th {
-  padding: 1px;
+  font-size: clamp(0.44rem, 3.9vw, 0.68rem);
+  padding: 6px 4px;
   text-shadow: 1px 1px 3px var(--page-text-shadow-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#leaderboard-table td {
+  padding: 5px 4px;
+  text-shadow: 1px 1px 3px var(--page-text-shadow-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: transparent;
+}
+
+#leaderboard-table td.leaderboard-name-cell--you-pseudo-select {
+  position: relative;
+  box-sizing: border-box;
+  background: rgba(227, 175, 2, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(227, 175, 2, 0.88);
+  border-radius: 4px;
+  padding: 4px 5px;
+}
+
+#leaderboard-table td.leaderboard-name-cell--you-pseudo-select::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 0.75em;
+  background: rgba(227, 175, 2, 0.95);
+  animation: leaderboardYouCaretBlink 1s step-end infinite;
+  pointer-events: none;
+}
+
+@keyframes leaderboardYouCaretBlink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+#leaderboard-table .leaderboard-inline-name-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 4px;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-shadow: inherit;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  caret-color: #e3af02;
+  outline: 1px solid rgba(227, 175, 2, 0.85);
+  outline-offset: 0;
+}
+
+.leaderboard-actions-row {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 8px 5px;
+  min-height: 26px;
+  box-sizing: border-box;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.leaderboard-actions-name {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 220px;
+}
+
+.leaderboard-actions-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 22px;
+}
+
+.leaderboard-panel .leaderboard-panel-action {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+
+.leaderboard-panel .leaderboard-panel-action.leaderboard-action--concealed {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.leaderboard-panel .leaderboard-demo-add {
+  opacity: 0;
+  pointer-events: none;
+  visibility: visible;
+  transition: opacity 0.45s ease;
+}
+
+.leaderboard-panel .leaderboard-demo-add.leaderboard-demo-add--eligible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.leaderboard-panel .leaderboard-demo-add.leaderboard-demo-add--spent {
+  opacity: 0.72;
+  pointer-events: none;
+  cursor: not-allowed;
+  filter: brightness(0.52);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.42);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .centered-cell {
@@ -1078,21 +1252,20 @@ line.grid-line--fade-out {
 }
 
 #player-name {
-  height: 10%;
-  max-height: 10px;
-  width: 40%;
-  padding: 3%;
+  max-height: 26px;
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 0.5rem;
+  box-sizing: border-box;
 }
 
 #leaderboard-button {
-  height: 10%;
-  max-height: 30px;
   width: fit-content;
+  max-width: calc(100% - 8px);
   font-family: "Press Start 2P", cursive;
-  padding: 3%;
-  font-size: 1rem;
+  padding: 6px 10px;
+  font-size: clamp(0.35rem, 2.5vw, 0.55rem);
   text-align: center;
-  margin: 1vh 0;
   border: none;
   background-color: var(--leaderboard-button-background-color);
   color: var(--leaderboard-button-text-color);
@@ -1103,6 +1276,29 @@ line.grid-line--fade-out {
   -webkit-user-select: none;
   touch-action: manipulation;
   white-space: nowrap;
+}
+
+.leaderboard-demo-add {
+  width: fit-content;
+  max-width: calc(100% - 8px);
+  min-height: 24px;
+  padding: 4px 14px;
+  box-sizing: border-box;
+  font-family: "Press Start 2P", cursive;
+  font-size: clamp(0.36rem, 2.5vw, 0.56rem);
+  line-height: 1.2;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.leaderboard-demo-add:active:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 #bottom-dock {
@@ -1316,10 +1512,6 @@ line.grid-line--fade-out {
   to {
     opacity: 1;
   }
-}
-
-#leaderboard-elements.visibleDisplay {
-  pointer-events: auto;
 }
 
 .selected {
