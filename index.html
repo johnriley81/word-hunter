@@ -81,29 +81,48 @@
             </div>
           </div>
         </div>
+        <div id="leaderboard-elements" aria-hidden="true">
+          <div id="leaderboard-panel" class="leaderboard-panel">
+            <div class="leaderboard-table-scroll">
+              <table id="leaderboard-table" class="hiddenDisplay">
+                <tbody>
+                  <tr>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="leaderboard-actions-row">
+              <input
+                type="text"
+                id="player-name"
+                placeholder="PLAYER NAME"
+                maxlength="8"
+                class="hiddenDisplay leaderboard-actions-name"
+              />
+              <div class="leaderboard-actions-slot">
+                <button
+                  type="button"
+                  id="leaderboard-button"
+                  class="leaderboard-panel-action hiddenDisplay"
+                >
+                  SUBMIT
+                </button>
+                <button
+                  type="button"
+                  id="leaderboard-demo-add"
+                  class="leaderboard-demo-add leaderboard-panel-action hiddenDisplay"
+                >
+                  SUBMIT
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <svg id="line-container"></svg>
-      <div id="leaderboard-elements">
-        <table id="leaderboard-table" class="hiddenDisplay">
-          <tbody>
-            <tr>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-        <input
-          type="text"
-          id="player-name"
-          placeholder="PLAYER NAME"
-          maxlength="8"
-          class="hiddenDisplay"
-        />
-        <button type="button" id="leaderboard-button" class="hiddenDisplay">
-          SUBMIT
-        </button>
-      </div>
     </div>
 
     <div id="bottom-dock">

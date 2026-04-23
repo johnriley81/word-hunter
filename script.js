@@ -29,14 +29,26 @@ const SCORE_SUBMIT_THRESHOLD = 50;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 const START_TOUCHPAD_FADE_MS = 420;
 const TILE_PALETTE_MS = 420;
+/** Extra ms after palette keyframes before removing animation classes. */
+const TILE_PALETTE_TRANSITION_SETTLE_MS = 120;
 const CURRENT_WORD_FADE_MS = 220;
 const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
-const ENDGAME_TILE_FLASH_MS = 260;
-const ENDGAME_TILE_FADE_MS = 360;
-const ENDGAME_TILE_SEQUENCE_MS = ENDGAME_TILE_FLASH_MS + ENDGAME_TILE_FADE_MS;
-const COPY_SCORE_REVEAL_LEAD_MS = 1000;
-const COPY_SCORE_SOUND_UI_LEAD_MS = 1500;
+/** Tile exit, copy-score cadence, and related UI beats (see `LEADERBOARD_POSTGAME_FADE_MS` for overlay). */
+const POSTGAME_BEAT_MS = 300;
+const ENDGAME_TILE_SEQUENCE_MS = POSTGAME_BEAT_MS;
+const ENDGAME_TILE_EXIT_BUFFER_MS = 0;
+const LEADERBOARD_USE_DEMO_DATA = true;
+const DEMO_LEADERBOARD_NAME_MAX = 8;
+const LEADERBOARD_REVEAL_LEAD_MS = 0;
+const LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS = 200;
+const LEADERBOARD_POSTGAME_FADE_MS = POSTGAME_BEAT_MS * 2;
+const LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS =
+  LEADERBOARD_POSTGAME_FADE_MS + POSTGAME_BEAT_MS;
+/** After overlay opacity transition, before removing from layout (timer vs transitionend). */
+const LEADERBOARD_OVERLAY_FADE_SETTLE_MS = 80;
+/** Brief opacity fade-in for #current-word (copy score, flashes, intro). */
+const CURRENT_WORD_BRIEF_FADE_IN_MS = 650;
 const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS = 500;
 const GAME_OVER_FLASH_TIMES = 2;
@@ -57,6 +69,14 @@ function syncWordReplaceAnimationCssVars() {
   root.style.setProperty("--word-tile-flip-ms", `${WORD_LETTER_FLIP_MS}ms`);
   root.style.setProperty("--word-queue-pulse-ms", `${WORD_COMMIT_AFTER_PULSE_MS}ms`);
   root.style.setProperty("--current-word-fade-ms", `${CURRENT_WORD_FADE_MS}ms`);
+  root.style.setProperty(
+    "--leaderboard-postgame-fade-ms",
+    `${LEADERBOARD_POSTGAME_FADE_MS}ms`
+  );
+  root.style.setProperty(
+    "--endgame-tile-exit-ms",
+    `${ENDGAME_TILE_SEQUENCE_MS}ms`
+  );
 }
 
 function getWordReplaceAnimationHoldMs(tileCount) {
@@ -288,6 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const leaderboardTable = document.getElementById("leaderboard-table");
   const playerName = document.getElementById("player-name");
   const leaderboardButton = document.getElementById("leaderboard-button");
+  const leaderboardDemoAdd = document.getElementById("leaderboard-demo-add");
 
   function getTileButtonFromEvent(event) {
     if (!(event.target instanceof Element)) return null;
@@ -377,14 +398,42 @@ document.addEventListener("DOMContentLoaded", () => {
     currentWordMessageActive = true;
     return myEpoch;
   }
+
+  function fadeInCurrentWordLine(text, color, options = {}) {
+    const fadeMs = options.fadeMs ?? CURRENT_WORD_BRIEF_FADE_IN_MS;
+    const epoch = options.epoch;
+    const epochOk = () =>
+      epoch === undefined || epoch === currentWordMessageEpoch;
+
+    currentWordElement.style.transition = "none";
+    currentWordElement.classList.add("current-word--soft-hidden");
+    currentWordElement.textContent = text;
+    currentWordElement.style.color = color;
+    void currentWordElement.offsetHeight;
+    currentWordElement.style.transition = `opacity ${fadeMs}ms ease-out`;
+
+    requestAnimationFrame(() => {
+      if (!epochOk()) return;
+      currentWordElement.classList.remove("current-word--soft-hidden");
+    });
+    window.setTimeout(() => {
+      if (!epochOk()) return;
+      currentWordElement.style.transition = "";
+    }, fadeMs + 100);
+  }
+
   let endgameBlankRestoreFallbackTimer = null;
   let startUiTransitionTimer = null;
   let endgameTileStartTimer = null;
   let endgameTileRevealTimer = null;
   let endgamePostUiReady = false;
-  let endgameSoundReady = false;
   let endgameUiShown = false;
-  let endgameSoundEarlyTimer = null;
+  let postgameSequenceStarted = false;
+  let postgameCopyScoreTimer = null;
+  let leaderboardFadeOutTimer = null;
+  /** @type {Array<[string, number, number|string, string]> | null} */
+  let demoLeaderboardRows = null;
+  let demoLeaderboardSubmitUsed = false;
   let tilePaletteTransitionTimer = null;
   let wordSubmitFeedbackTimer = null;
   let wordReplaceEpoch = 0;
@@ -1147,8 +1196,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   retryButton.addEventListener("click", function () {
-    resetRoundToPregame({ forImmediateStart: true });
-    void startGame({ skipWordmarkInIntro: true });
+    retryButton.disabled = true;
+    const leaderboardFadeFinishesLater =
+      beginPostgameLeaderboardOverlayFadeOut();
+    resetRoundToPregame({
+      forImmediateStart: true,
+      skipLeaderboardOverlayTeardown: leaderboardFadeFinishesLater,
+    });
+    void startGame({ skipWordmarkInIntro: true, fadeTilesToActive: true });
   });
   rules.addEventListener("click", onRulesOverlayClick);
   rulesButton.addEventListener("click", function () {
@@ -1171,6 +1226,24 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   leaderboardButton.addEventListener("click", () => getLeaderboard(true));
+  if (leaderboardDemoAdd) {
+    leaderboardDemoAdd.addEventListener("click", () => {
+      if (!LEADERBOARD_USE_DEMO_DATA) return;
+      if (leaderboardDemoAdd.disabled || demoLeaderboardSubmitUsed) return;
+      if (Number(score) <= 0) return;
+      playSound("click", isMuted);
+      finalizeDemoLeaderboardSubmit();
+    });
+  }
+  leaderboardTable.addEventListener("click", (e) => {
+    if (!LEADERBOARD_USE_DEMO_DATA || demoLeaderboardSubmitUsed) return;
+    if (!(e.target instanceof Element)) return;
+    const td = e.target.closest("td[data-demo-self-name]");
+    if (!td || !leaderboardTable.contains(td)) return;
+    if (td.querySelector(".leaderboard-inline-name-input")) return;
+    e.preventDefault();
+    openDemoLeaderboardInlineNameEdit(td);
+  });
   updateCurrentWord();
   currentWordElement.textContent = PRE_START_WORDMARK;
   currentWordElement.style.color = "white";
@@ -2279,6 +2352,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.clearTimeout(tilePaletteTransitionTimer);
       tilePaletteTransitionTimer = null;
     }
+
     const tiles = grid.querySelectorAll(".grid-button");
     for (let i = 0; i < tiles.length; i++) {
       const el = tiles[i];
@@ -2292,13 +2366,16 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "grid-button--palette-to-active"
         : "grid-button--palette-to-inactive";
     const durStr = `${durationMs}ms`;
-    for (let i = 0; i < tiles.length; i++) {
-      const el = tiles[i];
-      el.style.setProperty("--tile-palette-ms", durStr);
-      el.classList.add(cls);
-    }
-    tilePaletteTransitionTimer = window.setTimeout(() => {
-      tilePaletteTransitionTimer = null;
+
+    let paletteTransitionDone = false;
+    const finalizePaletteTransition = () => {
+      if (paletteTransitionDone) return;
+      paletteTransitionDone = true;
+      if (tilePaletteTransitionTimer !== null) {
+        window.clearTimeout(tilePaletteTransitionTimer);
+        tilePaletteTransitionTimer = null;
+      }
+      if (onComplete) onComplete();
       for (let i = 0; i < tiles.length; i++) {
         const el = tiles[i];
         el.classList.remove(
@@ -2307,8 +2384,21 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         el.style.removeProperty("--tile-palette-ms");
       }
-      if (onComplete) onComplete();
-    }, durationMs);
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        for (let i = 0; i < tiles.length; i++) {
+          const el = tiles[i];
+          el.style.setProperty("--tile-palette-ms", durStr);
+          el.classList.add(cls);
+        }
+        tilePaletteTransitionTimer = window.setTimeout(
+          finalizePaletteTransition,
+          durationMs + TILE_PALETTE_TRANSITION_SETTLE_MS
+        );
+      });
+    });
   }
 
   function crossfadeWordmarkToHappyHunting(options = {}) {
@@ -2316,46 +2406,100 @@ document.addEventListener("DOMContentLoaded", () => {
     const myEpoch = beginCurrentWordMessageSession();
     currentWordElement.classList.remove("current-word--valid-solve");
 
+    const fadeInMs = CURRENT_WORD_BRIEF_FADE_IN_MS;
+    const half = Math.max(1, Math.floor(START_TOUCHPAD_FADE_MS / 2));
+
     if (skipWordmark) {
-      currentWordElement.classList.add("current-word--soft-hidden");
-      currentWordElement.textContent = INTRO_MESSAGE_TEXT;
-      currentWordElement.style.color = happyHuntingColor;
-      currentWordElement.style.transition = `opacity ${START_TOUCHPAD_FADE_MS}ms ease`;
-      requestAnimationFrame(() => {
-        if (myEpoch !== currentWordMessageEpoch) return;
-        requestAnimationFrame(() => {
-          if (myEpoch !== currentWordMessageEpoch) return;
-          currentWordElement.classList.remove("current-word--soft-hidden");
-        });
+      fadeInCurrentWordLine(INTRO_MESSAGE_TEXT, happyHuntingColor, {
+        fadeMs: fadeInMs,
+        epoch: myEpoch,
       });
-    } else {
-      currentWordElement.textContent = PRE_START_WORDMARK;
-      currentWordElement.style.color = "white";
-      currentWordElement.classList.remove("current-word--soft-hidden");
-
-      const half = Math.max(1, Math.floor(START_TOUCHPAD_FADE_MS / 2));
-      currentWordElement.style.transition = `opacity ${half}ms ease`;
-
-      requestAnimationFrame(() => {
-        if (myEpoch !== currentWordMessageEpoch) return;
-        requestAnimationFrame(() => {
-          if (myEpoch !== currentWordMessageEpoch) return;
-          currentWordElement.classList.add("current-word--soft-hidden");
-        });
-      });
-
+      const introHoldAnchorMs = Math.max(
+        START_TOUCHPAD_FADE_MS,
+        fadeInMs + 120
+      );
       window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
-        currentWordElement.textContent = INTRO_MESSAGE_TEXT;
-        currentWordElement.style.color = happyHuntingColor;
-        currentWordElement.classList.remove("current-word--soft-hidden");
-      }, half);
+        currentWordElement.style.transition = "";
+      }, introHoldAnchorMs);
+      const holdBeforeFade = CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS;
+      currentWordMessageTimer = window.setTimeout(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.classList.add("current-word--soft-hidden");
+        currentWordMessageFadeTimer = window.setTimeout(() => {
+          if (myEpoch !== currentWordMessageEpoch) return;
+          currentWordMessageActive = false;
+          updateCurrentWord();
+          currentWordMessageTimer = null;
+          currentWordMessageFadeTimer = null;
+        }, CURRENT_WORD_FADE_MS);
+      }, introHoldAnchorMs + holdBeforeFade);
+      return;
     }
+
+    currentWordElement.textContent = PRE_START_WORDMARK;
+    currentWordElement.style.color = "white";
+    currentWordElement.classList.remove("current-word--soft-hidden");
+
+    currentWordElement.style.transition = `opacity ${half}ms ease`;
+
+    let wordmarkHandoffDone = false;
+    const runHappyHuntingHandoff = () => {
+      if (wordmarkHandoffDone) return;
+      if (myEpoch !== currentWordMessageEpoch) return;
+      wordmarkHandoffDone = true;
+      window.clearTimeout(wordmarkHandoffFallbackTimer);
+      currentWordElement.removeEventListener(
+        "transitionend",
+        onWordmarkOpacityTransitionEnd
+      );
+      currentWordElement.removeEventListener(
+        "webkitTransitionEnd",
+        onWordmarkOpacityTransitionEnd
+      );
+      fadeInCurrentWordLine(INTRO_MESSAGE_TEXT, happyHuntingColor, {
+        fadeMs: fadeInMs,
+        epoch: myEpoch,
+      });
+    };
+
+    function onWordmarkOpacityTransitionEnd(e) {
+      if (e.target !== currentWordElement) return;
+      if (e.propertyName !== "opacity") return;
+      runHappyHuntingHandoff();
+    }
+
+    currentWordElement.addEventListener(
+      "transitionend",
+      onWordmarkOpacityTransitionEnd
+    );
+    currentWordElement.addEventListener(
+      "webkitTransitionEnd",
+      onWordmarkOpacityTransitionEnd
+    );
+    const wordmarkHandoffFallbackTimer = window.setTimeout(
+      runHappyHuntingHandoff,
+      half + 160
+    );
+
+    requestAnimationFrame(() => {
+      if (myEpoch !== currentWordMessageEpoch) return;
+      requestAnimationFrame(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.classList.add("current-word--soft-hidden");
+      });
+    });
+
+    const introVisualEndMs = half + 160 + fadeInMs + 120;
+    const introHoldAnchorMs = Math.max(
+      START_TOUCHPAD_FADE_MS,
+      introVisualEndMs
+    );
 
     window.setTimeout(() => {
       if (myEpoch !== currentWordMessageEpoch) return;
       currentWordElement.style.transition = "";
-    }, START_TOUCHPAD_FADE_MS);
+    }, introHoldAnchorMs);
 
     const holdBeforeFade = CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS;
     currentWordMessageTimer = window.setTimeout(() => {
@@ -2368,20 +2512,23 @@ document.addEventListener("DOMContentLoaded", () => {
         currentWordMessageTimer = null;
         currentWordMessageFadeTimer = null;
       }, CURRENT_WORD_FADE_MS);
-    }, START_TOUCHPAD_FADE_MS + holdBeforeFade);
+    }, introHoldAnchorMs + holdBeforeFade);
   }
 
   function scheduleDeferredGameAudioWarmup() {
+    const skipBingInvalidPrimes = gameAudioUnlocked;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        void unlockGameAudio();
-        playSound("bing", true, {
-          playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[0],
+        void unlockGameAudio().then(() => {
+          if (skipBingInvalidPrimes) return;
+          playSound("bing", true, {
+            playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[0],
+          });
+          playSound("bing", true, {
+            playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[7],
+          });
+          playSound("invalid", true);
         });
-        playSound("bing", true, {
-          playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[7],
-        });
-        playSound("invalid", true);
       });
     });
   }
@@ -2394,6 +2541,10 @@ document.addEventListener("DOMContentLoaded", () => {
       arg &&
       typeof arg === "object" &&
       arg.skipWordmarkInIntro === true;
+    const fadeTilesToActive =
+      arg &&
+      typeof arg === "object" &&
+      arg.fadeTilesToActive === true;
     playSound("button1", isMuted);
     clearTapStreak();
     isGameActive = true;
@@ -2427,16 +2578,27 @@ document.addEventListener("DOMContentLoaded", () => {
     currentWord = "";
     updateScore();
 
-    runGridTilePaletteTransition("toActive", TILE_PALETTE_MS, () => {
+    const activateGridTilesForPlay = () => {
       const buttons = grid.getElementsByClassName("grid-button");
       for (let i = 0; i < buttons.length; i++) {
-        buttons[i].disabled = false;
-        buttons[i].classList.add("grid-button--active");
-        buttons[i].classList.remove("grid-button--inactive");
-        buttons[i].style.color = "";
-        buttons[i].classList.remove("grid-button--endgame-exit");
+        const b = buttons[i];
+        b.classList.remove(
+          "grid-button--palette-to-active",
+          "grid-button--palette-to-inactive"
+        );
+        b.style.removeProperty("--tile-palette-ms");
+        b.disabled = false;
+        b.classList.add("grid-button--active");
+        b.classList.remove("grid-button--inactive");
+        b.style.color = "";
+        b.classList.remove("grid-button--endgame-exit");
       }
-    });
+    };
+    if (fadeTilesToActive) {
+      runGridTilePaletteTransition("toActive", TILE_PALETTE_MS, activateGridTilesForPlay);
+    } else {
+      activateGridTilesForPlay();
+    }
     crossfadeWordmarkToHappyHunting({
       skipWordmark: skipWordmarkInIntro,
     });
@@ -2817,11 +2979,22 @@ document.addEventListener("DOMContentLoaded", () => {
     flashHoldExtraMs = 0
   ) {
     const myEpoch = beginCurrentWordMessageSession();
-    currentWordElement.style.transition = "";
-    currentWordElement.textContent = message;
-    currentWordElement.style.color = color;
-    currentWordElement.classList.remove("current-word--soft-hidden");
     currentWordElement.classList.remove("current-word--valid-solve");
+
+    const fadeInMs = CURRENT_WORD_BRIEF_FADE_IN_MS;
+    fadeInCurrentWordLine(message, color, {
+      fadeMs: fadeInMs,
+      epoch: myEpoch,
+    });
+
+    const needsValidSolve =
+      visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1;
+    if (needsValidSolve) {
+      window.setTimeout(() => {
+        if (myEpoch !== currentWordMessageEpoch) return;
+        currentWordElement.classList.add("current-word--valid-solve");
+      }, fadeInMs);
+    }
 
     const holdBeforeFade =
       visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1
@@ -2829,9 +3002,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : CURRENT_WORD_MESSAGE_ON_MS -
             CURRENT_WORD_FADE_MS +
             flashHoldExtraMs;
-    if (visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1) {
-      currentWordElement.classList.add("current-word--valid-solve");
-    }
+    const untilFadeOutStart = holdBeforeFade + fadeInMs;
 
     if (flashTimes > 1) {
       currentWordMessageTimer = window.setTimeout(() => {
@@ -2853,7 +3024,7 @@ document.addEventListener("DOMContentLoaded", () => {
             );
           }, 380);
         }, CURRENT_WORD_FADE_MS);
-      }, CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS + flashHoldExtraMs);
+      }, untilFadeOutStart);
     } else {
       currentWordMessageTimer = window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
@@ -2866,7 +3037,7 @@ document.addEventListener("DOMContentLoaded", () => {
           currentWordMessageTimer = null;
           currentWordMessageFadeTimer = null;
         }, CURRENT_WORD_FADE_MS);
-      }, holdBeforeFade);
+      }, untilFadeOutStart);
     }
   }
 
@@ -2874,10 +3045,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const flashes = Math.max(1, Number(flashTimes) || 1);
     const onMs = CURRENT_WORD_MESSAGE_ON_MS;
     const extra = Math.max(0, Number(flashHoldExtraMs) || 0);
+    const fadeInPad = flashes * CURRENT_WORD_BRIEF_FADE_IN_MS;
     if (flashes === 1) {
-      return onMs + extra;
+      return onMs + extra + fadeInPad;
     }
-    return flashes * onMs + (flashes - 1) * 380 + flashes * extra;
+    return (
+      flashes * onMs + (flashes - 1) * 380 + flashes * extra + fadeInPad
+    );
   }
 
   function setEndgameBlankTilesHidden(hide) {
@@ -2890,9 +3064,355 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function maybeShowPostGameUi() {
-    if (!endgamePostUiReady || !endgameSoundReady || endgameUiShown) return;
-    endgameUiShown = true;
+  function buildDemoLeaderboardRows() {
+    const rows = [];
+    rows.push(["Johnny", 0, 1000, "ELK"]);
+    rows.push(["Alex", 0, 820, "QUARTZ"]);
+    rows.push(["Sam", 0, 650, "HUNT"]);
+    rows.push(["Rae", 0, 480, "STAR"]);
+    for (let i = 0; i < 6; i++) {
+      rows.push(["", 0, "", ""]);
+    }
+    return rows;
+  }
+
+  function demoRunQualifiesForLeaderboard(baseRows, runScore) {
+    const s = Number(runScore);
+    if (!Number.isFinite(s) || s <= 0) return false;
+    if (!baseRows || baseRows.length < 10) return true;
+    const raw = baseRows[9][2];
+    const tenthNum = Number(raw);
+    const tenthSlotOccupied =
+      raw !== "" &&
+      raw !== null &&
+      raw !== undefined &&
+      !Number.isNaN(tenthNum) &&
+      tenthNum > 0;
+    if (!tenthSlotOccupied) return true;
+    return s > tenthNum;
+  }
+
+  function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy) {
+    const filled = baseRows.map((r) => {
+      return [
+        String(r[0] || ""),
+        Number(r[1]) === 1 ? 1 : 0,
+        r[2] === "" || r[2] === null || r[2] === undefined
+          ? ""
+          : Number(r[2]),
+        String(r[3] || ""),
+      ];
+    });
+    /** @type {[string, number, number, string]} */
+    const newRow = [name, 0, runScore, String(trophy || "")];
+    const dataRows = filled.filter(
+      (r) =>
+        (r[0] && String(r[0]).trim()) ||
+        (r[2] !== "" && !Number.isNaN(Number(r[2])))
+    );
+    dataRows.push(newRow);
+    dataRows.sort((a, b) => Number(b[2]) - Number(a[2]));
+    const next = dataRows.slice(0, 10);
+    while (next.length < 10) {
+      next.push(["", 0, "", ""]);
+    }
+    return next;
+  }
+
+  function findDemoSelfRowIndex() {
+    if (!LEADERBOARD_USE_DEMO_DATA || !demoLeaderboardRows) return -1;
+    const trophy = String(longestWord || "").trim();
+    return demoLeaderboardRows.findIndex(
+      (r) =>
+        Number(r[2]) === score && String(r[3] || "").trim() === trophy
+    );
+  }
+
+  function sanitizeDemoLeaderboardName(raw) {
+    return String(raw || "")
+      .replace(/[^a-zA-Z]/g, "")
+      .toUpperCase()
+      .slice(0, DEMO_LEADERBOARD_NAME_MAX);
+  }
+
+  function openDemoLeaderboardInlineNameEdit(td) {
+    const idx = findDemoSelfRowIndex();
+    if (idx < 0) return;
+    const nameVal =
+      sanitizeDemoLeaderboardName(demoLeaderboardRows[idx][0]) || "YOU";
+    td.textContent = "";
+    td.removeAttribute("data-demo-self-name");
+    td.classList.remove("leaderboard-name-cell--you-pseudo-select");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "leaderboard-inline-name-input";
+    input.maxLength = DEMO_LEADERBOARD_NAME_MAX;
+    input.setAttribute("inputmode", "text");
+    input.setAttribute("pattern", "[A-Za-z]*");
+    input.value = nameVal;
+    input.setAttribute("aria-label", "Your name");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false");
+    td.appendChild(input);
+    input.focus();
+    input.select();
+    input.addEventListener("input", () => {
+      const v = sanitizeDemoLeaderboardName(input.value);
+      input.value = v;
+      demoLeaderboardRows[idx][0] = v;
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        input.blur();
+      }
+    });
+    input.addEventListener("blur", () => {
+      const v = sanitizeDemoLeaderboardName(input.value);
+      const stored = v || "YOU";
+      demoLeaderboardRows[idx][0] = stored;
+      td.innerHTML = "";
+      td.textContent =
+        stored.toLowerCase() === "doughack" ? "doug" : stored;
+      td.dataset.demoSelfName = "1";
+      td.classList.add("leaderboard-name-cell--you-pseudo-select");
+    });
+  }
+
+  function applyLeaderboardSubmitButtonVisibility(rows) {
+    let qualifies;
+    if (LEADERBOARD_USE_DEMO_DATA) {
+      qualifies = demoRunQualifiesForLeaderboard(
+        buildDemoLeaderboardRows(),
+        score
+      );
+    } else {
+      const playerHasScore = Number(score) > 0;
+      qualifies = playerHasScore;
+      if (qualifies && rows && rows.length >= 10) {
+        const raw = rows[9][2];
+        const tenthNum = Number(raw);
+        const tenthSlotOccupied =
+          raw !== "" &&
+          raw !== null &&
+          raw !== undefined &&
+          !Number.isNaN(tenthNum) &&
+          tenthNum > 0;
+        if (tenthSlotOccupied) {
+          qualifies = score > tenthNum;
+        }
+      }
+    }
+
+    if (LEADERBOARD_USE_DEMO_DATA) {
+      leaderboardButton.classList.add("hiddenDisplay");
+      leaderboardButton.classList.add("leaderboard-action--concealed");
+      if (leaderboardDemoAdd) {
+        if (demoLeaderboardSubmitUsed) {
+          leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+          leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+          leaderboardDemoAdd.disabled = true;
+          leaderboardDemoAdd.classList.add("hiddenDisplay");
+          leaderboardDemoAdd.classList.add("leaderboard-action--concealed");
+          return;
+        }
+
+        leaderboardDemoAdd.classList.remove("hiddenDisplay");
+        leaderboardDemoAdd.classList.remove("leaderboard-action--concealed");
+        leaderboardDemoAdd.disabled = false;
+        leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+        leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+
+        if (qualifies) {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              leaderboardDemoAdd.classList.add("leaderboard-demo-add--eligible");
+            });
+          });
+        }
+      }
+      return;
+    }
+
+    if (leaderboardDemoAdd) {
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.classList.add("hiddenDisplay");
+    }
+    leaderboardButton.classList.remove("hiddenDisplay");
+    leaderboardButton.classList.toggle("leaderboard-action--concealed", !qualifies);
+  }
+
+  function renderLeaderboardTable(leaderboard) {
+    playerPosition = undefined;
+    leaderboardTable.innerHTML = "";
+    const tbody = document.createElement("tbody");
+
+    const headerRow = document.createElement("tr");
+    ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
+      const th = document.createElement("th");
+      th.textContent = headerText;
+      headerRow.appendChild(th);
+    });
+    headerRow.style.backgroundColor = "black";
+    headerRow.style.color = "white";
+    tbody.appendChild(headerRow);
+
+    leaderboard.forEach((row, index) => {
+      let [playerRaw, rowHardFlag, rowScore, rowTrophy] = row;
+      const tr = document.createElement("tr");
+      let color = "white";
+      const hardFlag = Number(rowHardFlag) === 1 ? 1 : 0;
+
+      const playerStr = String(playerRaw || "").trim();
+      const hasScore =
+        rowScore !== "" &&
+        rowScore !== null &&
+        rowScore !== undefined &&
+        !Number.isNaN(Number(rowScore));
+      const scoreNum = hasScore ? Number(rowScore) : null;
+      const trophyStr = String(rowTrophy || "").trim();
+      const trophyMatches =
+        trophyStr === String(longestWord || "").trim();
+      const isDemoSelfRow =
+        LEADERBOARD_USE_DEMO_DATA &&
+        hasScore &&
+        scoreNum === score &&
+        trophyMatches;
+
+      let displayPlayer = playerStr;
+      if (playerStr.toLowerCase() === "doughack") {
+        displayPlayer = "doug";
+      }
+
+      if (hardFlag === 1) {
+        color = redTextColorLeaderboard;
+      } else if (isDemoSelfRow) {
+        playerPosition = index + 1;
+        color = demoLeaderboardSubmitUsed ? "white" : goldTextColor;
+      } else if (playerStr.toLowerCase() === "doughack") {
+        color = "magenta";
+      } else {
+        const nameMatches =
+          playerStr && playerStr === String(playerName.value || "").trim();
+        const scoreMatches = scoreNum !== null && scoreNum === score;
+        if (nameMatches && scoreMatches && trophyMatches) {
+          playerPosition = index + 1;
+          color = goldTextColor;
+        }
+      }
+
+      tr.style.color = color;
+
+      const displayNameCell = displayPlayer || "";
+      const displayScoreCell =
+        scoreNum === null ? "" : String(scoreNum);
+      const displayTrophyCell = trophyStr || "";
+
+      const positionDisplay = String(index + 1);
+
+      [positionDisplay, displayNameCell, displayScoreCell, displayTrophyCell].forEach(
+        (cellText, cellIndex) => {
+          const td = document.createElement("td");
+          if (
+            cellIndex === 1 &&
+            isDemoSelfRow &&
+            !demoLeaderboardSubmitUsed
+          ) {
+            td.textContent = displayNameCell;
+            td.dataset.demoSelfName = "1";
+            td.classList.add("leaderboard-name-cell--you-pseudo-select");
+            td.style.cursor = "pointer";
+          } else {
+            td.textContent = cellText;
+          }
+
+          if (cellIndex === 0 || cellIndex === 2) {
+            td.classList.add("centered-cell");
+          }
+
+          tr.appendChild(td);
+        }
+      );
+      tbody.appendChild(tr);
+    });
+
+    leaderboardTable.appendChild(tbody);
+    applyLeaderboardSubmitButtonVisibility(leaderboard);
+  }
+
+  function finalizeDemoLeaderboardSubmit() {
+    if (!LEADERBOARD_USE_DEMO_DATA || demoLeaderboardSubmitUsed) return;
+    if (Number(score) <= 0) return;
+    const idx = findDemoSelfRowIndex();
+    if (idx < 0) return;
+    const input = leaderboardTable.querySelector(
+      ".leaderboard-inline-name-input"
+    );
+    let name;
+    if (input) {
+      name = sanitizeDemoLeaderboardName(input.value) || "YOU";
+    } else {
+      name =
+        sanitizeDemoLeaderboardName(demoLeaderboardRows[idx][0]) || "YOU";
+    }
+    demoLeaderboardRows[idx][0] = name;
+    demoLeaderboardSubmitUsed = true;
+    renderLeaderboardTable(demoLeaderboardRows);
+  }
+
+  function finalizePostgameLeaderboardOverlayHidden() {
+    leaderboardElements.style.display = "none";
+    leaderboardElements.setAttribute("aria-hidden", "true");
+    leaderboardTable.classList.add("hiddenDisplay");
+    leaderboardTable.classList.remove("visibleDisplay");
+    leaderboardElements.classList.remove("visibleDisplay");
+    if (leaderboardDemoAdd) {
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.classList.add("hiddenDisplay");
+    }
+    leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardButton.classList.add("leaderboard-action--concealed");
+  }
+
+  function hidePostgameLeaderboardOverlay() {
+    if (postgameCopyScoreTimer !== null) {
+      window.clearTimeout(postgameCopyScoreTimer);
+      postgameCopyScoreTimer = null;
+    }
+    if (leaderboardFadeOutTimer !== null) {
+      window.clearTimeout(leaderboardFadeOutTimer);
+      leaderboardFadeOutTimer = null;
+    }
+    leaderboardElements.classList.remove("leaderboard-elements--visible");
+    finalizePostgameLeaderboardOverlayHidden();
+  }
+
+  /** Fades overlay out; returns true if teardown runs on a timer (use `skipLeaderboardOverlayTeardown`). */
+  function beginPostgameLeaderboardOverlayFadeOut() {
+    if (postgameCopyScoreTimer !== null) {
+      window.clearTimeout(postgameCopyScoreTimer);
+      postgameCopyScoreTimer = null;
+    }
+    if (leaderboardFadeOutTimer !== null) {
+      window.clearTimeout(leaderboardFadeOutTimer);
+      leaderboardFadeOutTimer = null;
+    }
+    if (!leaderboardElements.classList.contains("leaderboard-elements--visible")) {
+      return false;
+    }
+    leaderboardElements.classList.remove("leaderboard-elements--visible");
+    leaderboardFadeOutTimer = window.setTimeout(() => {
+      leaderboardFadeOutTimer = null;
+      finalizePostgameLeaderboardOverlayHidden();
+    }, LEADERBOARD_POSTGAME_FADE_MS + LEADERBOARD_OVERLAY_FADE_SETTLE_MS);
+    return true;
+  }
+
+  function revealPostGameCopyScoreLine() {
     if (currentWordMessageTimer) {
       window.clearTimeout(currentWordMessageTimer);
       currentWordMessageTimer = null;
@@ -2902,17 +3422,78 @@ document.addEventListener("DOMContentLoaded", () => {
       currentWordMessageFadeTimer = null;
     }
     currentWordMessageActive = false;
-    currentWordElement.classList.remove("current-word--soft-hidden");
     currentWordElement.classList.remove("current-word--valid-solve");
-    currentWordElement.textContent = "Copy Score";
-    currentWordElement.style.color = happyHuntingColor;
+
+    fadeInCurrentWordLine("Copy Score", happyHuntingColor, {
+      fadeMs: CURRENT_WORD_BRIEF_FADE_IN_MS,
+    });
+
     updateNextLetters();
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
-    leaderboardTable.classList.add("hiddenDisplay");
-    leaderboardTable.classList.remove("visibleDisplay");
-    leaderboardElements.classList.remove("visibleDisplay");
-    leaderboardElements.style.display = "none";
+    leaderboardButton.classList.add("leaderboard-action--concealed");
+    endgameUiShown = true;
+  }
+
+  function maybeShowPostGameUi() {
+    if (!endgamePostUiReady || endgameUiShown) return;
+    if (postgameSequenceStarted) return;
+    postgameSequenceStarted = true;
+
+    leaderboardElements.style.display = "flex";
+    leaderboardTable.classList.remove("hiddenDisplay");
+    leaderboardTable.classList.add("visibleDisplay");
+    leaderboardElements.classList.add("visibleDisplay");
+    leaderboardElements.setAttribute("aria-hidden", "false");
+
+    if (LEADERBOARD_USE_DEMO_DATA) {
+      const base = buildDemoLeaderboardRows();
+      if (demoRunQualifiesForLeaderboard(base, score)) {
+        demoLeaderboardRows = mergeDemoRunIntoTop10(
+          base,
+          "YOU",
+          score,
+          longestWord || ""
+        );
+      } else {
+        demoLeaderboardRows = base;
+      }
+      renderLeaderboardTable(demoLeaderboardRows);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          leaderboardElements.classList.add("leaderboard-elements--visible");
+        });
+      });
+      postgameCopyScoreTimer = window.setTimeout(() => {
+        postgameCopyScoreTimer = null;
+        revealPostGameCopyScoreLine();
+      }, LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS);
+      return;
+    }
+
+    if (leaderboardDemoAdd) {
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.classList.add("hiddenDisplay");
+    }
+
+    void (async () => {
+      try {
+        await refreshLeaderboardFromApi(false);
+      } catch (err) {
+        console.error(err);
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          leaderboardElements.classList.add("leaderboard-elements--visible");
+        });
+      });
+      postgameCopyScoreTimer = window.setTimeout(() => {
+        postgameCopyScoreTimer = null;
+        revealPostGameCopyScoreLine();
+      }, LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS);
+    })();
   }
 
   function triggerEndgameTileExitAnimation() {
@@ -2932,30 +3513,16 @@ document.addEventListener("DOMContentLoaded", () => {
       endgamePostUiReady = true;
       endgameTileRevealTimer = null;
       maybeShowPostGameUi();
-    }, Math.max(0, ENDGAME_TILE_SEQUENCE_MS + 80 - COPY_SCORE_REVEAL_LEAD_MS));
-  }
-
-  function scheduleGameOverSoundUiReadyEarly() {
-    if (endgameSoundEarlyTimer !== null) {
-      window.clearTimeout(endgameSoundEarlyTimer);
-      endgameSoundEarlyTimer = null;
-    }
-    const dur = sounds.gameOver.duration;
-    if (!Number.isFinite(dur) || dur <= 0) return;
-    const delay = Math.max(0, dur * 1000 - COPY_SCORE_SOUND_UI_LEAD_MS);
-    endgameSoundEarlyTimer = window.setTimeout(() => {
-      endgameSoundEarlyTimer = null;
-      if (endgameUiShown) return;
-      endgameSoundReady = true;
-      maybeShowPostGameUi();
-    }, delay);
+    }, Math.max(
+      0,
+      ENDGAME_TILE_SEQUENCE_MS +
+        ENDGAME_TILE_EXIT_BUFFER_MS -
+        LEADERBOARD_REVEAL_LEAD_MS +
+        LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS
+    ));
   }
 
   function onGameOverSoundEndedPostGameUi() {
-    if (endgameSoundEarlyTimer !== null) {
-      window.clearTimeout(endgameSoundEarlyTimer);
-      endgameSoundEarlyTimer = null;
-    }
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
@@ -2964,8 +3531,6 @@ document.addEventListener("DOMContentLoaded", () => {
       "ended",
       onGameOverSoundEndedPostGameUi
     );
-    endgameSoundReady = true;
-    maybeShowPostGameUi();
   }
 
   function endGame() {
@@ -2973,12 +3538,14 @@ document.addEventListener("DOMContentLoaded", () => {
     clearWordSubmitFeedbackTimer();
     bumpWordReplaceEpoch();
     endgamePostUiReady = false;
-    endgameSoundReady = false;
     endgameUiShown = false;
-    if (endgameSoundEarlyTimer !== null) {
-      window.clearTimeout(endgameSoundEarlyTimer);
-      endgameSoundEarlyTimer = null;
+    postgameSequenceStarted = false;
+    if (postgameCopyScoreTimer !== null) {
+      window.clearTimeout(postgameCopyScoreTimer);
+      postgameCopyScoreTimer = null;
     }
+    hidePostgameLeaderboardOverlay();
+    demoLeaderboardSubmitUsed = false;
     if (endgameTileStartTimer !== null) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
@@ -3032,12 +3599,6 @@ document.addEventListener("DOMContentLoaded", () => {
       "ended",
       onGameOverSoundEndedPostGameUi
     );
-    sounds.gameOver.addEventListener(
-      "loadedmetadata",
-      scheduleGameOverSoundUiReadyEarly,
-      { once: true }
-    );
-    scheduleGameOverSoundUiReadyEarly();
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
     }
@@ -3066,6 +3627,7 @@ document.addEventListener("DOMContentLoaded", () => {
     startButton.classList.remove("visibleDisplay");
     retryButton.classList.remove("hiddenDisplay");
     retryButton.classList.add("visibleDisplay");
+    retryButton.disabled = false;
 
     showMessage(
       pickRandomScenarioMessage("game_over", "Game Over"),
@@ -3085,14 +3647,19 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
-    leaderboardElements.style.display = "none";
-    leaderboardElements.classList.remove("visibleDisplay");
-    leaderboardTable.classList.add("hiddenDisplay");
-    leaderboardTable.classList.remove("visibleDisplay");
+    leaderboardButton.classList.add("leaderboard-action--concealed");
+    if (leaderboardDemoAdd) {
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.classList.add("hiddenDisplay");
+    }
   }
 
   function resetRoundToPregame(options = {}) {
     const forImmediateStart = options.forImmediateStart === true;
+    const skipLeaderboardOverlayTeardown =
+      options.skipLeaderboardOverlayTeardown === true;
     isGameActive = false;
     isPaused = false;
     isMouseDown = false;
@@ -3102,10 +3669,6 @@ document.addEventListener("DOMContentLoaded", () => {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
     }
-    if (endgameSoundEarlyTimer !== null) {
-      window.clearTimeout(endgameSoundEarlyTimer);
-      endgameSoundEarlyTimer = null;
-    }
     if (endgameTileStartTimer !== null) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
@@ -3113,6 +3676,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (endgameTileRevealTimer !== null) {
       window.clearTimeout(endgameTileRevealTimer);
       endgameTileRevealTimer = null;
+    }
+    if (postgameCopyScoreTimer !== null) {
+      window.clearTimeout(postgameCopyScoreTimer);
+      postgameCopyScoreTimer = null;
+    }
+    if (!skipLeaderboardOverlayTeardown && leaderboardFadeOutTimer !== null) {
+      window.clearTimeout(leaderboardFadeOutTimer);
+      leaderboardFadeOutTimer = null;
+    }
+    postgameSequenceStarted = false;
+    demoLeaderboardRows = null;
+    demoLeaderboardSubmitUsed = false;
+    if (!skipLeaderboardOverlayTeardown) {
+      hidePostgameLeaderboardOverlay();
     }
     if (tilePaletteTransitionTimer !== null) {
       window.clearTimeout(tilePaletteTransitionTimer);
@@ -3143,7 +3720,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
 
     endgamePostUiReady = false;
-    endgameSoundReady = false;
     endgameUiShown = false;
     currentWordMessageActive = false;
 
@@ -3209,12 +3785,15 @@ document.addEventListener("DOMContentLoaded", () => {
     playerName.classList.add("hiddenDisplay");
     playerName.disabled = false;
     leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardButton.classList.add("leaderboard-action--concealed");
     leaderboardButton.disabled = false;
     leaderboardButton.style.backgroundColor = "";
-    leaderboardElements.style.display = "none";
-    leaderboardElements.classList.remove("visibleDisplay");
-    leaderboardTable.classList.add("hiddenDisplay");
-    leaderboardTable.classList.remove("visibleDisplay");
+    if (leaderboardDemoAdd) {
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
+      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
+      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.classList.add("hiddenDisplay");
+    }
 
     const tiles = grid.querySelectorAll(".grid-button");
     for (let i = 0; i < tiles.length; i++) {
@@ -3235,7 +3814,7 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(syncLineOverlaySize);
   }
 
-  async function getLeaderboard(clicked = false) {
+  async function refreshLeaderboardFromApi(clicked) {
     if (clicked) {
       playSound("click", isMuted);
       playerName.disabled = true;
@@ -3243,9 +3822,8 @@ document.addEventListener("DOMContentLoaded", () => {
       leaderboardButton.style.backgroundColor = "gray";
     }
 
-    let requestURL = `${leaderboardLink}${diffDays}`;
-
-    let requestOptions = {
+    const requestURL = `${leaderboardLink}${diffDays}`;
+    const requestOptions = {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -3264,74 +3842,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const response = await fetch(requestURL, requestOptions);
     const data = await response.json();
-
     const parsedBody = JSON.parse(data["body"]);
     const leaderboard =
       score > SCORE_SUBMIT_THRESHOLD && playerName.value !== ""
         ? parsedBody.top_10
         : parsedBody;
 
-    leaderboardTable.innerHTML = "";
+    renderLeaderboardTable(leaderboard);
+  }
 
-    let tbody = document.createElement("tbody");
-
-    let headerRow = document.createElement("tr");
-    ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
-      let th = document.createElement("th");
-      th.textContent = headerText;
-      headerRow.appendChild(th);
-    });
-    headerRow.style.backgroundColor = "black";
-    headerRow.style.color = "white";
-    tbody.appendChild(headerRow);
-
-    leaderboard.forEach((row, index) => {
-      let tr = document.createElement("tr");
-      let [player, rowHardFlag, rowScore, rowTrophy] = row;
-
-      let color = "white";
-      if (rowHardFlag === 1) {
-        color = redTextColorLeaderboard;
+  async function getLeaderboard(clicked = false) {
+    if (LEADERBOARD_USE_DEMO_DATA) {
+      if (clicked) {
+        playSound("click", isMuted);
       }
-      if (
-        player === playerName.value &&
-        rowScore === score &&
-        rowTrophy === longestWord
-      ) {
-        playerPosition = index + 1;
-        color = goldTextColor;
-      }
-
-      if (player === "doughack") {
-        player = "doug";
-        color = "magenta";
-      }
-
-      tr.style.color = color;
-
-      let positionDisplay;
-      if (index === 0) {
-        positionDisplay = "🥇";
-      } else {
-        positionDisplay = index + 1;
-      }
-
-      [positionDisplay, player, rowScore, rowTrophy].forEach(
-        (cellText, cellIndex) => {
-          let td = document.createElement("td");
-          td.textContent = cellText;
-
-          if (cellIndex === 0 || cellIndex === 2) {
-            td.classList.add("centered-cell");
-          }
-
-          tr.appendChild(td);
-        }
-      );
-      tbody.appendChild(tr);
-    });
-
-    leaderboardTable.appendChild(tbody);
+      demoLeaderboardRows = demoLeaderboardRows || buildDemoLeaderboardRows();
+      renderLeaderboardTable(demoLeaderboardRows);
+      return;
+    }
+    await refreshLeaderboardFromApi(clicked);
   }
 
   function getWordScoreFromSelectedTiles(buttonSequence) {
