@@ -211,8 +211,7 @@ const GAME_SOUND_SPEC = [
   { id: "button2", src: "sounds/button2.wav" },
   { id: "bing", src: "sounds/bing.wav" },
   { id: "invalid", src: "sounds/invalid.wav" },
-  { id: "pop", src: "sounds/pop.wav" },
-  { id: "tick", src: "sounds/tick.wav" },
+  { id: "submit", src: "sounds/submit.wav" },
   { id: "gameOver", src: "sounds/gameOver.wav" },
 ];
 
@@ -1231,7 +1230,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!LEADERBOARD_USE_DEMO_DATA) return;
       if (leaderboardDemoAdd.disabled || demoLeaderboardSubmitUsed) return;
       if (Number(score) <= 0) return;
-      playSound("click", isMuted);
       finalizeDemoLeaderboardSubmit();
     });
   }
@@ -3347,6 +3345,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (Number(score) <= 0) return;
     const idx = findDemoSelfRowIndex();
     if (idx < 0) return;
+    playSound("submit", isMuted);
     const input = leaderboardTable.querySelector(
       ".leaderboard-inline-name-input"
     );
@@ -3830,7 +3829,9 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
 
-    if (score > SCORE_SUBMIT_THRESHOLD && playerName.value != "") {
+    const willSubmit =
+      score > SCORE_SUBMIT_THRESHOLD && playerName.value !== "";
+    if (willSubmit) {
       requestOptions.method = "POST";
       requestOptions.body = JSON.stringify({
         player: playerName.value,
@@ -3841,6 +3842,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const response = await fetch(requestURL, requestOptions);
+    if (willSubmit && response.ok) {
+      playSound("submit", isMuted);
+    }
     const data = await response.json();
     const parsedBody = JSON.parse(data["body"]);
     const leaderboard =
