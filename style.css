@@ -1009,6 +1009,20 @@ line.grid-line--fade-out {
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
+.board-shift-hint--fine {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .board-shift-hint--coarse {
+    display: none;
+  }
+
+  .board-shift-hint--fine {
+    display: inline;
+  }
+}
+
 #button-container {
   grid-area: dock;
   display: flex;
