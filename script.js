@@ -218,7 +218,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const rules = document.querySelector("#rules");
   const rulesButton = document.querySelector("#rules-button");
   const muteButton = document.getElementById("mute-button");
-  const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const boardShiftZone = document.getElementById("board-shift-zone");
   const boardShiftHints = document.getElementById("board-shift-hints");
@@ -1078,13 +1077,16 @@ document.addEventListener("DOMContentLoaded", () => {
     isPaused = isVisible;
   }
 
+  function onRulesOverlayClick(event) {
+    if (event.target.closest("a[href]")) return;
+    setRulesOverlayVisible(false);
+  }
+
   retryButton.addEventListener("click", function () {
     resetRoundToPregame({ forImmediateStart: true });
     startGame({ skipWordmarkInIntro: true });
   });
-  closeRules.addEventListener("click", function () {
-    setRulesOverlayVisible(false);
-  });
+  rules.addEventListener("click", onRulesOverlayClick);
   rulesButton.addEventListener("click", function () {
     setRulesOverlayVisible(true);
   });

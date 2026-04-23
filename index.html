@@ -136,26 +136,56 @@
       </div>
     </div>
 
-    <div id="rules" class="hidden">
-      <h1></h1>
-      <h2>HOW TO PLAY</h2>
-      <p>Swipe your finger on the tile grid to form words</p>
-      <p>Word score = tile-value total multiplied by word length</p>
-      <p>The same tile can be used multiple times in a word</p>
-      <p>Used letters are replaced by letters at the top</p>
-      <p>Swipe below the grid to rearrange the grid tiles</p>
-      <p>Puzzle resets at midnight</p>
-      <p></p>
-      <p></p>
-      <p>wordhuntercreator@gmail.com</p>
-      <button
-        type="button"
-        id="close-rules"
-        class="header-icon-button"
-        aria-label="Close instructions"
-      >
-        ❌
-      </button>
+    <div
+      id="rules"
+      class="hidden"
+      aria-label="How to play. Tap or click anywhere to close."
+    >
+      <div class="rules-shell">
+        <h2>How to play</h2>
+        <section class="rules-section" aria-label="Goal">
+          <ul class="rules-list">
+            <li>rearrange the grid to hunt for <strong>high scoring words</strong></li>
+            <li>
+              a <span class="rules-accent-gold">perfect hunt</span> results in exactly
+              <strong>1000 total points</strong>
+            </li>
+            <li><strong class="rules-accent-red">end the game</strong> to submit score to the leaderboard</li>
+          </ul>
+        </section>
+        <section class="rules-section" aria-labelledby="rules-controls-heading">
+          <h3 id="rules-controls-heading">Controls</h3>
+          <ul class="rules-list">
+            <li>
+              <span class="rules-input--coarse"><span class="rules-gesture-phrase">swipe</span> your finger on the tile grid to form words</span><span class="rules-input--fine"><span class="rules-gesture-phrase">click & drag</span> to adjacent tiles on the grid to form words</span>
+            </li>
+            <li>
+              <span class="rules-input--coarse"><span class="rules-gesture-phrase">swipe</span> below the grid to rearrange the grid tiles</span><span class="rules-input--fine"><span class="rules-gesture-phrase">click & drag</span> below the grid to rearrange the grid tiles</span>
+            </li>
+          </ul>
+        </section>
+        <section class="rules-section" aria-labelledby="rules-gameplay-heading">
+          <h3 id="rules-gameplay-heading">Gameplay</h3>
+          <ul class="rules-list">
+            <li>
+              <strong class="rules-accent-green">word score</strong> = sum of tile scores
+              <strong class="rules-multiply">×</strong> word length
+            </li>
+            <li>
+              played letters are replaced by <strong>upcoming</strong> letters
+            </li>
+            <li>
+              hunt until all <strong class="rules-50-pink">50</strong> replacement letters are used up
+            </li>
+          </ul>
+        </section>
+        <section class="rules-section rules-section--meta">
+          <p><em>puzzle resets @ midnight</em></p>
+          <p class="rules-dismiss" role="note">
+            <span class="rules-dismiss--coarse">Tap anywhere to close</span><span class="rules-dismiss--fine">Click anywhere to close</span>
+          </p>
+        </section>
+      </div>
     </div>
 
     <script src="script.js"></script>
