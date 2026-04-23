@@ -1,0 +1,34 @@
+import { createInitialShiftGestureState } from "./shift-gestures.js";
+
+export function createGameContext() {
+  return {
+    refs: {},
+    fn: {},
+    state: {
+      shift: createInitialShiftGestureState(),
+      /** @type {string[][]} */
+      gameBoard: [],
+      wordLine: {
+        active: false,
+        /** @type {ReturnType<typeof setTimeout> | null} */
+        messageTimer: null,
+        /** @type {ReturnType<typeof setTimeout> | null} */
+        fadeTimer: null,
+        epoch: 0,
+      },
+      word: {
+        /** @type {HTMLButtonElement[]} */
+        selectedButtons: [],
+        /** @type {Set<HTMLButtonElement>} */
+        selectedButtonSet: new Set(),
+        /** @type {HTMLButtonElement | null} */
+        lastButton: null,
+        currentWord: "",
+        /** @type {ReturnType<typeof setTimeout> | null} */
+        wordSubmitFeedbackTimer: null,
+        wordReplaceEpoch: 0,
+        wordReplaceLockGen: 0,
+      },
+    },
+  };
+}

@@ -32,7 +32,6 @@
   --body-background-image: url("images/background.png");
   --header-icon-button-background-color: #ffffff;
   --rules-overlay-background-color: rgba(0, 0, 0, 0.85);
-  /* How to play overlay accents (align with in-game score / feedback colors where noted) */
   --rules-accent-gold: #e3af02;
   --rules-accent-red: #f76d6d;
   --rules-accent-green: #07f03a;
@@ -61,7 +60,6 @@
   --z-dock: 2;
   --z-grid-stage: 3;
   --z-leaderboard-overlay: 4;
-  /* Overwritten from script.js (POSTGAME / leaderboard timings). */
   --leaderboard-postgame-fade-ms: 600ms;
   --endgame-tile-exit-ms: 300ms;
   --word-release-green-ms: 255ms;
@@ -169,6 +167,9 @@ html {
     margin-inline: auto;
   }
 
+  .rules-shell {
+    padding-inline: var(--grid-edge-padding);
+  }
 }
 
 #page-background {
@@ -412,12 +413,6 @@ html {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--rules-dismiss-red);
-}
-
-@media (min-width: 600px) {
-  .rules-shell {
-    padding-inline: var(--grid-edge-padding);
-  }
 }
 
 #game-info-container {
@@ -946,8 +941,8 @@ line.grid-line--fade-out {
 @keyframes tileWordReleaseGreen {
   0% {
     filter: brightness(1);
-    background-color: var(--grid-button-active-color);
-    color: var(--grid-button-active-text-color);
+    background-color: var(--selected-tile-color);
+    color: var(--selected-tile-text-color);
   }
   100% {
     filter: brightness(1.04) saturate(1.03);
