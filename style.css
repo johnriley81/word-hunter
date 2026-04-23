@@ -1111,7 +1111,6 @@ line.grid-line--fade-out {
   display: table;
 }
 
-/* Rank/score in ch; name + trophy share the rest (36% / 64%, trophy one line). */
 #leaderboard-table th:nth-child(1),
 #leaderboard-table td:nth-child(1) {
   width: 3.5ch;
