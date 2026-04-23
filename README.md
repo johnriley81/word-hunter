@@ -49,7 +49,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt`, `grids.txt`, `nextletters.txt` loaded at startup.
+- **`text/`** — `wordlist.txt`, `grids.txt`, `nextletters.txt` loaded at startup. Grid layout for a day is `grids.txt` line `diffDays % gridCount`; the incoming-letter queue is `nextletters.txt` line `diffDays % queueCount`. Counts need not match (e.g. 99 vs 100), so the same grid+queue pair repeats on a longer combined cycle than either file alone.
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 
