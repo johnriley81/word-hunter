@@ -335,13 +335,13 @@ export function createLeaderboardController(rt) {
   function revealPostGameCopyScoreLine() {
     clearWordLineTimers(rt.ctx);
     refs().currentWordElement.classList.remove("current-word--valid-solve");
+    rt.setEndgameUiShown(true);
     fadeInCurrentWordLine(rt.ctx, "Copy Score", happyHuntingColor, {});
     rt.updateNextLetters();
     const { playerName, leaderboardButton } = refs();
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
-    rt.setEndgameUiShown(true);
   }
 
   async function refreshLeaderboardFromApi(clicked) {

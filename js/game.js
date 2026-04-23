@@ -48,6 +48,7 @@ import { attachShiftGestures, ensureShiftPreviewElements } from "./shift-dom.js"
 import {
   getShowMessageDurationMs,
   clearWordLineTimers,
+  crossfadeCopyScoreToCopied,
   crossfadeWordmarkToHappyHunting,
   fadeInCurrentWordLine,
   showMessage,
@@ -185,6 +186,7 @@ export function initGame(ctx) {
   /** @type {Array<[string, number, number|string, string]> | null} */
   let demoLeaderboardRows = null;
   let demoLeaderboardSubmitUsed = false;
+  let copyScoreLineUsed = false;
   let tilePaletteTransitionTimer = null;
   const shiftState = {
     get pointerId() {
@@ -316,8 +318,11 @@ export function initGame(ctx) {
   });
 
   currentWordElement.addEventListener("click", function () {
-    if (!isGameActive) {
-      copyToClipboard(score, longestWord, diffDays);
+    if (isGameActive) return;
+    if (endgameUiShown && !copyScoreLineUsed) {
+      void copyScoreFirstTap();
+    } else {
+      copyScoreQuietTap();
     }
   });
 
@@ -570,6 +575,7 @@ export function initGame(ctx) {
 
   function updateCurrentWord() {
     if (ctx.state.wordLine.active) return;
+    if (endgameUiShown) return;
     currentWordElement.classList.remove("current-word--soft-hidden");
     if (!wordState.currentWord) {
       currentWordElement.textContent = "";
@@ -751,6 +757,7 @@ export function initGame(ctx) {
     bumpWordReplaceEpoch(ctx);
     endgamePostUiReady = false;
     endgameUiShown = false;
+    copyScoreLineUsed = false;
     postgameSequenceStarted = false;
     if (postgameCopyScoreTimer !== null) {
       window.clearTimeout(postgameCopyScoreTimer);
@@ -921,6 +928,7 @@ export function initGame(ctx) {
 
     endgamePostUiReady = false;
     endgameUiShown = false;
+    copyScoreLineUsed = false;
 
     ctx.state.shift.animating = false;
     ctx.state.shift.pointerId = null;
@@ -1013,22 +1021,48 @@ export function initGame(ctx) {
     requestAnimationFrame(syncLineOverlaySize);
   }
 
-  function copyToClipboard(score, longestWord, diffDays) {
-    playSound("copy", isMuted);
+  function buildClipboardScoreText() {
     let leaderboardText = "";
     if (playerPosition) {
       leaderboardText = `#${playerPosition} on `;
     }
-    navigator.clipboard
-      .writeText(
-        `${leaderboardText}wordhunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
-      )
-      .then(function () {
-        alert("Score copied to clipboard");
+    return `${leaderboardText}wordhunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`;
+  }
+
+  function writeScoreToClipboardPromise() {
+    try {
+      const text = buildClipboardScoreText();
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
+        return navigator.clipboard.writeText(text);
+      }
+    } catch (err) {
+      return Promise.reject(err);
+    }
+    return Promise.reject(new Error("Clipboard API unavailable"));
+  }
+
+  function copyScoreQuietTap() {
+    playSound("copy", isMuted);
+    void writeScoreToClipboardPromise().catch((err) => {
+      console.error("Error copying score:", err);
+    });
+  }
+
+  function copyScoreFirstTap() {
+    if (copyScoreLineUsed) return;
+    copyScoreLineUsed = true;
+    playSound("copy", isMuted);
+    void writeScoreToClipboardPromise()
+      .catch((err) => {
+        console.error("Error copying score:", err);
       })
-      .catch(function (err) {
-        alert("FAIL\n\nUnable to copy score to clipboard");
-        console.log("Error in copyToClipboard:", err);
+      .finally(() => {
+        window.setTimeout(() => {
+          crossfadeCopyScoreToCopied(ctx);
+        }, 180);
       });
   }
 

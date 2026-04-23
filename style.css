@@ -1002,8 +1002,8 @@ line.grid-line--fade-out {
     opacity: 1;
   }
   100% {
-    filter: brightness(0.78);
-    opacity: 0.22;
+    filter: brightness(1);
+    opacity: 0;
   }
 }
 
