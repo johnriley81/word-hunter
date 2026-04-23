@@ -1216,6 +1216,7 @@ document.addEventListener("DOMContentLoaded", () => {
       isMuted = true;
       muteButton.textContent = "🔕";
     }
+    syncLiveSfxMute(isMuted);
   });
 
   currentWordElement.addEventListener("click", function () {
@@ -1373,6 +1374,37 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     playShiftTicksHtml5Pool(nPlay);
+  }
+
+  /** Silence or restore audio already playing (HTML5 `.muted` + Web Audio context suspend/resume). */
+  function syncLiveSfxMute(muted) {
+    for (const key of Object.keys(sounds)) {
+      try {
+        sounds[key].muted = muted;
+      } catch (_) {}
+    }
+    for (const id of Object.keys(soundPlayPools)) {
+      const pool = soundPlayPools[id];
+      for (let i = 0; i < pool.length; i++) {
+        try {
+          pool[i].muted = muted;
+        } catch (_) {}
+      }
+    }
+    for (let i = 0; i < shiftTickPool.length; i++) {
+      try {
+        shiftTickPool[i].muted = muted;
+      } catch (_) {}
+    }
+    if (shiftTickCtx && shiftTickCtx.state !== "closed") {
+      try {
+        if (muted && shiftTickCtx.state === "running") {
+          void shiftTickCtx.suspend();
+        } else if (!muted && shiftTickCtx.state === "suspended") {
+          void shiftTickCtx.resume();
+        }
+      } catch (_) {}
+    }
   }
 
   function armOneShotAudioUnlockOnGridAndShift() {
@@ -3610,12 +3642,6 @@ document.addEventListener("DOMContentLoaded", () => {
       gridLineContainer.firstChild.remove();
     }
 
-    rulesButton.classList.add("hiddenDisplay");
-    rulesButton.classList.add("hidden");
-    rulesButton.classList.remove("visible");
-    muteButton.classList.add("hiddenDisplay");
-    muteButton.classList.add("hidden");
-    muteButton.classList.remove("visible");
     doneButton.classList.add("hiddenDisplay");
     doneButton.classList.remove("visibleDisplay");
     boardShiftZone.classList.add("hiddenDisplay");
