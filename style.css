@@ -1144,6 +1144,16 @@ line.grid-line--fade-out {
   visibility: visible;
 }
 
+@media (pointer: coarse) {
+  #board-shift-zone.visibleDisplay,
+  #board-shift-zone.visibleDisplay * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
 #board-shift-dismiss {
   position: absolute;
   top: 3px;
