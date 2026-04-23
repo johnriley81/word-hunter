@@ -50,6 +50,36 @@ export function beginCurrentWordMessageSession(ctx) {
   return myEpoch;
 }
 
+export function crossfadeCopyScoreToCopied(ctx) {
+  const el = ctx.refs.currentWordElement;
+  const fadeOutMs = CURRENT_WORD_FADE_MS;
+  const fadeInMs = CURRENT_WORD_BRIEF_FADE_IN_MS;
+
+  el.style.transition = "none";
+  void el.offsetHeight;
+  el.style.transition = `opacity ${fadeOutMs}ms ease-out`;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.classList.add("current-word--soft-hidden");
+    });
+  });
+
+  window.setTimeout(() => {
+    el.style.transition = "none";
+    el.classList.add("current-word--soft-hidden");
+    el.textContent = "Score copied";
+    el.style.color = "#ffffff";
+    void el.offsetHeight;
+    el.style.transition = `opacity ${fadeInMs}ms ease-out`;
+    requestAnimationFrame(() => {
+      el.classList.remove("current-word--soft-hidden");
+    });
+    window.setTimeout(() => {
+      el.style.transition = "";
+    }, fadeInMs + 120);
+  }, fadeOutMs + 60);
+}
+
 export function fadeInCurrentWordLine(ctx, text, color, options = {}) {
   const currentWordElement = ctx.refs.currentWordElement;
   const wl = ctx.state.wordLine;
