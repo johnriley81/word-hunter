@@ -3346,7 +3346,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     navigator.clipboard
       .writeText(
-        `${leaderboardText}WordHunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
+        `${leaderboardText}wordhunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`
       )
       .then(function () {
         alert("Score copied to clipboard");
