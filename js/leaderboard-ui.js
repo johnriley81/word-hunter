@@ -1,8 +1,7 @@
 import {
   LEADERBOARD_USE_DEMO_DATA,
   DEMO_LEADERBOARD_NAME_MAX,
-  LEADERBOARD_POSTGAME_FADE_MS,
-  LEADERBOARD_OVERLAY_FADE_SETTLE_MS,
+  LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS,
   SCORE_SUBMIT_THRESHOLD,
   happyHuntingColor,
@@ -327,7 +326,7 @@ export function createLeaderboardController(rt) {
       window.setTimeout(() => {
         rt.setLeaderboardFadeOutTimer(null);
         finalizePostgameLeaderboardOverlayHidden();
-      }, LEADERBOARD_POSTGAME_FADE_MS + LEADERBOARD_OVERLAY_FADE_SETTLE_MS)
+      }, LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS)
     );
     return true;
   }

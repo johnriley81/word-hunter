@@ -262,7 +262,6 @@ html {
   display: inline-flex;
 }
 
-/* How to play overlay */
 #rules {
   position: fixed;
   top: 0;
@@ -753,6 +752,11 @@ html {
   align-self: auto;
 }
 
+#grid.grid--awaiting-retry-fade-in {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .grid-button {
   box-sizing: border-box;
   position: relative;
@@ -813,6 +817,21 @@ html {
   }
 }
 
+@keyframes tilePaletteToActiveFadeIn {
+  from {
+    opacity: 0;
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+    border-color: var(--grid-button-active-border-color);
+  }
+  to {
+    opacity: 1;
+    background-color: var(--grid-button-active-color);
+    color: var(--grid-button-active-text-color);
+    border-color: var(--grid-button-active-border-color);
+  }
+}
+
 @keyframes tilePaletteToInactive {
   from {
     background-color: var(--grid-button-active-color);
@@ -828,6 +847,10 @@ html {
 
 .grid-button.grid-button--palette-to-active {
   animation: tilePaletteToActive var(--tile-palette-ms, 420ms) ease forwards;
+}
+
+.grid-button.grid-button--palette-to-active-fade-in {
+  animation: tilePaletteToActiveFadeIn var(--tile-palette-ms, 420ms) ease-out forwards;
 }
 
 .grid-button.grid-button--palette-to-inactive {
@@ -1000,10 +1023,12 @@ line.grid-line--fade-out {
   0% {
     filter: brightness(1);
     opacity: 1;
+    visibility: visible;
   }
   100% {
     filter: brightness(1);
     opacity: 0;
+    visibility: hidden;
   }
 }
 
@@ -1058,7 +1083,6 @@ line.grid-line--fade-out {
   background: transparent;
   opacity: 0;
   visibility: hidden;
-  /* Delay visibility:hidden until opacity finishes so fade-out is visible */
   transition: opacity var(--leaderboard-postgame-fade-ms) ease,
     visibility 0s linear var(--leaderboard-postgame-fade-ms);
   pointer-events: none;
@@ -1452,7 +1476,6 @@ line.grid-line--fade-out {
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
-/* Coarse pointer: dock hints + rules; fine pointer: swap to mouse copy */
 .board-shift-hint--fine,
 .rules-input--fine,
 .rules-dismiss--fine {
