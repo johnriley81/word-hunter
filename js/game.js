@@ -15,6 +15,7 @@ import {
   LEADERBOARD_USE_DEMO_DATA,
   LEADERBOARD_REVEAL_LEAD_MS,
   LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS,
+  LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   ENDGAME_SOUND_FALLBACK_MS,
   ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS,
   GAME_OVER_FLASH_TIMES,
@@ -314,7 +315,12 @@ export function initGame(ctx) {
       forImmediateStart: true,
       skipLeaderboardOverlayTeardown: leaderboardFadeFinishesLater,
     });
-    void startGame({ skipWordmarkInIntro: true, fadeTilesToActive: true });
+    const startAfterMs = leaderboardFadeFinishesLater
+      ? LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS
+      : 0;
+    window.setTimeout(() => {
+      void startGame({ skipWordmarkInIntro: true, fadeTilesToActive: true });
+    }, startAfterMs);
   });
 
   currentWordElement.addEventListener("click", function () {
@@ -390,13 +396,16 @@ export function initGame(ctx) {
       const el = tiles[i];
       el.classList.remove(
         "grid-button--palette-to-active",
-        "grid-button--palette-to-inactive"
+        "grid-button--palette-to-inactive",
+        "grid-button--palette-to-active-fade-in"
       );
     }
     const cls =
-      direction === "toActive"
-        ? "grid-button--palette-to-active"
-        : "grid-button--palette-to-inactive";
+      direction === "toActiveFadeIn"
+        ? "grid-button--palette-to-active-fade-in"
+        : direction === "toActive"
+          ? "grid-button--palette-to-active"
+          : "grid-button--palette-to-inactive";
     const durStr = `${durationMs}ms`;
 
     let paletteTransitionDone = false;
@@ -407,12 +416,14 @@ export function initGame(ctx) {
         window.clearTimeout(tilePaletteTransitionTimer);
         tilePaletteTransitionTimer = null;
       }
+      grid.classList.remove("grid--awaiting-retry-fade-in");
       if (onComplete) onComplete();
       for (let i = 0; i < tiles.length; i++) {
         const el = tiles[i];
         el.classList.remove(
           "grid-button--palette-to-active",
-          "grid-button--palette-to-inactive"
+          "grid-button--palette-to-inactive",
+          "grid-button--palette-to-active-fade-in"
         );
         el.style.removeProperty("--tile-palette-ms");
       }
@@ -423,6 +434,9 @@ export function initGame(ctx) {
       const el = tiles[i];
       el.style.setProperty("--tile-palette-ms", durStr);
       el.classList.add(cls);
+    }
+    if (direction === "toActiveFadeIn") {
+      grid.classList.remove("grid--awaiting-retry-fade-in");
     }
     tilePaletteTransitionTimer = window.setTimeout(
       finalizePaletteTransition,
@@ -481,7 +495,8 @@ export function initGame(ctx) {
         const b = buttons[i];
         b.classList.remove(
           "grid-button--palette-to-active",
-          "grid-button--palette-to-inactive"
+          "grid-button--palette-to-inactive",
+          "grid-button--palette-to-active-fade-in"
         );
         b.style.removeProperty("--tile-palette-ms");
         b.disabled = false;
@@ -492,7 +507,11 @@ export function initGame(ctx) {
       }
     };
     if (fadeTilesToActive) {
-      runGridTilePaletteTransition("toActive", TILE_PALETTE_MS, activateGridTilesForPlay);
+      runGridTilePaletteTransition(
+        "toActiveFadeIn",
+        TILE_PALETTE_MS,
+        activateGridTilesForPlay
+      );
     } else {
       activateGridTilesForPlay();
     }
@@ -719,11 +738,10 @@ export function initGame(ctx) {
     for (let i = 0; i < tiles.length; i++) {
       tiles[i].classList.remove("grid-button--endgame-exit");
     }
-    requestAnimationFrame(() => {
-      for (let i = 0; i < tiles.length; i++) {
-        tiles[i].classList.add("grid-button--endgame-exit");
-      }
-    });
+    void grid.offsetWidth;
+    for (let i = 0; i < tiles.length; i++) {
+      tiles[i].classList.add("grid-button--endgame-exit");
+    }
     if (endgameTileRevealTimer !== null) {
       window.clearTimeout(endgameTileRevealTimer);
     }
@@ -874,6 +892,7 @@ export function initGame(ctx) {
     const forImmediateStart = options.forImmediateStart === true;
     const skipLeaderboardOverlayTeardown =
       options.skipLeaderboardOverlayTeardown === true;
+    grid.classList.remove("grid--awaiting-retry-fade-in");
     isGameActive = false;
     isPaused = false;
     isMouseDown = false;
@@ -1007,6 +1026,7 @@ export function initGame(ctx) {
       tiles[i].classList.remove(
         "grid-button--palette-to-active",
         "grid-button--palette-to-inactive",
+        "grid-button--palette-to-active-fade-in",
         "grid-button--selected-enter",
         "grid-button--invalid-shake",
         "grid-button--word-success",
@@ -1015,6 +1035,10 @@ export function initGame(ctx) {
         "grid-button--letter-swap-in",
         "grid-button--endgame-exit"
       );
+    }
+
+    if (forImmediateStart && skipLeaderboardOverlayTeardown) {
+      grid.classList.add("grid--awaiting-retry-fade-in");
     }
 
     syncLineOverlaySize();
