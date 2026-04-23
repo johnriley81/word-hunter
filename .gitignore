@@ -3,3 +3,10 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Local puzzle / cert tooling (not part of the web app refactor)
+/tools/
+pyproject.toml
+requirements-dev.txt
+tests/test_wordhunter_cert.py
+text/word_metrics_7_10.csv
