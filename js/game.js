@@ -740,7 +740,9 @@ export function initGame(ctx) {
     }
     void grid.offsetWidth;
     for (let i = 0; i < tiles.length; i++) {
-      tiles[i].classList.add("grid-button--endgame-exit");
+      const el = tiles[i];
+      if (getTileText(el) === "") continue;
+      el.classList.add("grid-button--endgame-exit");
     }
     if (endgameTileRevealTimer !== null) {
       window.clearTimeout(endgameTileRevealTimer);
