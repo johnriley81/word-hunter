@@ -1080,9 +1080,9 @@ line.grid-line--fade-out {
   flex-direction: column;
   align-items: stretch;
   border-radius: 16px;
-  border: 2px solid var(--grid-button-border-color);
-  box-shadow: 0 0 0 3px var(--grid-button-shadow-color);
-  background: rgba(0, 0, 0, 0.55);
+  border-style: outset;
+  border-color: var(--box-border-color);
+  background: rgba(0, 0, 0, 0.68);
   overflow: hidden;
 }
 
@@ -1111,12 +1111,52 @@ line.grid-line--fade-out {
   display: table;
 }
 
+#leaderboard-table th:nth-child(1),
+#leaderboard-table td:nth-child(1) {
+  width: 3.5ch;
+}
+
+#leaderboard-table th:nth-child(3),
+#leaderboard-table td:nth-child(3) {
+  width: 6ch;
+}
+
+#leaderboard-table th:nth-child(2),
+#leaderboard-table td:nth-child(2) {
+  width: calc((100% - 3.5ch - 6ch) * 0.36);
+  min-width: 0;
+}
+
+#leaderboard-table th:nth-child(4),
+#leaderboard-table td:nth-child(4) {
+  width: calc((100% - 3.5ch - 6ch) * 0.64);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+#leaderboard-table th:nth-child(1),
+#leaderboard-table th:nth-child(2),
+#leaderboard-table th:nth-child(3),
+#leaderboard-table th:nth-child(4) {
+  text-align: center;
+}
+
+#leaderboard-table td:nth-child(1),
+#leaderboard-table td:nth-child(2),
+#leaderboard-table td:nth-child(3),
+#leaderboard-table td:nth-child(4) {
+  text-align: center;
+}
+
 #leaderboard-table th {
   font-size: clamp(0.44rem, 3.9vw, 0.68rem);
   padding: 6px 4px;
   text-shadow: 1px 1px 3px var(--page-text-shadow-color);
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 #leaderboard-table td {
@@ -1125,6 +1165,7 @@ line.grid-line--fade-out {
   overflow: hidden;
   text-overflow: ellipsis;
   background-color: transparent;
+  vertical-align: middle;
 }
 
 #leaderboard-table td.leaderboard-name-cell--you-pseudo-select {
@@ -1164,13 +1205,14 @@ line.grid-line--fade-out {
   display: block;
   width: 100%;
   min-width: 0;
-  margin: 0;
+  margin: 0 auto;
   padding: 2px 4px;
   box-sizing: border-box;
   font: inherit;
   line-height: inherit;
   color: inherit;
   text-shadow: inherit;
+  text-align: center;
   border: none;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.4);

@@ -56,6 +56,8 @@ let shiftTickCtx = null;
 let shiftTickBuffer = null;
 let shiftTickDecodePromise = null;
 let shiftTickScheduleEnd = 0;
+/** @type {AudioBufferSourceNode[]} */
+let shiftTickScheduledSources = [];
 
 const shiftTickPool = Array.from({ length: SHIFT_TICK_POOL_SIZE }, () => {
   const a = new Audio("sounds/tick.wav");
@@ -145,6 +147,7 @@ function playShiftTicksHtml5Pool(nPlay) {
 
 export function playShiftTicks(count, isMuted) {
   if (isMuted || count <= 0) return;
+  stopAllHtmlGameAudio();
   const nPlay = Math.min(count, 28);
   if (shiftTickBuffer && shiftTickCtx) {
     if (shiftTickCtx.state === "suspended") {
@@ -172,6 +175,11 @@ export function playShiftTicks(count, isMuted) {
       const src = shiftTickCtx.createBufferSource();
       src.buffer = shiftTickBuffer;
       src.connect(shiftTickCtx.destination);
+      shiftTickScheduledSources.push(src);
+      src.onended = () => {
+        const j = shiftTickScheduledSources.indexOf(src);
+        if (j !== -1) shiftTickScheduledSources.splice(j, 1);
+      };
       src.start(t + i * spacing);
     }
     shiftTickScheduleEnd = t + nPlay * spacing;
@@ -210,6 +218,41 @@ export function syncLiveSfxMute(muted) {
   }
 }
 
+function stopScheduledShiftTickSources() {
+  const nodes = shiftTickScheduledSources;
+  shiftTickScheduledSources = [];
+  for (let i = 0; i < nodes.length; i++) {
+    try {
+      nodes[i].stop(0);
+    } catch (_) {}
+  }
+}
+
+function stopAllHtmlGameAudio() {
+  stopScheduledShiftTickSources();
+  for (const key of Object.keys(sounds)) {
+    try {
+      sounds[key].pause();
+      sounds[key].currentTime = 0;
+    } catch (_) {}
+  }
+  for (const id of Object.keys(soundPlayPools)) {
+    const pool = soundPlayPools[id];
+    for (let i = 1; i < pool.length; i++) {
+      try {
+        pool[i].pause();
+        pool[i].currentTime = 0;
+      } catch (_) {}
+    }
+  }
+  for (let i = 0; i < shiftTickPool.length; i++) {
+    try {
+      shiftTickPool[i].pause();
+      shiftTickPool[i].currentTime = 0;
+    } catch (_) {}
+  }
+}
+
 export function playSound(name, muted, options) {
   const opts = options && typeof options === "object" ? options : {};
   const playbackRateRaw =
@@ -217,6 +260,7 @@ export function playSound(name, muted, options) {
   const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
   const sound = sounds[name];
   if (!sound) return;
+  stopAllHtmlGameAudio();
   if (name === "gameOver") {
     sound.muted = !!muted;
     sound.defaultPlaybackRate = playbackRate;

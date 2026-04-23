@@ -156,7 +156,7 @@ export function createLeaderboardController(rt) {
     const tbody = document.createElement("tbody");
 
     const headerRow = document.createElement("tr");
-    ["#", "👤", "🏹", "🏆"].forEach((headerText) => {
+    ["", "👤", "🏹", "🏆"].forEach((headerText) => {
       const th = document.createElement("th");
       th.textContent = headerText;
       headerRow.appendChild(th);
@@ -196,7 +196,7 @@ export function createLeaderboardController(rt) {
         color = redTextColorLeaderboard;
       } else if (isDemoSelfRow) {
         rt.setPlayerPosition(index + 1);
-        color = rt.getDemoSubmitUsed() ? "white" : goldTextColor;
+        color = goldTextColor;
       } else if (playerStr.toLowerCase() === "doughack") {
         color = "magenta";
       } else {
@@ -235,10 +235,6 @@ export function createLeaderboardController(rt) {
           td.style.cursor = "pointer";
         } else {
           td.textContent = cellText;
-        }
-
-        if (cellIndex === 0 || cellIndex === 2) {
-          td.classList.add("centered-cell");
         }
 
         tr.appendChild(td);

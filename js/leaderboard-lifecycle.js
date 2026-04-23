@@ -2,10 +2,10 @@ import { DEMO_LEADERBOARD_NAME_MAX } from "./config.js";
 
 export function buildDemoLeaderboardRows() {
   const rows = [];
-  rows.push(["Johnny", 0, 1000, "ELK"]);
-  rows.push(["Alex", 0, 820, "QUARTZ"]);
-  rows.push(["Sam", 0, 650, "HUNT"]);
-  rows.push(["Rae", 0, 480, "STAR"]);
+  rows.push(["Johnny", 0, 1000, "WORDHUNTER"]);
+  rows.push(["Alex", 0, 820, "QUARTZWORKS"]);
+  rows.push(["Ashleigh", 0, 650, "STARGAZERS"]);
+  rows.push(["Rae", 0, 480, "LETTERPRESS"]);
   for (let i = 0; i < 6; i++) {
     rows.push(["", 0, "", ""]);
   }
