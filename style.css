@@ -39,6 +39,10 @@
   --grid-gap: 13px;
   --grid-max: 400px;
   --grid-edge-padding: 12px;
+  --app-shell-max-width: min(
+    calc(var(--grid-max) + 2 * var(--grid-edge-padding)),
+    calc(100vw - 2 * var(--page-padding))
+  );
   --radius-sm: 4px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -48,6 +52,7 @@
   --space-sm: 8px;
   --z-base: 1;
   --z-dock: 2;
+  --z-grid-stage: 3;
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
@@ -56,7 +61,7 @@
   --word-connector-invalid-stroke: #c23a3a;
 }
 
-@media screen and (orientation: landscape) {
+@media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
   body > * {
     display: none;
     visibility: hidden;
@@ -109,6 +114,49 @@ html {
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --grid-max: min(
+      400px,
+      calc(100dvh - 290px),
+      calc(100vw - 2 * var(--page-padding) - 2 * var(--grid-edge-padding))
+    );
+  }
+
+  body {
+    align-items: center;
+  }
+
+  body > #logo-rules-container,
+  body > #game-info-container,
+  body > #grid-line-wrapper,
+  body > #bottom-dock {
+    width: 100%;
+    max-width: var(--app-shell-max-width);
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  #game-info-container {
+    height: auto;
+    max-height: min(200px, 26dvh);
+    flex-shrink: 0;
+    padding-block: 1%;
+    padding-inline: var(--grid-edge-padding);
+  }
+
+  .score-timer-container {
+    height: auto;
+    min-height: 52px;
+  }
+
+  .grid-viewport {
+    width: min(100%, var(--grid-max));
+    max-width: 100%;
+    margin-inline: auto;
+  }
 }
 
 #page-background {
@@ -260,8 +308,8 @@ html {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  width: 86%;
-  max-width: 86%;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 50px;
   overflow: hidden;
@@ -359,8 +407,8 @@ html {
 
 #queue-ribbon {
   order: 2;
-  width: 86%;
-  max-width: 86%;
+  width: 100%;
+  max-width: 100%;
   margin: 6px auto 0;
   padding: 4px 8px 5px;
   box-sizing: border-box;
@@ -413,6 +461,14 @@ html {
 
 #queue-sack-count {
   text-align: right;
+}
+
+@media (max-width: 599px) {
+  #score,
+  #queue-ribbon {
+    width: 86%;
+    max-width: 86%;
+  }
 }
 
 .current-message-container {
@@ -830,7 +886,7 @@ line.grid-line--fade-out {
   align-self: center;
   flex: 0 0 auto;
   height: auto;
-  z-index: 1;
+  z-index: var(--z-grid-stage);
   overflow: visible;
   display: flex;
   flex-direction: column;
