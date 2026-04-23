@@ -23,6 +23,8 @@ const SHIFT_REJOIN_SNAP_MS = 130;
 const SHIFT_GESTURE_FALLBACK_MS = 800;
 const SHIFT_TAP_MAX_TRAVEL_PX = 20;
 const SHIFT_TAP_MAX_PRESS_MS = 500;
+const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_TOUCH = 325;
+const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE = 550;
 const SCORE_SUBMIT_THRESHOLD = 50;
 const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
@@ -216,7 +218,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const rules = document.querySelector("#rules");
   const rulesButton = document.querySelector("#rules-button");
   const muteButton = document.getElementById("mute-button");
-  const closeRules = document.querySelector("#close-rules");
   const doneButton = document.querySelector("#done-button");
   const boardShiftZone = document.getElementById("board-shift-zone");
   const boardShiftHints = document.getElementById("board-shift-hints");
@@ -1076,13 +1077,16 @@ document.addEventListener("DOMContentLoaded", () => {
     isPaused = isVisible;
   }
 
+  function onRulesOverlayClick(event) {
+    if (event.target.closest("a[href]")) return;
+    setRulesOverlayVisible(false);
+  }
+
   retryButton.addEventListener("click", function () {
     resetRoundToPregame({ forImmediateStart: true });
     startGame({ skipWordmarkInIntro: true });
   });
-  closeRules.addEventListener("click", function () {
-    setRulesOverlayVisible(false);
-  });
+  rules.addEventListener("click", onRulesOverlayClick);
   rulesButton.addEventListener("click", function () {
     setRulesOverlayVisible(true);
   });
@@ -2027,7 +2031,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (looksLikeTap) {
       const now = performance.now();
-      if (shiftDoubleTapPrevAt > 0 && now - shiftDoubleTapPrevAt < 325) {
+      const doubleEndGapMs =
+        e.pointerType === "mouse" || e.pointerType === "pen"
+          ? SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE
+          : SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_TOUCH;
+      if (shiftDoubleTapPrevAt > 0 && now - shiftDoubleTapPrevAt < doubleEndGapMs) {
         clearTapStreak();
         resetShiftDragVisualHard();
         endGame();

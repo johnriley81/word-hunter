@@ -32,6 +32,12 @@
   --body-background-image: url("images/background.png");
   --header-icon-button-background-color: #ffffff;
   --rules-overlay-background-color: rgba(0, 0, 0, 0.85);
+  /* How to play overlay accents (align with in-game score / feedback colors where noted) */
+  --rules-accent-gold: #e3af02;
+  --rules-accent-red: #f76d6d;
+  --rules-accent-green: #07f03a;
+  --rules-accent-pink: #ff7eb9;
+  --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-text-shadow-color: black;
   --board-shift-zone-border-color: rgba(255, 255, 255, 0.2);
@@ -39,6 +45,10 @@
   --grid-gap: 13px;
   --grid-max: 400px;
   --grid-edge-padding: 12px;
+  --app-shell-max-width: min(
+    calc(var(--grid-max) + 2 * var(--grid-edge-padding)),
+    calc(100vw - 2 * var(--page-padding))
+  );
   --radius-sm: 4px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -48,6 +58,7 @@
   --space-sm: 8px;
   --z-base: 1;
   --z-dock: 2;
+  --z-grid-stage: 3;
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
@@ -56,7 +67,7 @@
   --word-connector-invalid-stroke: #c23a3a;
 }
 
-@media screen and (orientation: landscape) {
+@media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
   body > * {
     display: none;
     visibility: hidden;
@@ -111,6 +122,50 @@ html {
   background-size: cover;
 }
 
+@media (min-width: 600px) {
+  :root {
+    --grid-max: min(
+      400px,
+      calc(100dvh - 290px),
+      calc(100vw - 2 * var(--page-padding) - 2 * var(--grid-edge-padding))
+    );
+  }
+
+  body {
+    align-items: center;
+  }
+
+  body > #logo-rules-container,
+  body > #game-info-container,
+  body > #grid-line-wrapper,
+  body > #bottom-dock {
+    width: 100%;
+    max-width: var(--app-shell-max-width);
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  #game-info-container {
+    height: auto;
+    max-height: min(200px, 26dvh);
+    flex-shrink: 0;
+    padding-block: 1%;
+    padding-inline: var(--grid-edge-padding);
+  }
+
+  .score-timer-container {
+    height: auto;
+    min-height: 52px;
+  }
+
+  .grid-viewport {
+    width: min(100%, var(--grid-max));
+    max-width: 100%;
+    margin-inline: auto;
+  }
+
+}
+
 #page-background {
   position: fixed;
   top: 0;
@@ -158,13 +213,6 @@ html {
   top: 0px;
 }
 
-#close-rules {
-  position: absolute;
-  right: var(--page-padding);
-  top: calc(var(--page-padding) + var(--logo-rules-padding-y));
-  z-index: 2;
-}
-
 #mute-button {
   position: absolute;
   right: calc(var(--header-control-size) + 8px);
@@ -208,6 +256,7 @@ html {
   display: inline-flex;
 }
 
+/* How to play overlay */
 #rules {
   position: fixed;
   top: 0;
@@ -216,10 +265,7 @@ html {
   width: 100vw;
   height: 100vh;
   background-color: var(--rules-overlay-background-color);
-  font-size: smaller;
   color: var(--page-text-color);
-  justify-content: top;
-  flex-direction: column;
   box-sizing: border-box;
 }
 
@@ -230,7 +276,133 @@ html {
 
 #rules.visible {
   display: flex !important;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
   pointer-events: auto;
+}
+
+.rules-shell {
+  position: relative;
+  width: 100%;
+  max-width: var(--app-shell-max-width);
+  max-height: 100dvh;
+  min-height: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: clamp(1rem, 4dvh, 2rem) var(--page-padding);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  font-size: clamp(0.8rem, 2.8vw, 0.95rem);
+  line-height: 1.5;
+  text-transform: none;
+  text-align: center;
+}
+
+.rules-shell :is(h2, h3) {
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(1rem, 3.2vw, 1.15rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.rules-shell h2 {
+  margin-bottom: 0.35rem;
+}
+
+.rules-section {
+  margin-top: 1.1rem;
+  width: 100%;
+  max-width: 32rem;
+}
+
+.rules-section:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.rules-shell h3 {
+  margin-bottom: 0.45rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.rules-accent-gold {
+  color: var(--rules-accent-gold);
+  font-weight: 700;
+}
+
+.rules-accent-red {
+  color: var(--rules-accent-red);
+  font-weight: 700;
+}
+
+.rules-accent-green {
+  color: var(--rules-accent-green);
+  font-weight: 700;
+}
+
+.rules-multiply {
+  font-weight: 700;
+}
+
+.rules-50-pink {
+  color: var(--rules-accent-pink);
+  font-weight: 700;
+}
+
+.rules-shell .rules-gesture-phrase {
+  color: var(--selected-tile-visit2-color);
+  font-style: italic;
+}
+
+.rules-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: disc;
+  list-style-position: inside;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rules-section p {
+  margin: 0 0 0.5rem;
+}
+
+.rules-section p:last-child {
+  margin-bottom: 0;
+}
+
+.rules-section--meta .rules-dismiss {
+  margin-top: 1.5rem;
+}
+
+.rules-dismiss {
+  margin: 0;
+  width: 100%;
+  font-size: 0.88em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rules-dismiss-red);
+}
+
+@media (min-width: 600px) {
+  .rules-shell {
+    padding-inline: var(--grid-edge-padding);
+  }
 }
 
 #game-info-container {
@@ -260,8 +432,8 @@ html {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  width: 86%;
-  max-width: 86%;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 50px;
   overflow: hidden;
@@ -359,8 +531,8 @@ html {
 
 #queue-ribbon {
   order: 2;
-  width: 86%;
-  max-width: 86%;
+  width: 100%;
+  max-width: 100%;
   margin: 6px auto 0;
   padding: 4px 8px 5px;
   box-sizing: border-box;
@@ -413,6 +585,14 @@ html {
 
 #queue-sack-count {
   text-align: right;
+}
+
+@media (max-width: 599px) {
+  #score,
+  #queue-ribbon {
+    width: 86%;
+    max-width: 86%;
+  }
 }
 
 .current-message-container {
@@ -830,7 +1010,7 @@ line.grid-line--fade-out {
   align-self: center;
   flex: 0 0 auto;
   height: auto;
-  z-index: 1;
+  z-index: var(--z-grid-stage);
   overflow: visible;
   display: flex;
   flex-direction: column;
@@ -1007,6 +1187,27 @@ line.grid-line--fade-out {
 #board-shift-end-hint {
   color: #cc0000;
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Coarse pointer: dock hints + rules; fine pointer: swap to mouse copy */
+.board-shift-hint--fine,
+.rules-input--fine,
+.rules-dismiss--fine {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .board-shift-hint--coarse,
+  .rules-input--coarse,
+  .rules-dismiss--coarse {
+    display: none;
+  }
+
+  .board-shift-hint--fine,
+  .rules-input--fine,
+  .rules-dismiss--fine {
+    display: inline;
+  }
 }
 
 #button-container {
