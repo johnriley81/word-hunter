@@ -53,6 +53,6 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 
-## Tooling elsewhere
+## Optional local tooling
 
-Python tools under `tools/wordhunter_cert/` document parity with earlier monolithic behavior; they are not run by `npm test`.
+Puzzle-generation / cert Python helpers can live in `tools/` on your machine; that tree is **gitignored** and is not part of the shipped static site. CI only runs `npm test`.
