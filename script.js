@@ -26,7 +26,6 @@ const SHIFT_TAP_MAX_PRESS_MS = 500;
 const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_TOUCH = 325;
 const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE = 550;
 const SCORE_SUBMIT_THRESHOLD = 50;
-const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const SHIFT_MIDWAY_TICK_STEPS_CAP = 64;
 const START_TOUCHPAD_FADE_MS = 420;
 const TILE_PALETTE_MS = 420;
@@ -38,8 +37,10 @@ const ENDGAME_TILE_FADE_MS = 360;
 const ENDGAME_TILE_SEQUENCE_MS = ENDGAME_TILE_FLASH_MS + ENDGAME_TILE_FADE_MS;
 const COPY_SCORE_REVEAL_LEAD_MS = 1000;
 const COPY_SCORE_SOUND_UI_LEAD_MS = 1500;
+const ENDGAME_SOUND_FALLBACK_MS = 14000;
 const ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS = 500;
 const GAME_OVER_FLASH_TIMES = 2;
+const GAME_OVER_FLASH_HOLD_EXTRA_MS = 400;
 const WORD_INVALID_SHAKE_MS = 320;
 const WORD_LINE_FADE_MS = 520;
 const WORD_PATH_COLOR_STEPS = 11;
@@ -184,15 +185,70 @@ function pickRandomScenarioMessage(scenarioKey, fallbackMessage = "") {
   return variants[i];
 }
 
-let sounds = {
-  click: new Audio("sounds/click.wav"),
-  bing: new Audio("sounds/bing.wav"),
-  bing2: new Audio("sounds/bing2.wav"),
-  invalid: new Audio("sounds/invalid.wav"),
-  pop: new Audio("sounds/pop.wav"),
-  tick: new Audio("sounds/tick.wav"),
-  gameOver: new Audio("sounds/gameOver.wav"),
-};
+const GAME_SOUND_SPEC = [
+  { id: "click", src: "sounds/click.wav" },
+  { id: "button1", src: "sounds/button1.wav" },
+  { id: "button2", src: "sounds/button2.wav" },
+  { id: "bing", src: "sounds/bing.wav" },
+  { id: "invalid", src: "sounds/invalid.wav" },
+  { id: "pop", src: "sounds/pop.wav" },
+  { id: "tick", src: "sounds/tick.wav" },
+  { id: "gameOver", src: "sounds/gameOver.wav" },
+];
+
+const GAME_SOUND_IDS = GAME_SOUND_SPEC.map((d) => d.id);
+
+// Word length 3→10+ maps to playbackRate; preservesPitch=false so pitch tracks rate.
+const BING_PLAYBACK_RATES_FOR_LENGTH = [
+  0.82, 0.9, 0.98, 1.06, 1.14, 1.22, 1.3, 1.38,
+];
+
+function setBingPitchScalesWithPlaybackRate(el) {
+  if (!el) return;
+  try {
+    el.preservesPitch = false;
+  } catch (_) {}
+}
+
+function bingPlaybackRateForWordLength(len) {
+  const idx = Math.min(Math.max(len - 3, 0), 7);
+  return BING_PLAYBACK_RATES_FOR_LENGTH[idx];
+}
+
+const SFX_PLAY_POOL_SIZE = 4;
+
+function buildGameSoundsFromSpec(spec) {
+  const o = {};
+  for (const { id, src } of spec) {
+    const a = new Audio(src);
+    a.preload = "auto";
+    if (id === "bing") setBingPitchScalesWithPlaybackRate(a);
+    o[id] = a;
+  }
+  return o;
+}
+
+function buildSoundPlayPools(spec, soundMap) {
+  const pools = {};
+  for (const { id, src } of spec) {
+    if (id === "gameOver") continue;
+    const pool = [soundMap[id]];
+    for (let i = 1; i < SFX_PLAY_POOL_SIZE; i++) {
+      const a = new Audio(src);
+      a.preload = "auto";
+      if (id === "bing") setBingPitchScalesWithPlaybackRate(a);
+      pool.push(a);
+    }
+    pools[id] = pool;
+  }
+  return pools;
+}
+
+let sounds = buildGameSoundsFromSpec(GAME_SOUND_SPEC);
+let soundPlayPools = buildSoundPlayPools(GAME_SOUND_SPEC, sounds);
+let soundPlayPoolCursor = Object.fromEntries(
+  Object.keys(soundPlayPools).map((id) => [id, 0])
+);
 
 document.addEventListener("DOMContentLoaded", () => {
   syncWordReplaceAnimationCssVars();
@@ -1015,8 +1071,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  Object.keys(sounds).forEach((key) => {
+  GAME_SOUND_IDS.forEach((key) => {
     sounds[key].load();
+    const pool = soundPlayPools[key];
+    if (pool) {
+      for (let i = 1; i < pool.length; i++) {
+        pool[i].load();
+      }
+    }
   });
 
   fetch("text/wordlist.txt")
@@ -1061,7 +1123,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("touchend", handleTouchEnd);
   document.addEventListener("mouseup", handleMouseUp);
-  startButton.addEventListener("click", () => startGame());
+  startButton.addEventListener("click", () => {
+    void startGame();
+  });
 
   function setRulesOverlayVisible(isVisible) {
     rules.classList.toggle("hidden", !isVisible);
@@ -1084,7 +1148,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   retryButton.addEventListener("click", function () {
     resetRoundToPregame({ forImmediateStart: true });
-    startGame({ skipWordmarkInIntro: true });
+    void startGame({ skipWordmarkInIntro: true });
   });
   rules.addEventListener("click", onRulesOverlayClick);
   rulesButton.addEventListener("click", function () {
@@ -1124,6 +1188,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   let shiftTickPoolIndex = 0;
 
+  let gameAudioUnlocked = false;
+  let gameAudioUnlockInFlight = null;
+
   function ensureShiftTickAudio() {
     if (shiftTickDecodePromise) return shiftTickDecodePromise;
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1146,10 +1213,76 @@ document.addEventListener("DOMContentLoaded", () => {
     return shiftTickDecodePromise;
   }
 
+  function unlockGameAudio() {
+    if (gameAudioUnlocked) return Promise.resolve();
+    if (gameAudioUnlockInFlight) return gameAudioUnlockInFlight;
+    gameAudioUnlockInFlight = (async () => {
+      try {
+        async function primeHtmlAudioElement(el) {
+          const prevMuted = el.muted;
+          try {
+            el.muted = true;
+            await el.play();
+            el.pause();
+            el.currentTime = 0;
+          } catch (_) {
+          } finally {
+            el.muted = prevMuted;
+          }
+        }
+        for (const key of Object.keys(sounds)) {
+          await primeHtmlAudioElement(sounds[key]);
+        }
+        for (const id of Object.keys(soundPlayPools)) {
+          const pool = soundPlayPools[id];
+          for (let i = 1; i < pool.length; i++) {
+            await primeHtmlAudioElement(pool[i]);
+          }
+        }
+        await ensureShiftTickAudio();
+        if (shiftTickCtx && shiftTickCtx.state !== "closed") {
+          try {
+            await shiftTickCtx.resume();
+            shiftTickScheduleEnd = shiftTickCtx.currentTime;
+          } catch (_) {}
+        }
+        gameAudioUnlocked = true;
+      } finally {
+        gameAudioUnlockInFlight = null;
+      }
+    })();
+    return gameAudioUnlockInFlight;
+  }
+
+  function playShiftTicksHtml5Pool(nPlay) {
+    const cap = Math.min(nPlay, 10);
+    for (let i = 0; i < cap; i++) {
+      const a = shiftTickPool[shiftTickPoolIndex];
+      shiftTickPoolIndex = (shiftTickPoolIndex + 1) % shiftTickPool.length;
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch (_) {}
+      void a.play().catch(() => {});
+    }
+  }
+
   function playShiftTicks(count) {
     if (isMuted || count <= 0) return;
     const nPlay = Math.min(count, 28);
     if (shiftTickBuffer && shiftTickCtx) {
+      if (shiftTickCtx.state === "suspended") {
+        void shiftTickCtx
+          .resume()
+          .then(() => {
+            if (shiftTickCtx) {
+              shiftTickScheduleEnd = shiftTickCtx.currentTime;
+            }
+          })
+          .catch(() => {});
+        playShiftTicksHtml5Pool(nPlay);
+        return;
+      }
       try {
         void shiftTickCtx.resume();
       } catch (_) {}
@@ -1168,16 +1301,24 @@ document.addEventListener("DOMContentLoaded", () => {
       shiftTickScheduleEnd = t + nPlay * spacing;
       return;
     }
-    for (let i = 0; i < Math.min(nPlay, 10); i++) {
-      const a = shiftTickPool[shiftTickPoolIndex];
-      shiftTickPoolIndex = (shiftTickPoolIndex + 1) % shiftTickPool.length;
-      try {
-        a.pause();
-        a.currentTime = 0;
-      } catch (_) {}
-      void a.play().catch(() => {});
-    }
+    playShiftTicksHtml5Pool(nPlay);
   }
+
+  function armOneShotAudioUnlockOnGridAndShift() {
+    const onFirstPointer = () => {
+      void unlockGameAudio();
+    };
+    grid.addEventListener("pointerdown", onFirstPointer, {
+      once: true,
+      capture: true,
+    });
+    boardShiftZone.addEventListener("pointerdown", onFirstPointer, {
+      once: true,
+      capture: true,
+    });
+  }
+
+  armOneShotAudioUnlockOnGridAndShift();
 
   void ensureShiftTickAudio();
 
@@ -1221,6 +1362,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         return;
       }
+      playSound("button2", isMuted);
       boardShiftHintsHideInProgress = true;
       boardShiftZone.classList.add("board-shift-zone--instructions-fading");
       let finalized = false;
@@ -1862,10 +2004,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.button != null && e.button !== 0) return;
     if (e.cancelable) e.preventDefault();
     shiftPointerDownAt = performance.now();
-    void ensureShiftTickAudio();
-    if (shiftTickCtx) {
-      void shiftTickCtx.resume().catch(() => {});
-    }
+    void unlockGameAudio();
     cancelGridShiftAnimations();
     shiftPointerId = e.pointerId;
     shiftStartX = e.clientX;
@@ -2232,6 +2371,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }, START_TOUCHPAD_FADE_MS + holdBeforeFade);
   }
 
+  function scheduleDeferredGameAudioWarmup() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void unlockGameAudio();
+        playSound("bing", true, {
+          playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[0],
+        });
+        playSound("bing", true, {
+          playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[7],
+        });
+        playSound("invalid", true);
+      });
+    });
+  }
+
   function startGame(arg) {
     if (arg instanceof MouseEvent) {
       arg = undefined;
@@ -2240,10 +2394,7 @@ document.addEventListener("DOMContentLoaded", () => {
       arg &&
       typeof arg === "object" &&
       arg.skipWordmarkInIntro === true;
-    playSound("click", isMuted);
-    playSound("bing", true);
-    playSound("bing2", true);
-    playSound("invalid", true);
+    playSound("button1", isMuted);
     clearTapStreak();
     isGameActive = true;
     startButton.disabled = true;
@@ -2268,6 +2419,14 @@ document.addEventListener("DOMContentLoaded", () => {
     currentWordElement.classList.remove("hidden");
     currentWordElement.classList.add("visible");
 
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
+    lockGridSizeForSwipe();
+
+    score = 0;
+    currentWord = "";
+    updateScore();
+
     runGridTilePaletteTransition("toActive", TILE_PALETTE_MS, () => {
       const buttons = grid.getElementsByClassName("grid-button");
       for (let i = 0; i < buttons.length; i++) {
@@ -2278,19 +2437,12 @@ document.addEventListener("DOMContentLoaded", () => {
         buttons[i].classList.remove("grid-button--endgame-exit");
       }
     });
-
-    syncLineOverlaySize();
-    requestAnimationFrame(syncLineOverlaySize);
-    lockGridSizeForSwipe();
-
-    score = 0;
-    currentWord = "";
     crossfadeWordmarkToHappyHunting({
       skipWordmark: skipWordmarkInIntro,
     });
-    updateScore();
     updateCurrentWord();
     updateNextLetters();
+    scheduleDeferredGameAudioWarmup();
   }
 
   function generateGrid() {
@@ -2583,11 +2735,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (validateWord(currentWord)) {
-      if (currentWord.length >= 5) {
-        playSound("bing2", isMuted);
-      } else {
-        playSound("bing", isMuted);
-      }
+      const len = currentWord.length;
+      playSound("bing", isMuted, {
+        playbackRate: bingPlaybackRateForWordLength(len),
+      });
       let wordScore = getWordScoreFromSelectedTiles(selectedButtons);
       score += wordScore;
       const tilesToReplace = Array.from(selectedButtonSet);
@@ -2662,7 +2813,8 @@ document.addEventListener("DOMContentLoaded", () => {
     message,
     flashTimes = 1,
     color = "white",
-    visibleHoldMs = null
+    visibleHoldMs = null,
+    flashHoldExtraMs = 0
   ) {
     const myEpoch = beginCurrentWordMessageSession();
     currentWordElement.style.transition = "";
@@ -2674,7 +2826,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const holdBeforeFade =
       visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1
         ? visibleHoldMs
-        : CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS;
+        : CURRENT_WORD_MESSAGE_ON_MS -
+            CURRENT_WORD_FADE_MS +
+            flashHoldExtraMs;
     if (visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1) {
       currentWordElement.classList.add("current-word--valid-solve");
     }
@@ -2690,10 +2844,16 @@ document.addEventListener("DOMContentLoaded", () => {
           updateCurrentWord();
           currentWordMessageTimer = window.setTimeout(() => {
             if (myEpoch !== currentWordMessageEpoch) return;
-            showMessage(message, flashTimes - 1, color);
+            showMessage(
+              message,
+              flashTimes - 1,
+              color,
+              visibleHoldMs,
+              flashHoldExtraMs
+            );
           }, 380);
         }, CURRENT_WORD_FADE_MS);
-      }, CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS);
+      }, CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS + flashHoldExtraMs);
     } else {
       currentWordMessageTimer = window.setTimeout(() => {
         if (myEpoch !== currentWordMessageEpoch) return;
@@ -2710,13 +2870,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function getShowMessageDurationMs(flashTimes) {
+  function getShowMessageDurationMs(flashTimes, flashHoldExtraMs = 0) {
     const flashes = Math.max(1, Number(flashTimes) || 1);
     const onMs = CURRENT_WORD_MESSAGE_ON_MS;
+    const extra = Math.max(0, Number(flashHoldExtraMs) || 0);
     if (flashes === 1) {
-      return onMs;
+      return onMs + extra;
     }
-    return flashes * onMs + (flashes - 1) * 380;
+    return flashes * onMs + (flashes - 1) * 380 + flashes * extra;
   }
 
   function setEndgameBlankTilesHidden(hide) {
@@ -2808,7 +2969,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endGame() {
-    playSound("gameOver", isMuted);
     isGameActive = false;
     clearWordSubmitFeedbackTimer();
     bumpWordReplaceEpoch();
@@ -2855,10 +3015,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     setEndgameBlankTilesHidden(true);
+    if (endgameBlankRestoreFallbackTimer !== null) {
+      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+      endgameBlankRestoreFallbackTimer = null;
+    }
     sounds.gameOver.removeEventListener(
       "ended",
       onGameOverSoundEndedPostGameUi
     );
+    try {
+      sounds.gameOver.pause();
+      sounds.gameOver.currentTime = 0;
+    } catch (_) {}
+    playSound("gameOver", isMuted);
     sounds.gameOver.addEventListener(
       "ended",
       onGameOverSoundEndedPostGameUi
@@ -2901,14 +3070,18 @@ document.addEventListener("DOMContentLoaded", () => {
     showMessage(
       pickRandomScenarioMessage("game_over", "Game Over"),
       GAME_OVER_FLASH_TIMES,
-      happyHuntingColor
+      happyHuntingColor,
+      null,
+      GAME_OVER_FLASH_HOLD_EXTRA_MS
     );
     endgameTileStartTimer = window.setTimeout(() => {
       endgameTileStartTimer = null;
       triggerEndgameTileExitAnimation();
     },
-      getShowMessageDurationMs(GAME_OVER_FLASH_TIMES) +
-        ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
+      getShowMessageDurationMs(
+        GAME_OVER_FLASH_TIMES,
+        GAME_OVER_FLASH_HOLD_EXTRA_MS
+      ) + ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
     );
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
@@ -3188,9 +3361,34 @@ document.addEventListener("DOMContentLoaded", () => {
     return wordSet.has(word.toLowerCase());
   }
 
-  function playSound(name, muted) {
-    let sound = sounds[name];
-    sound.muted = muted;
-    sound.play();
+  function playSound(name, muted, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const playbackRateRaw =
+      typeof opts.playbackRate === "number" ? opts.playbackRate : 1;
+    const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
+    const sound = sounds[name];
+    if (!sound) return;
+    if (name === "gameOver") {
+      sound.muted = !!muted;
+      sound.defaultPlaybackRate = playbackRate;
+      sound.playbackRate = playbackRate;
+      void sound.play().catch(() => {});
+      return;
+    }
+    const pool = soundPlayPools[name];
+    if (!pool || pool.length === 0) return;
+    let idx = soundPlayPoolCursor[name];
+    if (idx === undefined) idx = 0;
+    soundPlayPoolCursor[name] = (idx + 1) % pool.length;
+    const a = pool[idx];
+    a.muted = !!muted;
+    if (name === "bing") setBingPitchScalesWithPlaybackRate(a);
+    a.defaultPlaybackRate = playbackRate;
+    a.playbackRate = playbackRate;
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch (_) {}
+    void a.play().catch(() => {});
   }
 });
