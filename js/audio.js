@@ -3,6 +3,14 @@ import {
   SFX_PLAY_POOL_SIZE,
   BING_PLAYBACK_RATES_FOR_LENGTH,
 } from "./config.js";
+import {
+  initWebSfxFromSpec,
+  isWebAudioContextAvailable,
+  isWebSfxPathActive,
+  setSfxMasterMuted,
+  playWebSfx,
+  resetWebGameOver,
+} from "./web-audio-sfx.js";
 
 export { GAME_SOUND_SPEC, GAME_SOUND_IDS, BING_PLAYBACK_RATES_FOR_LENGTH } from "./config.js";
 
@@ -53,33 +61,48 @@ export const soundPlayPoolCursor = Object.fromEntries(
 
 let gameAudioUnlocked = false;
 let gameAudioUnlockInFlight = null;
+let registeredHtmlGameOverEnded = null;
+
+async function primeHtmlAudioElement(el) {
+  const prevMuted = el.muted;
+  try {
+    el.muted = true;
+    await el.play();
+    el.pause();
+    el.currentTime = 0;
+  } catch (_) {
+  } finally {
+    el.muted = prevMuted;
+  }
+}
 
 export function unlockGameAudio() {
   if (gameAudioUnlocked) return Promise.resolve();
   if (gameAudioUnlockInFlight) return gameAudioUnlockInFlight;
   gameAudioUnlockInFlight = (async () => {
     try {
-      async function primeHtmlAudioElement(el) {
-        const prevMuted = el.muted;
+      if (isWebAudioContextAvailable()) {
         try {
-          el.muted = true;
-          await el.play();
-          el.pause();
-          el.currentTime = 0;
+          const ok = await initWebSfxFromSpec(GAME_SOUND_SPEC);
+          if (ok) {
+            gameAudioUnlocked = true;
+            return;
+          }
         } catch (_) {
-        } finally {
-          el.muted = prevMuted;
+          // fall back to HTML Audio priming
         }
       }
+      const primers = [];
       for (const key of Object.keys(sounds)) {
-        await primeHtmlAudioElement(sounds[key]);
+        primers.push(primeHtmlAudioElement(sounds[key]));
       }
       for (const id of Object.keys(soundPlayPools)) {
         const pool = soundPlayPools[id];
         for (let i = 1; i < pool.length; i++) {
-          await primeHtmlAudioElement(pool[i]);
+          primers.push(primeHtmlAudioElement(pool[i]));
         }
       }
+      await Promise.all(primers);
       gameAudioUnlocked = true;
     } finally {
       gameAudioUnlockInFlight = null;
@@ -89,6 +112,9 @@ export function unlockGameAudio() {
 }
 
 export function syncLiveSfxMute(muted) {
+  if (isWebSfxPathActive()) {
+    setSfxMasterMuted(!!muted);
+  }
   for (const key of Object.keys(sounds)) {
     try {
       sounds[key].muted = muted;
@@ -104,16 +130,10 @@ export function syncLiveSfxMute(muted) {
   }
 }
 
-function stopAllHtmlGameAudio() {
-  for (const key of Object.keys(sounds)) {
-    try {
-      sounds[key].pause();
-      sounds[key].currentTime = 0;
-    } catch (_) {}
-  }
+function stopAllSfxHtml() {
   for (const id of Object.keys(soundPlayPools)) {
     const pool = soundPlayPools[id];
-    for (let i = 1; i < pool.length; i++) {
+    for (let i = 0; i < pool.length; i++) {
       try {
         pool[i].pause();
         pool[i].currentTime = 0;
@@ -122,18 +142,35 @@ function stopAllHtmlGameAudio() {
   }
 }
 
-export function playSound(name, muted, options) {
-  const opts = options && typeof options === "object" ? options : {};
+function playHtmlSound(name, muted, opts) {
   const playbackRateRaw =
     typeof opts.playbackRate === "number" ? opts.playbackRate : 1;
   const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
   const sound = sounds[name];
   if (!sound) return;
-  stopAllHtmlGameAudio();
   if (name === "gameOver") {
+    if (registeredHtmlGameOverEnded) {
+      try {
+        sounds.gameOver.removeEventListener("ended", registeredHtmlGameOverEnded);
+      } catch (_) {}
+      registeredHtmlGameOverEnded = null;
+    }
+    try {
+      sound.pause();
+      sound.currentTime = 0;
+    } catch (_) {}
+    stopAllSfxHtml();
     sound.muted = !!muted;
     sound.defaultPlaybackRate = playbackRate;
     sound.playbackRate = playbackRate;
+    const onEnded = typeof opts.onEnded === "function" ? opts.onEnded : null;
+    if (onEnded) {
+      registeredHtmlGameOverEnded = function onGameOverHtmlEnded() {
+        registeredHtmlGameOverEnded = null;
+        onEnded();
+      };
+      sounds.gameOver.addEventListener("ended", registeredHtmlGameOverEnded);
+    }
     void sound.play().catch(() => {});
     return;
   }
@@ -152,6 +189,41 @@ export function playSound(name, muted, options) {
     a.currentTime = 0;
   } catch (_) {}
   void a.play().catch(() => {});
+}
+
+export function playSound(name, muted, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  if (isWebSfxPathActive()) {
+    if (!gameAudioUnlocked) {
+      void unlockGameAudio().then(() => playSound(name, muted, options));
+      return;
+    }
+    if (playWebSfx(name, !!muted, opts)) {
+      return;
+    }
+  }
+  if (!gameAudioUnlocked) {
+    void unlockGameAudio().then(() => playSound(name, muted, options));
+    return;
+  }
+  playHtmlSound(name, !!muted, opts);
+}
+
+export function resetGameOverAudio() {
+  if (isWebSfxPathActive()) {
+    resetWebGameOver();
+    return;
+  }
+  if (registeredHtmlGameOverEnded) {
+    try {
+      sounds.gameOver.removeEventListener("ended", registeredHtmlGameOverEnded);
+    } catch (_) {}
+    registeredHtmlGameOverEnded = null;
+  }
+  try {
+    sounds.gameOver.pause();
+    sounds.gameOver.currentTime = 0;
+  } catch (_) {}
 }
 
 export function scheduleDeferredGameAudioWarmup() {

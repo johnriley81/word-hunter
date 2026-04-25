@@ -31,9 +31,11 @@ import {
   sounds,
   soundPlayPools,
   GAME_SOUND_IDS,
+  resetGameOverAudio,
   syncLiveSfxMute,
   playSound,
   scheduleDeferredGameAudioWarmup,
+  unlockGameAudio,
 } from "./audio.js";
 import {
   calculateDiffDays,
@@ -308,6 +310,7 @@ export function initGame(ctx) {
   });
 
   retryButton.addEventListener("click", function () {
+    void unlockGameAudio();
     retryButton.disabled = true;
     const leaderboardFadeFinishesLater =
       lbCtl.beginPostgameLeaderboardOverlayFadeOut();
@@ -445,6 +448,7 @@ export function initGame(ctx) {
   }
 
   function startGame(arg) {
+    void unlockGameAudio().then(() => syncLiveSfxMute(isMuted));
     if (arg instanceof MouseEvent) {
       arg = undefined;
     }
@@ -765,10 +769,6 @@ export function initGame(ctx) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
     }
-    sounds.gameOver.removeEventListener(
-      "ended",
-      onGameOverSoundEndedPostGameUi
-    );
   }
 
   function endGame() {
@@ -825,19 +825,7 @@ export function initGame(ctx) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
     }
-    sounds.gameOver.removeEventListener(
-      "ended",
-      onGameOverSoundEndedPostGameUi
-    );
-    try {
-      sounds.gameOver.pause();
-      sounds.gameOver.currentTime = 0;
-    } catch (_) {}
-    playSound("gameOver", isMuted);
-    sounds.gameOver.addEventListener(
-      "ended",
-      onGameOverSoundEndedPostGameUi
-    );
+    playSound("gameOver", isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
     }
@@ -938,14 +926,7 @@ export function initGame(ctx) {
     }
     clearWordLineTimers(ctx);
 
-    sounds.gameOver.removeEventListener(
-      "ended",
-      onGameOverSoundEndedPostGameUi
-    );
-    try {
-      sounds.gameOver.pause();
-      sounds.gameOver.currentTime = 0;
-    } catch (_) {}
+    resetGameOverAudio();
 
     endgamePostUiReady = false;
     endgameUiShown = false;
