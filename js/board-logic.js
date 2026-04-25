@@ -5,7 +5,9 @@ import {
 } from "./config.js";
 
 export function normalizeTileText(text) {
-  const normalized = String(text || "").trim().toLowerCase();
+  const normalized = String(text || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "q") return "qu";
   return normalized;
 }
@@ -88,9 +90,7 @@ export function applyColumnShiftInPlace(board, signedSteps, n) {
   const right = signedSteps > 0;
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      board[r][c] = right
-        ? copy[r][(c - kk + n * 10) % n]
-        : copy[r][(c + kk) % n];
+      board[r][c] = right ? copy[r][(c - kk + n * 10) % n] : copy[r][(c + kk) % n];
     }
   }
 }
@@ -102,9 +102,7 @@ export function applyRowShiftInPlace(board, signedSteps, n) {
   const down = signedSteps > 0;
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      board[r][c] = down
-        ? copy[(r - kk + n * 10) % n][c]
-        : copy[(r + kk) % n][c];
+      board[r][c] = down ? copy[(r - kk + n * 10) % n][c] : copy[(r + kk) % n][c];
     }
   }
 }

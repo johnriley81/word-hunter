@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta
@@ -11,11 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="images/apple-touch-icon.png"
-    />
+    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/images/favicon.png" />
   </head>
   <body>
@@ -33,9 +29,7 @@
       <button type="button" id="mute-button" class="header-icon-button">🔔</button>
       <button type="button" id="rules-button" class="header-icon-button">❓</button>
     </div>
-    <div id="landscape-message" class="hiddenDisplay">
-      Please use portrait mode
-    </div>
+    <div id="landscape-message" class="hiddenDisplay">Please use portrait mode</div>
     <div id="game-info-container">
       <div class="score-timer-container">
         <div id="score" aria-live="polite">
@@ -141,7 +135,9 @@
         <div id="board-shift-hints">
           <span id="board-shift-hint">
             <span class="board-shift-hint--coarse">Swipe here to rearrange grid</span>
-            <span class="board-shift-hint--fine">Click & drag here to rearrange grid</span>
+            <span class="board-shift-hint--fine"
+              >Click & drag here to rearrange grid</span
+            >
           </span>
           <span id="board-shift-end-hint">
             <span class="board-shift-hint--coarse">Double tap to end game</span>
@@ -169,20 +165,41 @@
               a <span class="rules-accent-gold">perfect hunt</span> results in exactly
               <strong>1000 total points</strong>
             </li>
-            <li><strong class="rules-accent-red">end the game</strong> to submit score to the leaderboard</li>
+            <li>
+              <strong class="rules-accent-red">end the game</strong> to submit score to
+              the leaderboard
+            </li>
           </ul>
         </section>
         <section class="rules-section" aria-labelledby="rules-controls-heading">
           <h3 id="rules-controls-heading">Controls</h3>
           <ul class="rules-list">
             <li>
-              <span class="rules-input--coarse"><span class="rules-gesture-phrase">swipe</span> your finger on the grid to form words</span><span class="rules-input--fine"><span class="rules-gesture-phrase">click & drag</span> the cursor on the grid to form words</span>
+              <span class="rules-input--coarse"
+                ><span class="rules-gesture-phrase">swipe</span> your finger on the grid
+                to form words</span
+              ><span class="rules-input--fine"
+                ><span class="rules-gesture-phrase">click & drag</span> the cursor on
+                the grid to form words</span
+              >
             </li>
             <li>
-              <span class="rules-input--coarse"><span class="rules-gesture-phrase">swipe</span> below the grid to rearrange the tiles</span><span class="rules-input--fine"><span class="rules-gesture-phrase">click & drag</span> below the grid to rearrange the tiles</span>
+              <span class="rules-input--coarse"
+                ><span class="rules-gesture-phrase">swipe</span> below the grid to
+                rearrange the tiles</span
+              ><span class="rules-input--fine"
+                ><span class="rules-gesture-phrase">click & drag</span> below the grid
+                to rearrange the tiles</span
+              >
             </li>
             <li>
-              <span class="rules-input--coarse"><span class="rules-endgame-gesture">double tap</span> below the grid to <strong>end the game</strong></span><span class="rules-input--fine"><span class="rules-endgame-gesture">double click</span> below the grid to <strong>end the game</strong></span>
+              <span class="rules-input--coarse"
+                ><span class="rules-endgame-gesture">double tap</span> below the grid to
+                <strong>end the game</strong></span
+              ><span class="rules-input--fine"
+                ><span class="rules-endgame-gesture">double click</span> below the grid
+                to <strong>end the game</strong></span
+              >
             </li>
           </ul>
         </section>
@@ -190,21 +207,24 @@
           <h3 id="rules-gameplay-heading">Gameplay</h3>
           <ul class="rules-list">
             <li>
-              <strong class="rules-accent-green">word score</strong> = sum of tile scores
-              <strong class="rules-multiply">×</strong> word length
+              <strong class="rules-accent-green">word score</strong> = sum of tile
+              scores <strong class="rules-multiply">×</strong> word length
             </li>
             <li>
-              played letters are replaced by <strong class="rules-accent-purple">upcoming</strong> letters
+              played letters are replaced by
+              <strong class="rules-accent-purple">upcoming</strong> letters
             </li>
             <li>
-              hunt until all <strong class="rules-50-pink">50</strong> replacement letters are used up
+              hunt until all <strong class="rules-50-pink">50</strong> replacement
+              letters are used up
             </li>
           </ul>
         </section>
         <section class="rules-section rules-section--meta">
           <p><em>puzzle resets @ midnight</em></p>
           <p class="rules-dismiss" role="note">
-            <span class="rules-dismiss--coarse">Tap anywhere to close</span><span class="rules-dismiss--fine">Click anywhere to close</span>
+            <span class="rules-dismiss--coarse">Tap anywhere to close</span
+            ><span class="rules-dismiss--fine">Click anywhere to close</span>
           </p>
         </section>
       </div>

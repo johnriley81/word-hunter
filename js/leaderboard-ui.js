@@ -25,8 +25,7 @@ export function createLeaderboardController(rt) {
     if (!LEADERBOARD_USE_DEMO_DATA || !rows) return -1;
     const trophy = String(rt.getLongestWord() || "").trim();
     return rows.findIndex(
-      (r) =>
-        Number(r[2]) === rt.getScore() && String(r[3] || "").trim() === trophy
+      (r) => Number(r[2]) === rt.getScore() && String(r[3] || "").trim() === trophy
     );
   }
 
@@ -74,11 +73,7 @@ export function createLeaderboardController(rt) {
   }
 
   function applyLeaderboardSubmitButtonVisibility(rows) {
-    const {
-      leaderboardButton,
-      leaderboardDemoAdd,
-      playerName,
-    } = refs();
+    const { leaderboardButton, leaderboardDemoAdd, playerName } = refs();
     let qualifies;
     if (LEADERBOARD_USE_DEMO_DATA) {
       qualifies = demoRunQualifiesForLeaderboard(
@@ -140,17 +135,11 @@ export function createLeaderboardController(rt) {
       leaderboardDemoAdd.classList.add("hiddenDisplay");
     }
     leaderboardButton.classList.remove("hiddenDisplay");
-    leaderboardButton.classList.toggle(
-      "leaderboard-action--concealed",
-      !qualifies
-    );
+    leaderboardButton.classList.toggle("leaderboard-action--concealed", !qualifies);
   }
 
   function renderLeaderboardTable(leaderboard) {
-    const {
-      leaderboardTable,
-      playerName,
-    } = refs();
+    const { leaderboardTable, playerName } = refs();
     rt.setPlayerPosition(undefined);
     leaderboardTable.innerHTML = "";
     const tbody = document.createElement("tbody");
@@ -179,8 +168,7 @@ export function createLeaderboardController(rt) {
         !Number.isNaN(Number(rowScore));
       const scoreNum = hasScore ? Number(rowScore) : null;
       const trophyStr = String(rowTrophy || "").trim();
-      const trophyMatches =
-        trophyStr === String(rt.getLongestWord() || "").trim();
+      const trophyMatches = trophyStr === String(rt.getLongestWord() || "").trim();
       const isDemoSelfRow =
         LEADERBOARD_USE_DEMO_DATA &&
         hasScore &&
@@ -217,28 +205,21 @@ export function createLeaderboardController(rt) {
 
       const positionDisplay = `${index + 1}.`;
 
-      [
-        positionDisplay,
-        displayNameCell,
-        displayScoreCell,
-        displayTrophyCell,
-      ].forEach((cellText, cellIndex) => {
-        const td = document.createElement("td");
-        if (
-          cellIndex === 1 &&
-          isDemoSelfRow &&
-          !rt.getDemoSubmitUsed()
-        ) {
-          td.textContent = displayNameCell;
-          td.dataset.demoSelfName = "1";
-          td.classList.add("leaderboard-name-cell--you-pseudo-select");
-          td.style.cursor = "pointer";
-        } else {
-          td.textContent = cellText;
-        }
+      [positionDisplay, displayNameCell, displayScoreCell, displayTrophyCell].forEach(
+        (cellText, cellIndex) => {
+          const td = document.createElement("td");
+          if (cellIndex === 1 && isDemoSelfRow && !rt.getDemoSubmitUsed()) {
+            td.textContent = displayNameCell;
+            td.dataset.demoSelfName = "1";
+            td.classList.add("leaderboard-name-cell--you-pseudo-select");
+            td.style.cursor = "pointer";
+          } else {
+            td.textContent = cellText;
+          }
 
-        tr.appendChild(td);
-      });
+          tr.appendChild(td);
+        }
+      );
       tbody.appendChild(tr);
     });
 
@@ -254,9 +235,7 @@ export function createLeaderboardController(rt) {
     if (idx < 0 || !rows) return;
     rt.playSound("submit", rt.getIsMuted());
     const { leaderboardTable } = refs();
-    const input = leaderboardTable.querySelector(
-      ".leaderboard-inline-name-input"
-    );
+    const input = leaderboardTable.querySelector(".leaderboard-inline-name-input");
     let name;
     if (input) {
       name = sanitizeDemoLeaderboardName(input.value) || "YOU";
@@ -301,9 +280,7 @@ export function createLeaderboardController(rt) {
       window.clearTimeout(t2);
       rt.setLeaderboardFadeOutTimer(null);
     }
-    refs().leaderboardElements.classList.remove(
-      "leaderboard-elements--visible"
-    );
+    refs().leaderboardElements.classList.remove("leaderboard-elements--visible");
     finalizePostgameLeaderboardOverlayHidden();
   }
 
@@ -345,10 +322,7 @@ export function createLeaderboardController(rt) {
   }
 
   async function refreshLeaderboardFromApi(clicked) {
-    const {
-      playerName,
-      leaderboardButton,
-    } = refs();
+    const { playerName, leaderboardButton } = refs();
     if (clicked) {
       rt.playSound("click", rt.getIsMuted());
       playerName.disabled = true;
@@ -395,11 +369,7 @@ export function createLeaderboardController(rt) {
     if (rt.getPostgameSequenceStarted()) return;
     rt.setPostgameSequenceStarted(true);
 
-    const {
-      leaderboardElements,
-      leaderboardTable,
-      leaderboardDemoAdd,
-    } = refs();
+    const { leaderboardElements, leaderboardTable, leaderboardDemoAdd } = refs();
     leaderboardElements.style.display = "flex";
     leaderboardTable.classList.remove("hiddenDisplay");
     leaderboardTable.classList.add("visibleDisplay");
