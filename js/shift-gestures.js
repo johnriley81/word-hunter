@@ -12,7 +12,6 @@ export function createInitialShiftGestureState() {
     visualTy: 0,
     visualStripCount: 0,
     visualStripHorizontal: true,
-    swipeTickPrevMag: 0,
     lockedGridWidthPx: 0,
     lockedGridHeightPx: 0,
   };
