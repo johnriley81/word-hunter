@@ -182,14 +182,11 @@ export function createWordDragHandlers(ctx, host) {
 
     const runTileStep = (i) => {
       if (epoch !== st.wordReplaceEpoch) return;
-      const head = host.nextLettersElement.querySelector(
-        ".queue-ribbon-letter--head"
-      );
+      const head = host.nextLettersElement.querySelector(".queue-ribbon-letter--head");
       if (head) {
         head.classList.add("queue-ribbon-letter--pulse");
       }
-      const pulseMs =
-        i === 0 ? WORD_COMMIT_AFTER_PULSE_MS : WORD_COMMIT_CHAIN_PULSE_MS;
+      const pulseMs = i === 0 ? WORD_COMMIT_AFTER_PULSE_MS : WORD_COMMIT_CHAIN_PULSE_MS;
       window.setTimeout(() => {
         if (epoch !== st.wordReplaceEpoch) return;
         const button = tilesToReplace[i];
@@ -249,12 +246,10 @@ export function createWordDragHandlers(ctx, host) {
     const startPhaseB = () => {
       if (epoch !== st.wordReplaceEpoch || phaseBStarted) return;
       phaseBStarted = true;
-      const gapBetweenFlipStarts =
-        WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
+      const gapBetweenFlipStarts = WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
       window.setTimeout(() => runTileStep(0), 0);
       for (let i = 1; i < n; i++) {
-        const flipStartMs =
-          WORD_COMMIT_AFTER_PULSE_MS + i * gapBetweenFlipStarts;
+        const flipStartMs = WORD_COMMIT_AFTER_PULSE_MS + i * gapBetweenFlipStarts;
         const delayMs = flipStartMs - WORD_COMMIT_CHAIN_PULSE_MS;
         window.setTimeout(() => runTileStep(i), delayMs);
       }
@@ -353,10 +348,7 @@ export function createWordDragHandlers(ctx, host) {
           targetButton.classList.add("grid-button--selected-enter");
           const onSelectedEnterEnd = (e) => {
             if (e.target !== targetButton) return;
-            targetButton.removeEventListener(
-              "animationend",
-              onSelectedEnterEnd
-            );
+            targetButton.removeEventListener("animationend", onSelectedEnterEnd);
             targetButton.classList.remove("grid-button--selected-enter");
           };
           targetButton.addEventListener("animationend", onSelectedEnterEnd);
@@ -379,9 +371,7 @@ export function createWordDragHandlers(ctx, host) {
     const touch = event.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     const button =
-      element && element instanceof Element
-        ? element.closest(".grid-button")
-        : null;
+      element && element instanceof Element ? element.closest(".grid-button") : null;
 
     if (button && host.grid.contains(button)) {
       extendSelectionToButton(button);

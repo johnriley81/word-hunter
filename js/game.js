@@ -37,10 +37,7 @@ import {
   scheduleDeferredGameAudioWarmup,
   unlockGameAudio,
 } from "./audio.js";
-import {
-  calculateDiffDays,
-  loadWordhunterTextAssets,
-} from "./game-lifecycle.js";
+import { calculateDiffDays, loadWordhunterTextAssets } from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
   getTileText,
@@ -235,7 +232,8 @@ export function initGame(ctx) {
   }
 
   function lockGridSizeForSwipe() {
-    if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0) return;
+    if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0)
+      return;
     const br = grid.getBoundingClientRect();
     if (br.width < 1 || br.height < 1) return;
     ctx.state.shift.lockedGridWidthPx = br.width;
@@ -280,7 +278,6 @@ export function initGame(ctx) {
       Math.ceil(Math.max(grid.offsetHeight, maxBottom)) + "px";
   }
 
-
   GAME_SOUND_IDS.forEach((key) => {
     sounds[key].load();
     const pool = soundPlayPools[key];
@@ -312,8 +309,7 @@ export function initGame(ctx) {
   retryButton.addEventListener("click", function () {
     void unlockGameAudio();
     retryButton.disabled = true;
-    const leaderboardFadeFinishesLater =
-      lbCtl.beginPostgameLeaderboardOverlayFadeOut();
+    const leaderboardFadeFinishesLater = lbCtl.beginPostgameLeaderboardOverlayFadeOut();
     resetRoundToPregame({
       forImmediateStart: true,
       skipLeaderboardOverlayTeardown: leaderboardFadeFinishesLater,
@@ -356,7 +352,6 @@ export function initGame(ctx) {
   updateCurrentWord();
   currentWordElement.textContent = PRE_START_WORDMARK;
   currentWordElement.style.color = "white";
-
 
   function applyColumnShift(signedSteps) {
     applyColumnShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
@@ -453,13 +448,9 @@ export function initGame(ctx) {
       arg = undefined;
     }
     const skipWordmarkInIntro =
-      arg &&
-      typeof arg === "object" &&
-      arg.skipWordmarkInIntro === true;
+      arg && typeof arg === "object" && arg.skipWordmarkInIntro === true;
     const fadeTilesToActive =
-      arg &&
-      typeof arg === "object" &&
-      arg.fadeTilesToActive === true;
+      arg && typeof arg === "object" && arg.fadeTilesToActive === true;
     playSound("button1", isMuted);
     clearTapStreak();
     isGameActive = true;
@@ -668,8 +659,7 @@ export function initGame(ctx) {
     updateNextLetters,
     updateScore,
     validateWord: (word) => wordSet.has(word.toLowerCase()),
-    getWordScoreFromSelectedTiles: (seq) =>
-      getLiveWordScoreBreakdown(seq).wordTotal,
+    getWordScoreFromSelectedTiles: (seq) => getLiveWordScoreBreakdown(seq).wordTotal,
     getLongestWord: () => longestWord,
     setLongestWord: (w) => {
       longestWord = w;
@@ -751,17 +741,20 @@ export function initGame(ctx) {
     if (endgameTileRevealTimer !== null) {
       window.clearTimeout(endgameTileRevealTimer);
     }
-    endgameTileRevealTimer = window.setTimeout(() => {
-      endgamePostUiReady = true;
-      endgameTileRevealTimer = null;
-      lbCtl.maybeShowPostGameUi();
-    }, Math.max(
-      0,
-      ENDGAME_TILE_SEQUENCE_MS +
-        ENDGAME_TILE_EXIT_BUFFER_MS -
-        LEADERBOARD_REVEAL_LEAD_MS +
-        LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS
-    ));
+    endgameTileRevealTimer = window.setTimeout(
+      () => {
+        endgamePostUiReady = true;
+        endgameTileRevealTimer = null;
+        lbCtl.maybeShowPostGameUi();
+      },
+      Math.max(
+        0,
+        ENDGAME_TILE_SEQUENCE_MS +
+          ENDGAME_TILE_EXIT_BUFFER_MS -
+          LEADERBOARD_REVEAL_LEAD_MS +
+          LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS
+      )
+    );
   }
 
   function onGameOverSoundEndedPostGameUi() {
@@ -858,14 +851,13 @@ export function initGame(ctx) {
       null,
       GAME_OVER_FLASH_HOLD_EXTRA_MS
     );
-    endgameTileStartTimer = window.setTimeout(() => {
-      endgameTileStartTimer = null;
-      triggerEndgameTileExitAnimation();
-    },
-      getShowMessageDurationMs(
-        GAME_OVER_FLASH_TIMES,
-        GAME_OVER_FLASH_HOLD_EXTRA_MS
-      ) + ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
+    endgameTileStartTimer = window.setTimeout(
+      () => {
+        endgameTileStartTimer = null;
+        triggerEndgameTileExitAnimation();
+      },
+      getShowMessageDurationMs(GAME_OVER_FLASH_TIMES, GAME_OVER_FLASH_HOLD_EXTRA_MS) +
+        ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
     );
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
@@ -1039,10 +1031,7 @@ export function initGame(ctx) {
   function writeScoreToClipboardPromise() {
     try {
       const text = buildClipboardScoreText();
-      if (
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText === "function"
-      ) {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         return navigator.clipboard.writeText(text);
       }
     } catch (err) {

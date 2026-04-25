@@ -16,9 +16,7 @@ export function getShowMessageDurationMs(flashTimes, flashHoldExtraMs = 0) {
   if (flashes === 1) {
     return onMs + extra + fadeInPad;
   }
-  return (
-    flashes * onMs + (flashes - 1) * 380 + flashes * extra + fadeInPad
-  );
+  return flashes * onMs + (flashes - 1) * 380 + flashes * extra + fadeInPad;
 }
 
 export function clearWordLineTimers(ctx) {
@@ -120,7 +118,9 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
   const wl = ctx.state.wordLine;
   const updateCurrentWord = ctx.fn.updateCurrentWord;
   if (typeof updateCurrentWord !== "function") {
-    throw new Error("ctx.fn.updateCurrentWord must be set before crossfadeWordmarkToHappyHunting");
+    throw new Error(
+      "ctx.fn.updateCurrentWord must be set before crossfadeWordmarkToHappyHunting"
+    );
   }
 
   const skipWordmark = options.skipWordmark === true;
@@ -135,10 +135,7 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
       fadeMs: fadeInMs,
       epoch: myEpoch,
     });
-    const introHoldAnchorMs = Math.max(
-      START_TOUCHPAD_FADE_MS,
-      fadeInMs + 120
-    );
+    const introHoldAnchorMs = Math.max(START_TOUCHPAD_FADE_MS, fadeInMs + 120);
     window.setTimeout(() => {
       if (myEpoch !== wl.epoch) return;
       currentWordElement.style.transition = "";
@@ -190,10 +187,7 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
     runHappyHuntingHandoff();
   }
 
-  currentWordElement.addEventListener(
-    "transitionend",
-    onWordmarkOpacityTransitionEnd
-  );
+  currentWordElement.addEventListener("transitionend", onWordmarkOpacityTransitionEnd);
   currentWordElement.addEventListener(
     "webkitTransitionEnd",
     onWordmarkOpacityTransitionEnd
@@ -212,10 +206,7 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
   });
 
   const introVisualEndMs = half + 160 + fadeInMs + 120;
-  const introHoldAnchorMs = Math.max(
-    START_TOUCHPAD_FADE_MS,
-    introVisualEndMs
-  );
+  const introHoldAnchorMs = Math.max(START_TOUCHPAD_FADE_MS, introVisualEndMs);
 
   window.setTimeout(() => {
     if (myEpoch !== wl.epoch) return;
@@ -272,9 +263,7 @@ export function showMessage(
   const holdBeforeFade =
     visibleHoldMs != null && visibleHoldMs > 0 && flashTimes === 1
       ? visibleHoldMs
-      : CURRENT_WORD_MESSAGE_ON_MS -
-          CURRENT_WORD_FADE_MS +
-          flashHoldExtraMs;
+      : CURRENT_WORD_MESSAGE_ON_MS - CURRENT_WORD_FADE_MS + flashHoldExtraMs;
   const untilFadeOutStart = holdBeforeFade + fadeInMs;
 
   if (flashTimes > 1) {
