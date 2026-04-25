@@ -63,8 +63,7 @@ export const WORD_REPLACE_TAIL_SLACK_MS = 160;
 export function getWordReplaceAnimationHoldMs(tileCount) {
   const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
   const greenPhaseMs = WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS;
-  const gapBetweenFlipStarts =
-    WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
+  const gapBetweenFlipStarts = WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
   const afterGreenMs =
     WORD_COMMIT_AFTER_PULSE_MS +
     (n - 1) * gapBetweenFlipStarts +
