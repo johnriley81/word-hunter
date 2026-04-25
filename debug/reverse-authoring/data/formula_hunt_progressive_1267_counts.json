@@ -1,0 +1,360 @@
+{
+  "unrestricted_counts": {
+    "slot_specs": "unrestricted_8x4_9x3_10x2",
+    "slots": [
+      {
+        "slot_index": 0,
+        "length": 8,
+        "min_distinct": 8,
+        "n_words": 8566,
+        "min_score": 64,
+        "max_score": 296,
+        "mean_score": 110.233,
+        "median_score": 104.0,
+        "upper_third_mean_score": 137.437,
+        "score_stdev": 24.9233
+      },
+      {
+        "slot_index": 1,
+        "length": 8,
+        "min_distinct": 7,
+        "n_words": 13321,
+        "min_score": 64,
+        "max_score": 296,
+        "mean_score": 105.8587,
+        "median_score": 104.0,
+        "upper_third_mean_score": 134.5913,
+        "score_stdev": 25.984
+      },
+      {
+        "slot_index": 2,
+        "length": 8,
+        "min_distinct": 6,
+        "n_words": 6595,
+        "min_score": 64,
+        "max_score": 392,
+        "mean_score": 101.6176,
+        "median_score": 96.0,
+        "upper_third_mean_score": 131.2415,
+        "score_stdev": 26.8797
+      },
+      {
+        "slot_index": 3,
+        "length": 8,
+        "min_distinct": 5,
+        "n_words": 1202,
+        "min_score": 64,
+        "max_score": 216,
+        "mean_score": 98.5624,
+        "median_score": 96.0,
+        "upper_third_mean_score": 130.1945,
+        "score_stdev": 27.6336
+      },
+      {
+        "slot_index": 4,
+        "length": 9,
+        "min_distinct": 8,
+        "n_words": 11871,
+        "min_score": 81,
+        "max_score": 306,
+        "mean_score": 134.1956,
+        "median_score": 126.0,
+        "upper_third_mean_score": 168.2411,
+        "score_stdev": 30.3905
+      },
+      {
+        "slot_index": 5,
+        "length": 9,
+        "min_distinct": 7,
+        "n_words": 9187,
+        "min_score": 81,
+        "max_score": 423,
+        "mean_score": 128.5412,
+        "median_score": 126.0,
+        "upper_third_mean_score": 162.7786,
+        "score_stdev": 30.6633
+      },
+      {
+        "slot_index": 6,
+        "length": 9,
+        "min_distinct": 6,
+        "n_words": 2851,
+        "min_score": 81,
+        "max_score": 279,
+        "mean_score": 123.6419,
+        "median_score": 117.0,
+        "upper_third_mean_score": 159.142,
+        "score_stdev": 31.2476
+      },
+      {
+        "slot_index": 7,
+        "length": 10,
+        "min_distinct": 8,
+        "n_words": 8256,
+        "min_score": 100,
+        "max_score": 360,
+        "mean_score": 159.501,
+        "median_score": 150.0,
+        "upper_third_mean_score": 198.5938,
+        "score_stdev": 34.4154
+      },
+      {
+        "slot_index": 8,
+        "length": 10,
+        "min_distinct": 8,
+        "n_words": 8256,
+        "min_score": 100,
+        "max_score": 360,
+        "mean_score": 159.501,
+        "median_score": 150.0,
+        "upper_third_mean_score": 198.5938,
+        "score_stdev": 34.4154
+      }
+    ],
+    "slot_count": 9,
+    "sum_tile_units": 79,
+    "sum_repeat_tiles": 16,
+    "repeat_sum_exact": 16,
+    "sum_slot_word_counts": 70105,
+    "global_score_stats": {
+      "min_score": 64,
+      "max_score": 423,
+      "mean_score": 126.9976,
+      "median_score": 120.0,
+      "upper_third_mean_score": 168.2419,
+      "score_stdev": 36.5462
+    },
+    "ideal_perfect_hunt_estimate_from_slot_upper_third": 1421
+  },
+  "grid_payload": {
+    "target_total_score": null,
+    "one_rung_half_width": null,
+    "note": "Unrestricted hunt slots (4x8, 3x9, 2x10). Words are selected downstream from top-third score tiers, then sorted ascending by score.",
+    "slots": [
+      {
+        "slot_index": 0,
+        "length": 8,
+        "min_distinct": 8,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 137,
+        "allowed_scores": null,
+        "n_words_bucket": 8566
+      },
+      {
+        "slot_index": 1,
+        "length": 8,
+        "min_distinct": 7,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 138,
+        "allowed_scores": null,
+        "n_words_bucket": 13321
+      },
+      {
+        "slot_index": 2,
+        "length": 8,
+        "min_distinct": 6,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 139,
+        "allowed_scores": null,
+        "n_words_bucket": 6595
+      },
+      {
+        "slot_index": 3,
+        "length": 8,
+        "min_distinct": 5,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 140,
+        "allowed_scores": null,
+        "n_words_bucket": 1202
+      },
+      {
+        "slot_index": 4,
+        "length": 9,
+        "min_distinct": 8,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 168,
+        "allowed_scores": null,
+        "n_words_bucket": 11871
+      },
+      {
+        "slot_index": 5,
+        "length": 9,
+        "min_distinct": 7,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 169,
+        "allowed_scores": null,
+        "n_words_bucket": 9187
+      },
+      {
+        "slot_index": 6,
+        "length": 9,
+        "min_distinct": 6,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 170,
+        "allowed_scores": null,
+        "n_words_bucket": 2851
+      },
+      {
+        "slot_index": 7,
+        "length": 10,
+        "min_distinct": 8,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 199,
+        "allowed_scores": null,
+        "n_words_bucket": 8256
+      },
+      {
+        "slot_index": 8,
+        "length": 10,
+        "min_distinct": 8,
+        "band_mode": "unrestricted_slot",
+        "reference_score": 200,
+        "allowed_scores": null,
+        "n_words_bucket": 8256
+      }
+    ],
+    "unrestricted_counts": {
+      "slot_specs": "unrestricted_8x4_9x3_10x2",
+      "slots": [
+        {
+          "slot_index": 0,
+          "length": 8,
+          "min_distinct": 8,
+          "n_words": 8566,
+          "min_score": 64,
+          "max_score": 296,
+          "mean_score": 110.233,
+          "median_score": 104.0,
+          "upper_third_mean_score": 137.437,
+          "score_stdev": 24.9233
+        },
+        {
+          "slot_index": 1,
+          "length": 8,
+          "min_distinct": 7,
+          "n_words": 13321,
+          "min_score": 64,
+          "max_score": 296,
+          "mean_score": 105.8587,
+          "median_score": 104.0,
+          "upper_third_mean_score": 134.5913,
+          "score_stdev": 25.984
+        },
+        {
+          "slot_index": 2,
+          "length": 8,
+          "min_distinct": 6,
+          "n_words": 6595,
+          "min_score": 64,
+          "max_score": 392,
+          "mean_score": 101.6176,
+          "median_score": 96.0,
+          "upper_third_mean_score": 131.2415,
+          "score_stdev": 26.8797
+        },
+        {
+          "slot_index": 3,
+          "length": 8,
+          "min_distinct": 5,
+          "n_words": 1202,
+          "min_score": 64,
+          "max_score": 216,
+          "mean_score": 98.5624,
+          "median_score": 96.0,
+          "upper_third_mean_score": 130.1945,
+          "score_stdev": 27.6336
+        },
+        {
+          "slot_index": 4,
+          "length": 9,
+          "min_distinct": 8,
+          "n_words": 11871,
+          "min_score": 81,
+          "max_score": 306,
+          "mean_score": 134.1956,
+          "median_score": 126.0,
+          "upper_third_mean_score": 168.2411,
+          "score_stdev": 30.3905
+        },
+        {
+          "slot_index": 5,
+          "length": 9,
+          "min_distinct": 7,
+          "n_words": 9187,
+          "min_score": 81,
+          "max_score": 423,
+          "mean_score": 128.5412,
+          "median_score": 126.0,
+          "upper_third_mean_score": 162.7786,
+          "score_stdev": 30.6633
+        },
+        {
+          "slot_index": 6,
+          "length": 9,
+          "min_distinct": 6,
+          "n_words": 2851,
+          "min_score": 81,
+          "max_score": 279,
+          "mean_score": 123.6419,
+          "median_score": 117.0,
+          "upper_third_mean_score": 159.142,
+          "score_stdev": 31.2476
+        },
+        {
+          "slot_index": 7,
+          "length": 10,
+          "min_distinct": 8,
+          "n_words": 8256,
+          "min_score": 100,
+          "max_score": 360,
+          "mean_score": 159.501,
+          "median_score": 150.0,
+          "upper_third_mean_score": 198.5938,
+          "score_stdev": 34.4154
+        },
+        {
+          "slot_index": 8,
+          "length": 10,
+          "min_distinct": 8,
+          "n_words": 8256,
+          "min_score": 100,
+          "max_score": 360,
+          "mean_score": 159.501,
+          "median_score": 150.0,
+          "upper_third_mean_score": 198.5938,
+          "score_stdev": 34.4154
+        }
+      ],
+      "slot_count": 9,
+      "sum_tile_units": 79,
+      "sum_repeat_tiles": 16,
+      "repeat_sum_exact": 16,
+      "sum_slot_word_counts": 70105,
+      "global_score_stats": {
+        "min_score": 64,
+        "max_score": 423,
+        "mean_score": 126.9976,
+        "median_score": 120.0,
+        "upper_third_mean_score": 168.2419,
+        "score_stdev": 36.5462
+      },
+      "ideal_perfect_hunt_estimate_from_slot_upper_third": 1421
+    },
+    "n_combinations": 1,
+    "combinations_truncated": false,
+    "max_combinations_cap": 1,
+    "combinations_slot_scores": [
+      [
+        137,
+        138,
+        139,
+        140,
+        168,
+        169,
+        170,
+        199,
+        200
+      ]
+    ]
+  }
+}

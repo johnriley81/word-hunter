@@ -5,5 +5,8 @@ import { initGame } from "./game.js";
 syncWordReplaceAnimationCssVars();
 
 document.addEventListener("DOMContentLoaded", () => {
-  initGame(createGameContext());
+  const params = new URLSearchParams(window.location.search);
+  initGame(createGameContext(), {
+    reverseDebug: params.get("debug_mode") === "1",
+  });
 });

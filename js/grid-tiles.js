@@ -37,12 +37,24 @@ export function setTileText(el, tileText) {
   el.disabled = isBlankTile;
 }
 
-export function syncDomFromBoard(grid, gameBoard, gridSize) {
+/**
+ * @param {HTMLElement} grid
+ * @param {string[][]} gameBoard
+ * @param {number} gridSize
+ * @param {{ allowEmptySelectable?: boolean }} [options]
+ */
+export function syncDomFromBoard(grid, gameBoard, gridSize, options = {}) {
   const n = gridSize;
   const tiles = grid.children;
+  const allowEmpty = options.allowEmptySelectable === true;
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      setTileText(tiles[r * n + c], gameBoard[r][c]);
+      const cell = gameBoard[r][c];
+      const el = tiles[r * n + c];
+      setTileText(el, cell);
+      if (allowEmpty && String(cell || "").trim() === "") {
+        el.disabled = false;
+      }
     }
   }
 }

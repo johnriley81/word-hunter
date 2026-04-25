@@ -58,6 +58,9 @@ export function createWordDragHandlers(ctx, host) {
 
   function finishWordDragCleanup(options = {}) {
     const skipLines = options.skipLines === true;
+    if (typeof host.clearTileDragPreview === "function") {
+      host.clearTileDragPreview();
+    }
     clearWordSubmitFeedbackTimer(ctx);
     w().currentWord = "";
     w().selectedButtons.forEach((button) => {
@@ -286,16 +289,45 @@ export function createWordDragHandlers(ctx, host) {
     }, WORD_RELEASE_GREEN_MS + WORD_REPLACE_TAIL_SLACK_MS);
   }
 
+  function canSelectButton(button, appendIndex) {
+    if (
+      typeof host.canSelectButtonAtStep === "function" &&
+      host.canSelectButtonAtStep(button, appendIndex, w().selectedButtons) === false
+    ) {
+      return false;
+    }
+    if (getTileText(button) !== "") return true;
+    return host.allowBlankSelection === true;
+  }
+
+  function getSelectionToken(button, appendIndex) {
+    if (typeof host.getReverseDragSelectionToken === "function") {
+      const rev = host.getReverseDragSelectionToken(button, appendIndex);
+      if (rev != null) return rev;
+    }
+    const raw = getTileText(button);
+    if (raw !== "") return raw;
+    if (typeof host.getSyntheticSelectionToken === "function") {
+      const synthetic = host.getSyntheticSelectionToken(
+        button,
+        appendIndex,
+        w().selectedButtons,
+      );
+      return typeof synthetic === "string" ? synthetic : "";
+    }
+    return "";
+  }
+
   function beginSelectionOnButton(targetButton) {
     if (!targetButton) return;
     if (targetButton.disabled) return;
     if (w().wordReplaceLockGen !== 0) return;
     if (
-      getTileText(targetButton) !== "" &&
+      canSelectButton(targetButton, w().selectedButtons.length) &&
       (w().lastButton === null || isAdjacent(w().lastButton, targetButton))
     ) {
       host.setMouseDown(true);
-      w().currentWord += getTileText(targetButton);
+      w().currentWord += getSelectionToken(targetButton, w().selectedButtons.length);
       w().selectedButtons.push(targetButton);
       w().selectedButtonSet.add(targetButton);
       targetButton.classList.add("selected");
@@ -303,6 +335,9 @@ export function createWordDragHandlers(ctx, host) {
       syncSelectionVisitDepth();
       host.updateCurrentWord();
       host.updateScoreStrip();
+      if (typeof host.syncTileDragPreview === "function") {
+        host.syncTileDragPreview();
+      }
     }
   }
 
@@ -311,15 +346,15 @@ export function createWordDragHandlers(ctx, host) {
     if (targetButton.disabled) return;
     if (
       host.getMouseDown() &&
-      getTileText(targetButton) !== "" &&
+      canSelectButton(targetButton, w().selectedButtons.length) &&
       (w().lastButton === null || isAdjacent(w().lastButton, targetButton))
     ) {
       let extendedWithNewTile = false;
       if (targetButton === w().selectedButtons[w().selectedButtons.length - 2]) {
         const removedButton = w().selectedButtons.pop();
-        w().currentWord = w().currentWord.slice(0, -1);
-        if (getTileText(removedButton) === "qu") {
-          w().currentWord = w().currentWord.slice(0, -1);
+        const removedToken = getSelectionToken(removedButton, w().selectedButtons.length);
+        if (removedToken.length > 0) {
+          w().currentWord = w().currentWord.slice(0, -removedToken.length);
         }
 
         const linesOnly = host.gridLineContainer.querySelectorAll("line");
@@ -333,7 +368,7 @@ export function createWordDragHandlers(ctx, host) {
         }
       } else {
         extendedWithNewTile = true;
-        w().currentWord += getTileText(targetButton);
+        w().currentWord += getSelectionToken(targetButton, w().selectedButtons.length);
         w().selectedButtons.push(targetButton);
         w().selectedButtonSet.add(targetButton);
         targetButton.classList.add("selected");
@@ -364,6 +399,9 @@ export function createWordDragHandlers(ctx, host) {
       }
       host.updateCurrentWord();
       host.updateScoreStrip();
+      if (typeof host.syncTileDragPreview === "function") {
+        host.syncTileDragPreview();
+      }
     }
   }
 
@@ -410,7 +448,17 @@ export function createWordDragHandlers(ctx, host) {
     if (!host.getMouseDown()) return;
     host.setMouseDown(false);
 
-    if (w().currentWord.length <= 2) {
+    const submitUnits =
+      typeof host.getSubmitUnitCount === "function"
+        ? host.getSubmitUnitCount(w().currentWord, w().selectedButtons)
+        : w().currentWord.length;
+
+    const sfxBingWordLen =
+      typeof host.getReverseWordTileLengthForSfx === "function"
+        ? Math.max(3, host.getReverseWordTileLengthForSfx())
+        : null;
+
+    if (submitUnits <= 2) {
       if (host.gridLineContainer.querySelector("line")) {
         finishWordDragCleanup({ skipLines: true });
         fadeOutWordConnectorLines();
@@ -420,14 +468,77 @@ export function createWordDragHandlers(ctx, host) {
       return;
     }
 
+    if (typeof host.onCommittedSelection === "function") {
+      const pre = host.onCommittedSelection(w().currentWord, w().selectedButtons);
+      if (pre === true) {
+        const len = sfxBingWordLen ?? Math.max(3, submitUnits);
+        playSound("bing", host.getMuted(), {
+          playbackRate: bingPlaybackRateForWordLength(len),
+        });
+        applyWordConnectorLineOutcome(true);
+        finishWordDragCleanup({ skipLines: true });
+        fadeOutWordConnectorLines();
+        return;
+      }
+      if (pre === "invalid") {
+        playSound("invalid", host.getMuted());
+        showMessage(ctx, "INVALID", 1, redTextColor);
+        applyWordConnectorLineOutcome(false);
+        fadeOutWordConnectorLines();
+        for (let i = 0; i < w().selectedButtons.length; i++) {
+          w().selectedButtons[i].classList.add("grid-button--invalid-shake");
+        }
+        clearWordSubmitFeedbackTimer(ctx);
+        w().wordSubmitFeedbackTimer = window.setTimeout(() => {
+          w().wordSubmitFeedbackTimer = null;
+          finishWordDragCleanup();
+        }, WORD_INVALID_SHAKE_MS);
+        return;
+      }
+    }
+
     if (host.validateWord(w().currentWord)) {
-      const len = w().currentWord.length;
+      if (typeof host.onCommittedValidWord === "function") {
+        const custom = host.onCommittedValidWord(
+          w().currentWord,
+          w().selectedButtons,
+        );
+        if (custom === true) {
+          const len = sfxBingWordLen ?? Math.max(3, w().currentWord.length);
+          playSound("bing", host.getMuted(), {
+            playbackRate: bingPlaybackRateForWordLength(len),
+          });
+          applyWordConnectorLineOutcome(true);
+          finishWordDragCleanup({ skipLines: true });
+          fadeOutWordConnectorLines();
+          return;
+        }
+        if (custom === "invalid") {
+          playSound("invalid", host.getMuted());
+          showMessage(ctx, "INVALID", 1, redTextColor);
+          applyWordConnectorLineOutcome(false);
+          fadeOutWordConnectorLines();
+          for (let i = 0; i < w().selectedButtons.length; i++) {
+            w().selectedButtons[i].classList.add("grid-button--invalid-shake");
+          }
+          clearWordSubmitFeedbackTimer(ctx);
+          w().wordSubmitFeedbackTimer = window.setTimeout(() => {
+            w().wordSubmitFeedbackTimer = null;
+            finishWordDragCleanup();
+          }, WORD_INVALID_SHAKE_MS);
+          return;
+        }
+      }
+
+      const len = sfxBingWordLen ?? Math.max(3, w().currentWord.length);
       playSound("bing", host.getMuted(), {
         playbackRate: bingPlaybackRateForWordLength(len),
       });
       let wordScore = host.getWordScoreFromSelectedTiles(w().selectedButtons);
       const cw = w().currentWord;
-      const tilesToReplace = Array.from(w().selectedButtonSet);
+      // One flip + one queue.shift() per path step; go-back reuses a cell, so
+      // selectedButtons can mention the same button more than once (Set would drop it).
+      const tilesToReplace = w().selectedButtons.slice();
       host.addToScore(wordScore);
       showMessage(
         ctx,

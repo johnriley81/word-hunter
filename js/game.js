@@ -1,6 +1,7 @@
 import {
   lightGreenPreviewColor,
   lightRedPreviewColor,
+  reverseDebugOverTileWordColor,
   happyHuntingColor,
   UPCOMING_LABEL,
   UPCOMING_PREVIEW_MAX,
@@ -61,6 +62,19 @@ import {
   resetWordSelectionState,
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
+import {
+  findAlternateWordInSlotPool,
+  loadReverseDebugSession,
+  navigateReverseDebugAnotherSample,
+} from "./reverse-debug-boot.js";
+import {
+  prependCoverOrder,
+  reverseUnplayOneWord,
+  wordToTileStrings,
+  countGoBackOverlapOpportunities,
+  validateReverseAuthoringDragPath,
+  pathCellsFromGridButtons,
+} from "./debug-reverse-build.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -68,8 +82,55 @@ let longestWord = "";
 let websiteLink = "https://wordhunter.io/";
 let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
 let playerPosition;
+// Temporary artifact playback override for normal mode. After a full reverse-debug
+// pass, the grid is the forward start and `nextletters` is the game sack in
+// queue.shift() order: head = what the *first* forward word consumes. Unplay
+// order is by descending hunt score, so the first forward play must be the
+// *lowest* score word, then next-lowest, …, highest last — not an arbitrary list.
+// Do not reverse the exported queue; paste `nextletters_queue_json` from the
+// downloaded artifact, or match `nextletters_cover_order_json` (same order).
+const TEMP_ARTIFACT_PLAYBACK = {
+  enabled: true,
+  wordsInArtifactOrder: [
+    "national",
+    "treatment",
+    "required",
+    "happened",
+    "watching",
+    "questions",
+    "government",
+    "difficult",
+    "completely",
+  ],
+  grid: [
+    ["n", "e", "l", "h"],
+    ["o", "a", "n", "i"],
+    ["i", "t", "n", "e"],
+    ["h", "m", "r", "d"],
+  ],
+  nextletters: [
+    "a", "a", "i", "n", "r", "a", "a", "t", "d", "c", "e", "qu", "d", "p",
+    "e", "t", "d", "i", "p", "t", "e", "i", "p", "c", "w", "o", "e", "g",
+    "a", "e", "u", "n", "o", "n", "r", "s", "t", "t", "y", "qu", "m", "f",
+    "f", "g", "l", "o", "v", "f", "c", "p", "l", "d", "i", "p", "d", "e",
+    "e", "t", "m",
+  ],
+};
 
-export function initGame(ctx) {
+export function initGame(ctx, options = {}) {
+  const reverseDebug = options.reverseDebug === true;
+  let reverseDebugCoverOrder = [];
+  let reverseDebugEntries = [];
+  let reverseDebugNextIndex = 0;
+  /** @type {string[][] | null} */
+  let reverseDebugSlotWordPools = null;
+  /** @type {HTMLElement | null} */
+  let reverseDebugMetaWrap = null;
+
+  if (reverseDebug) {
+    document.body.classList.add("reverse-debug-mode");
+  }
+
   Object.assign(ctx.refs, {
     grid: document.querySelector("#grid"),
     gridPan: document.getElementById("grid-pan"),
@@ -89,6 +150,7 @@ export function initGame(ctx) {
     bottomDock: document.querySelector("#bottom-dock"),
     rules: document.querySelector("#rules"),
     rulesButton: document.querySelector("#rules-button"),
+    rulesPerfectScore: document.getElementById("rules-perfect-score"),
     muteButton: document.getElementById("mute-button"),
     doneButton: document.querySelector("#done-button"),
     boardShiftZone: document.getElementById("board-shift-zone"),
@@ -125,6 +187,7 @@ export function initGame(ctx) {
     bottomDock,
     rules,
     rulesButton,
+    rulesPerfectScore,
     muteButton,
     doneButton,
     boardShiftZone,
@@ -157,6 +220,7 @@ export function initGame(ctx) {
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
+  let perfectScoresList = [];
   let isPaused = false;
   let isMuted = false;
 
@@ -210,6 +274,9 @@ export function initGame(ctx) {
       return isPaused;
     },
     get gameActive() {
+      if (reverseDebug) {
+        return reverseDebugEntries.length > 0;
+      }
       return isGameActive;
     },
   };
@@ -289,19 +356,293 @@ export function initGame(ctx) {
     }
   });
 
-  loadWordhunterTextAssets()
-    .then(({ wordSet: ws, gridsList: gl, nextLettersList: nll }) => {
-      wordSet = ws;
-      gridsList = gl;
-      nextLettersList = nll;
-      generateGrid();
-      nextLetters = generateNextLetters();
-      updateNextLetters();
-      startButton.disabled = false;
-    })
-    .catch((error) => {
-      console.error("Fetch error:", error);
+  function reverseDebugListHuntTotal() {
+    let s = 0;
+    for (let i = 0; i < reverseDebugEntries.length; i++) {
+      s += reverseDebugEntries[i].score;
+    }
+    return s;
+  }
+
+  function ensureReverseDebugMetaDom() {
+    if (!reverseDebug || reverseDebugMetaWrap || !gameInfoContainer) return;
+    const wrap = document.createElement("div");
+    wrap.className = "reverse-debug-meta";
+    wrap.innerHTML =
+      '<div class="reverse-debug-meta__row">' +
+      '<span id="reverse-debug-word-line" class="reverse-debug-meta__label" aria-live="polite"></span>' +
+      '<button type="button" id="reverse-debug-swap-word" class="reverse-debug-meta__refresh">Swap word</button>' +
+      "</div>" +
+      '<div class="reverse-debug-meta__row">' +
+      '<span id="reverse-debug-total-line" class="reverse-debug-meta__label" aria-live="polite"></span>' +
+      '<button type="button" id="reverse-debug-swap-list" class="reverse-debug-meta__refresh">Swap list</button>' +
+      "</div>";
+    const swapWordBtn = wrap.querySelector("#reverse-debug-swap-word");
+    if (swapWordBtn instanceof HTMLButtonElement && !swapWordBtn.dataset.reverseDebugWired) {
+      swapWordBtn.dataset.reverseDebugWired = "1";
+      swapWordBtn.addEventListener("click", () => {
+        reverseDebugHandleSwapWord();
+      });
+    }
+    const swapListBtn = wrap.querySelector("#reverse-debug-swap-list");
+    if (swapListBtn instanceof HTMLButtonElement && !swapListBtn.dataset.reverseDebugWired) {
+      swapListBtn.dataset.reverseDebugWired = "1";
+      swapListBtn.addEventListener("click", () => {
+        navigateReverseDebugAnotherSample();
+      });
+    }
+    const ribbon = gameInfoContainer.querySelector("#queue-ribbon");
+    if (ribbon && ribbon.nextSibling) {
+      gameInfoContainer.insertBefore(wrap, ribbon.nextSibling);
+    } else {
+      gameInfoContainer.appendChild(wrap);
+    }
+    reverseDebugMetaWrap = wrap;
+  }
+
+  function reverseDebugDownloadArtifactTxt() {
+    const params = new URLSearchParams(window.location.search);
+    const sampleId = params.get("debug_sample_id") ?? "";
+    const huntTotal = reverseDebugEntries.reduce((s, ent) => s + ent.score, 0);
+    const forwardByScore = reverseDebugEntries
+      .slice()
+      .sort((a, b) => a.score - b.score);
+    const lines = [
+      "# word-hunter reverse-debug artifact",
+      `# completed_utc: ${new Date().toISOString()}`,
+      `# page: ${window.location.href}`,
+      `sample_id: ${sampleId}`,
+      `words: ${reverseDebugEntries.map((ent) => ent.word).join(",")}`,
+      `scores: ${reverseDebugEntries.map((ent) => ent.score).join(",")}`,
+      `hunt_total: ${huntTotal}`,
+      "# Forward play: lowest hunt score first, then ascending (matches queue head → tail).",
+      `forward_word_order: ${forwardByScore.map((e) => e.word).join(",")}`,
+      "",
+      "final_grid_json:",
+      JSON.stringify(ctx.state.gameBoard),
+      "",
+      "nextletters_queue_json:",
+      JSON.stringify(nextLetters),
+      "",
+      "nextletters_cover_order_json:",
+      JSON.stringify(reverseDebugCoverOrder),
+      "",
+    ];
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/plain;charset=utf-8",
     });
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/:/g, "-").replace(/\./g, "-");
+    a.href = URL.createObjectURL(blob);
+    a.download = `reverse-debug-puzzle-${stamp}.txt`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  function reverseDebugHandleSwapWord() {
+    const entry = reverseDebugEntries[reverseDebugNextIndex];
+    if (!entry || !reverseDebugSlotWordPools) return;
+    const next = findAlternateWordInSlotPool(
+      entry,
+      reverseDebugSlotWordPools,
+      reverseDebugEntries,
+      reverseDebugNextIndex,
+    );
+    const btn = reverseDebugMetaWrap?.querySelector("#reverse-debug-swap-word");
+    if (!next) {
+      if (btn instanceof HTMLButtonElement) {
+        const prev = btn.textContent;
+        btn.textContent = "No match";
+        window.setTimeout(() => {
+          btn.textContent = prev || "Swap word";
+        }, 1200);
+      }
+      return;
+    }
+    entry.word = next;
+    bumpWordReplaceEpoch(ctx);
+    resetSelectionState();
+    reverseDebugRenderLabels();
+    updateCurrentWord();
+    updateScoreStrip();
+    reverseDebugSyncTileDragPreview();
+  }
+
+  function reverseDebugRenderLabels() {
+    ensureReverseDebugMetaDom();
+    if (!reverseDebugMetaWrap) return;
+    const wordLine = reverseDebugMetaWrap.querySelector("#reverse-debug-word-line");
+    const totalLine = reverseDebugMetaWrap.querySelector("#reverse-debug-total-line");
+    const swapWordBtn = reverseDebugMetaWrap.querySelector("#reverse-debug-swap-word");
+    const swapBtn = reverseDebugMetaWrap.querySelector("#reverse-debug-swap-list");
+    if (!(wordLine instanceof HTMLElement) || !(totalLine instanceof HTMLElement)) return;
+    const e = reverseDebugEntries[reverseDebugNextIndex];
+    const tot = reverseDebugListHuntTotal();
+    const done =
+      reverseDebugEntries.length > 0 &&
+      reverseDebugNextIndex >= reverseDebugEntries.length;
+
+    if (swapWordBtn instanceof HTMLButtonElement) {
+      if (done || !e) {
+        swapWordBtn.disabled = true;
+        swapWordBtn.title = "No current word to swap.";
+      } else if (!reverseDebugSlotWordPools) {
+        swapWordBtn.disabled = true;
+        swapWordBtn.title =
+          "Word pools unavailable — set debug_word_pools or ensure word-lists JSON loads.";
+      } else {
+        swapWordBtn.disabled = false;
+        swapWordBtn.title =
+          "Swap current word in-place: same slot, same score, same overlap rule.";
+      }
+    }
+    if (swapBtn instanceof HTMLButtonElement) {
+      swapBtn.disabled = false;
+      swapBtn.title =
+        "Load a different random list (same JSONL).";
+    }
+
+    if (!e) {
+      if (done) {
+        wordLine.textContent = "All words reversed. Artifact downloaded.";
+        totalLine.textContent = `[TOT]: ${tot}`;
+      } else {
+        wordLine.textContent = "";
+        totalLine.textContent = reverseDebugEntries.length === 0 ? "" : `[TOT]: ${tot}`;
+      }
+      return;
+    }
+
+    const o = countGoBackOverlapOpportunities(e.word);
+    wordLine.textContent = `[${e.word}]: o${o}`;
+    totalLine.textContent = `[TOT]: ${tot}`;
+  }
+
+  function enterReverseDebugPlaySurface() {
+    isGameActive = true;
+    startButton.disabled = true;
+    startButton.classList.add("hiddenDisplay", "dock-fade-out");
+    buttonContainer.classList.add("hiddenDisplay");
+    boardShiftZone.classList.remove("hiddenDisplay");
+    boardShiftZone.classList.add("visibleDisplay");
+    doneButton.classList.add("hiddenDisplay");
+    currentWordElement.classList.remove("hidden");
+    currentWordElement.classList.add("visible");
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
+    lockGridSizeForSwipe();
+    score = 0;
+    wordState.currentWord = "";
+    updateScore();
+    const buttons = grid.getElementsByClassName("grid-button");
+    for (let i = 0; i < buttons.length; i++) {
+      const b = buttons[i];
+      b.disabled = false;
+      b.classList.add("grid-button--active");
+      b.classList.remove("grid-button--inactive");
+    }
+    crossfadeWordmarkToHappyHunting(ctx, { skipWordmark: true });
+    updateCurrentWord();
+    updateNextLetters();
+    scheduleDeferredGameAudioWarmup();
+  }
+
+  function wireReverseDebugWordCommit() {
+    wordDragHost.onCommittedSelection = (_word, selectedButtons) => {
+      const entry = reverseDebugEntries[reverseDebugNextIndex];
+      if (!entry) return "invalid";
+      const tilesW = wordToTileStrings(entry.word);
+      if (selectedButtons.length !== tilesW.length) return "invalid";
+      const path = pathCellsFromGridButtons(
+        selectedButtons,
+        grid,
+        GRID_SIZE,
+      );
+      if (!path || !validateReverseAuthoringDragPath(path, entry.word)) {
+        return "invalid";
+      }
+      try {
+        const out = reverseUnplayOneWord(
+          ctx.state.gameBoard,
+          nextLetters,
+          entry.word,
+          path,
+        );
+        ctx.state.gameBoard = out.board;
+        nextLetters = out.queue;
+        prependCoverOrder(reverseDebugCoverOrder, out.coverLettersThisStep);
+        reverseDebugNextIndex += 1;
+        syncDomFromBoardTiles(grid, ctx.state.gameBoard, GRID_SIZE, {
+          allowEmptySelectable: true,
+        });
+        updateNextLetters();
+        reverseDebugRenderLabels();
+        if (reverseDebugNextIndex >= reverseDebugEntries.length) {
+          reverseDebugDownloadArtifactTxt();
+          reverseDebugRenderLabels();
+        }
+        return true;
+      } catch (err) {
+        console.debug("reverse unplay rejected", err);
+        return "invalid";
+      }
+    };
+  }
+
+  if (reverseDebug) {
+    loadReverseDebugSession(new URLSearchParams(window.location.search))
+      .then((session) => {
+        reverseDebugEntries = session.sortedEntries;
+        reverseDebugSlotWordPools = session.slotWordPools ?? null;
+        reverseDebugNextIndex = 0;
+        reverseDebugCoverOrder = [];
+        nextLetters = [];
+        wordSet = new Set();
+        gridsList = [];
+        nextLettersList = [];
+        generateGridFromBoard(session.board);
+        wireReverseDebugWordCommit();
+        enterReverseDebugPlaySurface();
+        reverseDebugRenderLabels();
+        updateScoreStrip();
+        if (reverseDebugEntries.length === 0) {
+          showMessage(
+            ctx,
+            "No word list (set debug_sample, debug_word_list, or debug_words)",
+            2,
+            happyHuntingColor,
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Reverse debug load error:", error);
+        showMessage(
+          ctx,
+          "Reverse debug failed to load",
+          2,
+          lightRedPreviewColor,
+        );
+      });
+  } else {
+    loadWordhunterTextAssets()
+      .then(({ wordSet: ws, gridsList: gl, nextLettersList: nll, perfectScores: ps }) => {
+        wordSet = ws;
+        gridsList = gl;
+        nextLettersList = nll;
+        perfectScoresList = Array.isArray(ps) ? ps.slice() : [];
+        generateGrid();
+        nextLetters = generateNextLetters();
+        updateRulesPerfectScore();
+        updateNextLetters();
+        startButton.disabled = false;
+      })
+      .catch((error) => {
+        console.error("Fetch error:", error);
+      });
+  }
 
   startButton.addEventListener("click", () => {
     void startGame();
@@ -351,8 +692,10 @@ export function initGame(ctx) {
     lbCtl.openDemoLeaderboardInlineNameEdit(td);
   });
   updateCurrentWord();
-  currentWordElement.textContent = PRE_START_WORDMARK;
-  currentWordElement.style.color = "white";
+  if (!reverseDebug) {
+    currentWordElement.textContent = PRE_START_WORDMARK;
+    currentWordElement.style.color = "white";
+  }
 
 
   function applyColumnShift(signedSteps) {
@@ -364,13 +707,21 @@ export function initGame(ctx) {
   }
 
   function syncDomFromBoard() {
-    syncDomFromBoardTiles(grid, ctx.state.gameBoard, GRID_SIZE);
+    syncDomFromBoardTiles(grid, ctx.state.gameBoard, GRID_SIZE, {
+      allowEmptySelectable: reverseDebug,
+    });
   }
 
   const shiftHost = {
     shiftState,
     uiState,
-    getIsGameActive: () => isGameActive,
+    getIsGameActive: () => {
+      if (reverseDebug) {
+        return reverseDebugEntries.length > 0;
+      }
+      return isGameActive;
+    },
+    getEndGameFromDoubleTapEnabled: () => !reverseDebug,
     getIsPaused: () => isPaused,
     getIsMouseDown: () => isMouseDown,
     getIsMuted: () => isMuted,
@@ -528,7 +879,9 @@ export function initGame(ctx) {
       grid.removeChild(grid.firstChild);
     }
     diffDays = calculateDiffDays();
-    const gridLetters = gridsList[diffDays % gridsList.length];
+    const gridLetters = TEMP_ARTIFACT_PLAYBACK.enabled
+      ? TEMP_ARTIFACT_PLAYBACK.grid
+      : gridsList[diffDays % gridsList.length];
     ctx.state.gameBoard = [];
 
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -557,16 +910,68 @@ export function initGame(ctx) {
     requestAnimationFrame(lockGridSizeForSwipe);
   }
 
+  function generateGridFromBoard(sourceBoard) {
+    while (grid.firstChild) {
+      grid.removeChild(grid.firstChild);
+    }
+    ctx.state.gameBoard = [];
+    for (let i = 0; i < GRID_SIZE; i++) {
+      ctx.state.gameBoard[i] = [];
+      for (let j = 0; j < GRID_SIZE; j++) {
+        const letter = sourceBoard[i][j];
+        ctx.state.gameBoard[i][j] = letter;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("grid-button", "grid-button--active");
+        setTileText(button, letter);
+        button.disabled = false;
+        button.addEventListener("mousedown", (e) => wordDrag.handleMouseDown(e));
+        button.addEventListener("mouseover", (e) => wordDrag.handleMouseOver(e));
+        button.addEventListener("touchstart", (e) => wordDrag.handleTouchStart(e), {
+          passive: false,
+        });
+        button.addEventListener("touchmove", (e) => wordDrag.handleTouchMove(e));
+        grid.appendChild(button);
+      }
+    }
+
+    ensureShiftPreviewElements(ctx);
+    syncLineOverlaySize();
+    requestAnimationFrame(syncLineOverlaySize);
+    requestAnimationFrame(lockGridSizeForSwipe);
+  }
+
   function generateNextLetters() {
     diffDays = calculateDiffDays();
-    const idx = diffDays % nextLettersList.length;
-    const raw = nextLettersList[idx];
+    const raw = TEMP_ARTIFACT_PLAYBACK.enabled
+      ? TEMP_ARTIFACT_PLAYBACK.nextletters
+      : nextLettersList[diffDays % nextLettersList.length];
     nextLetters = Array.isArray(raw) ? raw.slice() : [];
     return nextLetters;
   }
 
+  function updateRulesPerfectScore() {
+    if (!(rulesPerfectScore instanceof HTMLElement)) return;
+    if (!Array.isArray(perfectScoresList) || perfectScoresList.length === 0) return;
+    const idx = diffDays % perfectScoresList.length;
+    const val = Number(perfectScoresList[idx]);
+    if (Number.isFinite(val) && val > 0) {
+      rulesPerfectScore.textContent = String(Math.floor(val));
+    }
+  }
+
   function getLiveWordScoreBreakdown(buttonSequence) {
     const sequence = Array.isArray(buttonSequence) ? buttonSequence : [];
+    if (reverseDebug) {
+      const e = reverseDebugEntries[reverseDebugNextIndex];
+      if (!e || sequence.length === 0) {
+        return { letterSum: 0, length: 0, wordTotal: 0 };
+      }
+      const tiles = wordToTileStrings(e.word);
+      return getLiveWordScoreBreakdownFromLabels(
+        tiles.slice(0, Math.min(sequence.length, tiles.length)),
+      );
+    }
     const labels = sequence.map((button) => getTileText(button));
     return getLiveWordScoreBreakdownFromLabels(labels);
   }
@@ -596,6 +1001,35 @@ export function initGame(ctx) {
     if (ctx.state.wordLine.active) return;
     if (endgameUiShown) return;
     currentWordElement.classList.remove("current-word--soft-hidden");
+    if (reverseDebug) {
+      const e = reverseDebugEntries[reverseDebugNextIndex];
+      if (!e) {
+        currentWordElement.textContent = "";
+        currentWordElement.style.color = "white";
+        return;
+      }
+      if (!wordState.currentWord) {
+        currentWordElement.textContent = "";
+        currentWordElement.style.color = "white";
+        return;
+      }
+      currentWordElement.textContent = wordState.currentWord.toUpperCase();
+      const overExisting =
+        wordState.selectedButtons &&
+        wordState.selectedButtons.some((b) => getTileText(b) !== "");
+      const tiles = wordToTileStrings(e.word);
+      const covered = wordState.selectedButtons.length;
+      const expected = tiles.slice(0, covered).join("");
+      const pref = wordState.currentWord.toLowerCase();
+      if (overExisting) {
+        currentWordElement.style.color = reverseDebugOverTileWordColor;
+      } else if (expected.startsWith(pref)) {
+        currentWordElement.style.color = lightGreenPreviewColor;
+      } else {
+        currentWordElement.style.color = lightRedPreviewColor;
+      }
+      return;
+    }
     if (!wordState.currentWord) {
       currentWordElement.textContent = "";
       currentWordElement.style.color = "white";
@@ -646,13 +1080,42 @@ export function initGame(ctx) {
     }
   }
 
+  function reverseDebugClearTileDragPreview() {
+    if (!reverseDebug) return;
+    grid.querySelectorAll(".grid-button[data-reverse-drag-preview]").forEach((el) => {
+      el.removeAttribute("data-reverse-drag-preview");
+    });
+  }
+
+  function reverseDebugSyncTileDragPreview() {
+    if (!reverseDebug) return;
+    reverseDebugClearTileDragPreview();
+    const e = reverseDebugEntries[reverseDebugNextIndex];
+    if (!e) return;
+    const tiles = wordToTileStrings(e.word);
+    for (let p = 0; p < wordState.selectedButtons.length; p++) {
+      const btn = wordState.selectedButtons[p];
+      const piece = tiles[p];
+      if (!piece) continue;
+      btn.setAttribute(
+        "data-reverse-drag-preview",
+        piece === "qu" ? "QU" : piece.toUpperCase(),
+      );
+    }
+  }
+
   const wordDragHost = {
     grid,
     gridLineContainer,
     nextLettersElement,
     svgNs: SVG_NS,
     gridSize: GRID_SIZE,
-    getGameActive: () => isGameActive,
+    getGameActive: () => {
+      if (reverseDebug) {
+        return reverseDebugNextIndex < reverseDebugEntries.length;
+      }
+      return isGameActive;
+    },
     getMuted: () => isMuted,
     getMouseDown: () => isMouseDown,
     setMouseDown: (v) => {
@@ -663,7 +1126,34 @@ export function initGame(ctx) {
     updateScoreStrip,
     updateNextLetters,
     updateScore,
-    validateWord: (word) => wordSet.has(word.toLowerCase()),
+    allowBlankSelection: reverseDebug,
+    getSyntheticSelectionToken: (_button, appendIndex) => {
+      if (!reverseDebug) return "";
+      const e = reverseDebugEntries[reverseDebugNextIndex];
+      if (!e) return "";
+      const tiles = wordToTileStrings(e.word);
+      return tiles[appendIndex] || "";
+    },
+    canSelectButtonAtStep: (button, _appendIndex, selectedSoFar) => {
+      if (!reverseDebug) return true;
+      const e = reverseDebugEntries[reverseDebugNextIndex];
+      if (!e) return false;
+      const sel = Array.isArray(selectedSoFar) ? selectedSoFar : [];
+      const tentative = sel.concat([button]);
+      const cells = pathCellsFromGridButtons(tentative, grid, GRID_SIZE);
+      if (!cells) return false;
+      return validateReverseAuthoringDragPath(cells, e.word);
+    },
+    getSubmitUnitCount: (_word, selectedButtons) => {
+      if (reverseDebug) return selectedButtons.length;
+      return _word.length;
+    },
+    validateWord: (word) => {
+      if (reverseDebug) {
+        return true;
+      }
+      return wordSet.has(word.toLowerCase());
+    },
     getWordScoreFromSelectedTiles: (seq) =>
       getLiveWordScoreBreakdown(seq).wordTotal,
     getLongestWord: () => longestWord,
@@ -673,6 +1163,17 @@ export function initGame(ctx) {
     addToScore: (delta) => {
       score += delta;
     },
+    clearTileDragPreview: reverseDebugClearTileDragPreview,
+    syncTileDragPreview: reverseDebugSyncTileDragPreview,
+    ...(reverseDebug
+      ? {
+          getReverseWordTileLengthForSfx() {
+            const e = reverseDebugEntries[reverseDebugNextIndex];
+            if (!e) return 3;
+            return wordToTileStrings(e.word).length;
+          },
+        }
+      : {}),
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -1093,6 +1594,9 @@ export function initGame(ctx) {
   }
 
   function validateWord(word) {
+    if (reverseDebug) {
+      return true;
+    }
     return wordSet.has(word.toLowerCase());
   }
 }

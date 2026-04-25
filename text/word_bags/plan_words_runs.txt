@@ -1,0 +1,16 @@
+=== plan-words runs 2026-04-24T02:14Z ===
+repo: /Users/johnriley/word-hunter
+flags: --filter-letters --iterations 600 (smaller pool per day)
+
+########## index=0 ##########
+budget_metric=dual  budget_B=66  (chars_B=66  physical_tiles_B=66)
+sum_planned_lengths=58  sum_min_distinct_tiles=36  sum_budget_units=58  sum_scores=1000  score_gap=0  budget_units_gap=8  objective=2.8  reuse_bias=1.25  length_mix_bias=1.1  length_quota_strength=0.55  max_words_length_10=0  budget_sum_bounds=None  band_plateau=False  dual_feasible=False  dual_two_phase=True  phase1_score_hit=True  length_histogram={'9': 2, '10': 4}
+  diplococci    L=10  min_cells= 7  word_score= 190  running= 190  reuse=4
+  eyeopener     L= 9  min_cells= 6  word_score= 126  running= 316  reuse=6
+  hasheeshes    L=10  min_cells= 5  word_score= 190  running= 506  reuse=8
+  weeweeing     L= 9  min_cells= 6  word_score= 144  running= 650  reuse=5
+  wigwagging    L=10  min_cells= 6  word_score= 200  running= 850  reuse=7
+  preferrers    L=10  min_cells= 6  word_score= 150  running=1000  reuse=8
+words (order): diplococci → eyeopener → hasheeshes → weeweeing → wigwagging → preferrers
+
+########## index=1 ##########

@@ -65,13 +65,14 @@ export function pickRandomScenarioMessage(scenarioKey, fallbackMessage = "") {
 /** @param {string[]} labels Tile labels in path order */
 export function getLiveWordScoreBreakdownFromLabels(labels) {
   const sequence = Array.isArray(labels) ? labels : [];
-  const length = sequence.reduce((total, s) => {
-    return total + String(s || "").length;
-  }, 0);
+  const tiles = sequence
+    .map((s) => String(s || "").trim())
+    .filter((s) => s !== "");
+  const length = tiles.length;
   if (length === 0) {
     return { letterSum: 0, length: 0, wordTotal: 0 };
   }
-  const letterSum = sequence.reduce((sum, s) => {
+  const letterSum = tiles.reduce((sum, s) => {
     return sum + getLetterWeight(s);
   }, 0);
   return {

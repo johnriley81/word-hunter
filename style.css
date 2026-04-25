@@ -344,6 +344,11 @@ html {
   font-weight: 700;
 }
 
+.rules-perfect-score {
+  color: #ffeb3b;
+  font-weight: 800;
+}
+
 .rules-accent-red {
   color: var(--rules-accent-red);
   font-weight: 700;
@@ -1594,5 +1599,88 @@ line.grid-line--fade-out {
 .selected[data-selection-visits]:not([data-selection-visits="1"]):not([data-selection-visits="2"]) {
   background-color: var(--selected-tile-visit3-color);
   color: var(--selected-tile-visit3-text-color);
+}
+
+/* --- Reverse puzzle authoring (?debug_mode=1): play chrome, hide start/retry row --- */
+body.reverse-debug-mode #button-container {
+  display: none !important;
+}
+
+body.reverse-debug-mode #retry-button,
+body.reverse-debug-mode #done-button {
+  display: none !important;
+}
+
+body.reverse-debug-mode #leaderboard-elements {
+  display: none !important;
+}
+
+/* Reverse authoring: no upcoming ribbon or word line (meta strip carries context) */
+body.reverse-debug-mode #queue-ribbon,
+body.reverse-debug-mode .current-message-container {
+  display: none !important;
+}
+
+.reverse-debug-meta {
+  padding: 2px var(--page-padding) 6px;
+  font-size: clamp(0.58rem, 2.4vw, 0.72rem);
+  line-height: 1.35;
+  color: var(--page-text-color);
+  opacity: 0.92;
+}
+
+.reverse-debug-meta__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reverse-debug-meta__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.reverse-debug-meta__refresh {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--box-border-color);
+  background: var(--button-background-color);
+  color: var(--button-text-color);
+  font: inherit;
+  font-size: clamp(0.58rem, 2.2vw, 0.7rem);
+  cursor: pointer;
+}
+
+.reverse-debug-meta__refresh:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Current-slot letter preview while dragging (reverse debug) */
+body.reverse-debug-mode .grid-button[data-reverse-drag-preview] .tile-glyph,
+body.reverse-debug-mode .grid-button[data-reverse-drag-preview] .tile-weight-badge {
+  opacity: 0;
+}
+
+body.reverse-debug-mode .grid-button[data-reverse-drag-preview]::after {
+  content: attr(data-reverse-drag-preview);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.15rem, 5.2vw, 1.95rem);
+  font-weight: 800;
+  font-family: inherit;
+  color: var(--selected-tile-text-color);
+  background: rgba(24, 40, 58, 0.5);
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 4;
+  letter-spacing: 0.03em;
 }
 

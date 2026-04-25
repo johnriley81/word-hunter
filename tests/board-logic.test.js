@@ -16,13 +16,23 @@ test("normalizeTileText trims and maps q to qu", () => {
   assert.equal(normalizeTileText("a"), "a");
 });
 
-test("getLiveWordScoreBreakdownFromLabels multiplies sum by string length", () => {
+test("getLiveWordScoreBreakdownFromLabels uses tile count (not string length)", () => {
   const { letterSum, length, wordTotal } = getLiveWordScoreBreakdownFromLabels([
     "a",
     "b",
   ]);
   assert.equal(letterSum, getLetterWeight("a") + getLetterWeight("b"));
   assert.equal(length, 2);
+  assert.equal(wordTotal, letterSum * length);
+});
+
+test("getLiveWordScoreBreakdownFromLabels treats qu as one tile", () => {
+  const { letterSum, length, wordTotal } = getLiveWordScoreBreakdownFromLabels([
+    "qu",
+    "a",
+  ]);
+  assert.equal(length, 2);
+  assert.equal(letterSum, getLetterWeight("qu") + getLetterWeight("a"));
   assert.equal(wordTotal, letterSum * length);
 });
 

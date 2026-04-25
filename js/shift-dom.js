@@ -1116,7 +1116,10 @@ export function attachShiftGestures(ctx, host) {
       if (ctx.state.shift.doubleTapPrevAt > 0 && now - ctx.state.shift.doubleTapPrevAt < doubleEndGapMs) {
         host.clearTapStreak();
         resetShiftDragVisualHard();
-        host.endGame();
+        const allowEnd =
+          typeof host.getEndGameFromDoubleTapEnabled !== "function" ||
+          host.getEndGameFromDoubleTapEnabled();
+        if (allowEnd) host.endGame();
         return;
       }
       ctx.state.shift.doubleTapPrevAt = now;

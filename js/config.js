@@ -2,6 +2,8 @@ export const greenTextColor = "#07f03a";
 export const redTextColor = "#f76d6d";
 export const lightGreenPreviewColor = "#8ff7a8";
 export const lightRedPreviewColor = "#ff9b9b";
+/** Reverse debug: current-word line when tracing over existing tiles */
+export const reverseDebugOverTileWordColor = "#6ec8ff";
 export const redTextColorLeaderboard = "red";
 export const goldTextColor = "#e3af02";
 export const happyHuntingColor = "gold";

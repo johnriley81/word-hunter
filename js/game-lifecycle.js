@@ -27,5 +27,17 @@ export async function loadWordhunterTextAssets() {
     }
   });
 
-  return { wordSet, gridsList, nextLettersList };
+  let perfectScores = [];
+  try {
+    const perfectRes = await fetch("debug/reverse-authoring/data/perfect_scores.txt");
+    if (perfectRes.ok) {
+      const perfectText = await perfectRes.text();
+      perfectScores = perfectText
+        .split("\n")
+        .map((line) => Number(String(line).trim()))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    }
+  } catch (_) {}
+
+  return { wordSet, gridsList, nextLettersList, perfectScores };
 }
