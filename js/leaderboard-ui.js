@@ -15,6 +15,7 @@ import {
   sanitizeDemoLeaderboardName,
 } from "./leaderboard-lifecycle.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
+import { unlockGameAudio } from "./audio.js";
 
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
@@ -460,6 +461,7 @@ export function createLeaderboardController(rt) {
   async function getLeaderboard(clicked = false) {
     if (LEADERBOARD_USE_DEMO_DATA) {
       if (clicked) {
+        void unlockGameAudio();
         rt.playSound("click", rt.getIsMuted());
       }
       const cur = rt.getDemoRows();
