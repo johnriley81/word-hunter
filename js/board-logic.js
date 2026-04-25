@@ -1,7 +1,6 @@
 import {
   LETTER_WEIGHTS,
   SHIFT_STRIDE_FIRST_FRAC,
-  SHIFT_MIDWAY_TICK_STEPS_CAP,
   SCENARIO_MESSAGE_VARIANTS,
 } from "./config.js";
 
@@ -52,19 +51,6 @@ export function quantizeShiftVisualAxis(tx, ty, horizontal, stridePx, n) {
     return { tx: sign * snapped, ty: 0, rawTx: tx, rawTy: ty };
   }
   return { tx: 0, ty: sign * snapped, rawTx: tx, rawTy: ty };
-}
-
-export function countShiftMidwayCrossings(prevMag, currMag, stridePx) {
-  if (stridePx <= 0) return 0;
-  const lo = Math.min(prevMag, currMag);
-  const hi = Math.max(prevMag, currMag);
-  let count = 0;
-  for (let k = 0; k < SHIFT_MIDWAY_TICK_STEPS_CAP; k++) {
-    const t = (k + 0.5) * stridePx;
-    if (t > hi) break;
-    if (t > lo) count++;
-  }
-  return count;
 }
 
 export function pickRandomScenarioMessage(scenarioKey, fallbackMessage = "") {

@@ -18,18 +18,12 @@ import {
   shiftCommitStepsFromAxisMag,
   shiftMaxStepsPerGesture,
   quantizeShiftVisualAxis,
-  countShiftMidwayCrossings,
   computeShiftSnapPlan,
   computeShiftStageTransformString,
   gridInverseCompensateTranslateString,
 } from "./board-logic.js";
 import { getTileText, setTileText } from "./grid-tiles.js";
-import {
-  unlockGameAudio,
-  ensureShiftTickAudio,
-  playShiftTicks,
-  playSound,
-} from "./audio.js";
+import { unlockGameAudio, playSound } from "./audio.js";
 
 export function ensureShiftPreviewElements(ctx) {
   const { shiftPreviewStrip } = ctx.refs;
@@ -368,8 +362,6 @@ export function attachShiftGestures(ctx, host) {
   }
 
   armOneShotAudioUnlockOnGridAndShift();
-
-  void ensureShiftTickAudio();
 
   boardShiftZone.addEventListener("pointerdown", onShiftPointerDown, {
     passive: false,
@@ -995,7 +987,6 @@ export function attachShiftGestures(ctx, host) {
     ctx.state.shift.dragLockedHorizontal = null;
     resetShiftVisualState();
     ctx.state.shift.visualStripHorizontal = false;
-    ctx.state.shift.swipeTickPrevMag = 0;
     if (gridPan) {
       gridPan.style.transition = "";
       gridPan.style.transform = "";
@@ -1030,49 +1021,18 @@ export function attachShiftGestures(ctx, host) {
           })()
         : [e];
 
-    let tickCrossingsTotal = 0;
-    let tickMagCursor = ctx.state.shift.swipeTickPrevMag;
-
-    for (let si = 0; si < samples.length; si++) {
-      const sample = samples[si];
-      const sdx = sample.clientX - ctx.state.shift.startX;
-      const sdy = sample.clientY - ctx.state.shift.startY;
-      const sadx = Math.abs(sdx);
-      const sady = Math.abs(sdy);
-
-      const wasLocked = ctx.state.shift.dragLockedHorizontal !== null;
-      if (
-        !wasLocked &&
-        Math.max(sadx, sady) >= SHIFT_AXIS_LOCK_PX
-      ) {
-        ctx.state.shift.dragLockedHorizontal = sadx >= sady;
+    if (ctx.state.shift.dragLockedHorizontal === null) {
+      for (let si = 0; si < samples.length; si++) {
+        const sample = samples[si];
+        const sdx = sample.clientX - ctx.state.shift.startX;
+        const sdy = sample.clientY - ctx.state.shift.startY;
+        const sadx = Math.abs(sdx);
+        const sady = Math.abs(sdy);
+        if (Math.max(sadx, sady) >= SHIFT_AXIS_LOCK_PX) {
+          ctx.state.shift.dragLockedHorizontal = sadx >= sady;
+          break;
+        }
       }
-
-      if (ctx.state.shift.dragLockedHorizontal === null) {
-        continue;
-      }
-
-      const justLocked = !wasLocked && ctx.state.shift.dragLockedHorizontal !== null;
-      if (justLocked) {
-        tickMagCursor = 0;
-      }
-
-      const n = GRID_SIZE;
-      const m = getGridCellMetrics();
-      const stride = ctx.state.shift.dragLockedHorizontal ? m.tw + m.gap : m.th + m.gap;
-      const maxSlide = shiftMaxStepsPerGesture(n) * stride;
-      const axis = ctx.state.shift.dragLockedHorizontal ? sdx : sdy;
-      const clamped = Math.max(
-        Math.min(axis * SHIFT_SLIDE_SENSITIVITY, maxSlide),
-        -maxSlide
-      );
-      const mag = Math.abs(clamped);
-      tickCrossingsTotal += countShiftMidwayCrossings(
-        tickMagCursor,
-        mag,
-        stride
-      );
-      tickMagCursor = mag;
     }
 
     if (ctx.state.shift.dragLockedHorizontal === null) {
@@ -1088,13 +1048,9 @@ export function attachShiftGestures(ctx, host) {
       grid.style.transform = "translate(0, 0)";
       clearShiftPreview();
       resetShiftVisualState();
-      ctx.state.shift.swipeTickPrevMag = 0;
       host.syncLineOverlaySize();
       return;
     }
-
-    ctx.state.shift.swipeTickPrevMag = tickMagCursor;
-    playShiftTicks(tickCrossingsTotal, host.getIsMuted());
 
     const dx = e.clientX - ctx.state.shift.startX;
     const dy = e.clientY - ctx.state.shift.startY;
