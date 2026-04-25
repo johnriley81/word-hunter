@@ -115,7 +115,8 @@ export function playWebSfx(name, muted, options = {}) {
     src.buffer = buffer;
     const g = context.createGain();
     g.gain.value = muted ? 0 : 1;
-    const onEnded = typeof options.onEnded === "function" ? options.onEnded : null;
+    const onEnded =
+      typeof options.onEnded === "function" ? options.onEnded : null;
     src.onended = () => {
       if (src === lastGameOverSource) {
         lastGameOverSource = null;

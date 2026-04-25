@@ -12,11 +12,7 @@ import {
   resetWebGameOver,
 } from "./web-audio-sfx.js";
 
-export {
-  GAME_SOUND_SPEC,
-  GAME_SOUND_IDS,
-  BING_PLAYBACK_RATES_FOR_LENGTH,
-} from "./config.js";
+export { GAME_SOUND_SPEC, GAME_SOUND_IDS, BING_PLAYBACK_RATES_FOR_LENGTH } from "./config.js";
 
 function setBingPitchScalesWithPlaybackRate(el) {
   if (!el) return;
@@ -147,7 +143,8 @@ function stopAllSfxHtml() {
 }
 
 function playHtmlSound(name, muted, opts) {
-  const playbackRateRaw = typeof opts.playbackRate === "number" ? opts.playbackRate : 1;
+  const playbackRateRaw =
+    typeof opts.playbackRate === "number" ? opts.playbackRate : 1;
   const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
   const sound = sounds[name];
   if (!sound) return;

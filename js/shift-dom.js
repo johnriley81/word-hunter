@@ -91,7 +91,10 @@ export function attachShiftGestures(ctx, host) {
       shiftPreviewStrip.style.overflow = "";
       const inner = shiftPreviewStrip.querySelector(".shift-preview-inner");
       if (inner) {
-        inner.classList.remove("shift-preview-inner--col", "shift-preview-inner--row");
+        inner.classList.remove(
+          "shift-preview-inner--col",
+          "shift-preview-inner--row"
+        );
         inner.style.gridTemplateColumns = "";
         inner.style.gridTemplateRows = "";
         inner.style.width = "";
@@ -411,7 +414,9 @@ export function attachShiftGestures(ctx, host) {
         window.clearTimeout(fallbackTimer);
         boardShiftHints.classList.add("hiddenDisplay");
         boardShiftDismissButton.classList.add("hiddenDisplay");
-        boardShiftZone.classList.remove("board-shift-zone--instructions-fading");
+        boardShiftZone.classList.remove(
+          "board-shift-zone--instructions-fading"
+        );
         boardShiftHintsHideInProgress = false;
       };
       const onTransitionEnd = (e) => {
@@ -421,7 +426,10 @@ export function attachShiftGestures(ctx, host) {
         finalize();
       };
       boardShiftHints.addEventListener("transitionend", onTransitionEnd);
-      const fallbackTimer = window.setTimeout(finalize, BOARD_SHIFT_HINTS_FADE_MS + 80);
+      const fallbackTimer = window.setTimeout(
+        finalize,
+        BOARD_SHIFT_HINTS_FADE_MS + 80
+      );
     };
     boardShiftDismissButton.addEventListener("pointerdown", (event) => {
       if (event.cancelable) event.preventDefault();
@@ -523,7 +531,9 @@ export function attachShiftGestures(ctx, host) {
         easing: "cubic-bezier(0.2, 0.85, 0.25, 1)",
         fill: "forwards",
       });
-      anim.finished.then(() => finish()).catch(() => finish());
+      anim.finished
+        .then(() => finish())
+        .catch(() => finish());
       return;
     }
 
@@ -656,7 +666,8 @@ export function attachShiftGestures(ctx, host) {
     );
 
     const useWaapiSettle =
-      typeof gridStage.animate === "function" && typeof grid.animate === "function";
+      typeof gridStage.animate === "function" &&
+      typeof grid.animate === "function";
 
     let rejoinDone = false;
     let fallbackTimer;
@@ -698,14 +709,19 @@ export function attachShiftGestures(ctx, host) {
         snapWaapiAnim = null;
       }
       if (gridStage && snapStageTransitionEndHandler) {
-        gridStage.removeEventListener("transitionend", snapStageTransitionEndHandler);
+        gridStage.removeEventListener(
+          "transitionend",
+          snapStageTransitionEndHandler
+        );
         snapStageTransitionEndHandler = null;
       }
       if (gridStage) {
         gridStage.style.transition = "";
       }
       const stageCssForComp =
-        gridStage && gridStage.style.transform ? gridStage.style.transform : "none";
+        gridStage && gridStage.style.transform
+          ? gridStage.style.transform
+          : "none";
       const gridComp0 = gridInverseCompensateTranslateString(stageCssForComp);
       grid.style.transition = "none";
       grid.style.transform = gridComp0;
@@ -745,7 +761,10 @@ export function attachShiftGestures(ctx, host) {
         }
         if (rejoinStageEnded && rejoinGridEnded) {
           if (gridStage) {
-            gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
+            gridStage.removeEventListener(
+              "transitionend",
+              onRejoinTransitionEnd
+            );
           }
           grid.removeEventListener("transitionend", onRejoinTransitionEnd);
           finishRejoin();
@@ -778,7 +797,10 @@ export function attachShiftGestures(ctx, host) {
           rejoinTimer = null;
         }
         if (gridStage) {
-          gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
+          gridStage.removeEventListener(
+            "transitionend",
+            onRejoinTransitionEnd
+          );
         }
         grid.removeEventListener("transitionend", onRejoinTransitionEnd);
         if (gridStage) {
@@ -796,7 +818,8 @@ export function attachShiftGestures(ctx, host) {
       }
 
       if (useWaapiSettle) {
-        const stageFrom = gridStage.style.transform || "translate(0px, 0px)";
+        const stageFrom =
+          gridStage.style.transform || "translate(0px, 0px)";
         gridStage.style.transition = "none";
         void gridStage.offsetHeight;
         void grid.offsetHeight;
@@ -820,7 +843,10 @@ export function attachShiftGestures(ctx, host) {
           rejoinWaapiSafetyTimer = null;
           finishRejoin();
         }, SHIFT_REJOIN_SNAP_MS + SHIFT_COMMIT_SNAP_END_GRACE_MS);
-        Promise.all([rejoinWaapiStageAnim.finished, rejoinWaapiGridAnim.finished])
+        Promise.all([
+          rejoinWaapiStageAnim.finished,
+          rejoinWaapiGridAnim.finished,
+        ])
           .then(() => {
             if (rejoinWaapiSafetyTimer != null) {
               window.clearTimeout(rejoinWaapiSafetyTimer);
@@ -841,10 +867,19 @@ export function attachShiftGestures(ctx, host) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (gridStage) {
-              gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
-              gridStage.addEventListener("transitionend", onRejoinTransitionEnd);
+              gridStage.removeEventListener(
+                "transitionend",
+                onRejoinTransitionEnd
+              );
+              gridStage.addEventListener(
+                "transitionend",
+                onRejoinTransitionEnd
+              );
             }
-            grid.removeEventListener("transitionend", onRejoinTransitionEnd);
+            grid.removeEventListener(
+              "transitionend",
+              onRejoinTransitionEnd
+            );
             grid.addEventListener("transitionend", onRejoinTransitionEnd);
             gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
             grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
@@ -903,7 +938,10 @@ export function attachShiftGestures(ctx, host) {
           return;
         }
         if (gridStage && snapStageTransitionEndHandler) {
-          gridStage.removeEventListener("transitionend", snapStageTransitionEndHandler);
+          gridStage.removeEventListener(
+            "transitionend",
+            snapStageTransitionEndHandler
+          );
           snapStageTransitionEndHandler = null;
         }
         window.clearTimeout(snapEndTimer);
@@ -925,7 +963,10 @@ export function attachShiftGestures(ctx, host) {
               snapStageTransitionEndHandler
             );
           }
-          gridStage.addEventListener("transitionend", snapStageTransitionEndHandler);
+          gridStage.addEventListener(
+            "transitionend",
+            snapStageTransitionEndHandler
+          );
           gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
           gridStage.style.transform = targetTransform;
         });
@@ -934,8 +975,7 @@ export function attachShiftGestures(ctx, host) {
   }
 
   function onShiftPointerDown(e) {
-    if (!host.uiState.gameActive || host.uiState.paused || host.shiftState.animating)
-      return;
+    if (!host.uiState.gameActive || host.uiState.paused || host.shiftState.animating) return;
     if (e.button != null && e.button !== 0) return;
     if (e.cancelable) e.preventDefault();
     ctx.state.shift.pointerDownAt = performance.now();
@@ -1037,13 +1077,7 @@ export function attachShiftGestures(ctx, host) {
       stride,
       n
     );
-    updateShiftStageVisual(
-      q.tx,
-      q.ty,
-      ctx.state.shift.dragLockedHorizontal,
-      q.rawTx,
-      q.rawTy
-    );
+    updateShiftStageVisual(q.tx, q.ty, ctx.state.shift.dragLockedHorizontal, q.rawTx, q.rawTy);
     ctx.state.shift.visualTx = q.tx;
     ctx.state.shift.visualTy = q.ty;
     host.syncLineOverlaySize();
@@ -1079,10 +1113,7 @@ export function attachShiftGestures(ctx, host) {
         e.pointerType === "mouse" || e.pointerType === "pen"
           ? SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE
           : SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_TOUCH;
-      if (
-        ctx.state.shift.doubleTapPrevAt > 0 &&
-        now - ctx.state.shift.doubleTapPrevAt < doubleEndGapMs
-      ) {
+      if (ctx.state.shift.doubleTapPrevAt > 0 && now - ctx.state.shift.doubleTapPrevAt < doubleEndGapMs) {
         host.clearTapStreak();
         resetShiftDragVisualHard();
         host.endGame();
@@ -1120,9 +1151,7 @@ export function attachShiftGestures(ctx, host) {
     const horizontal =
       lockedHorizontal !== null ? lockedHorizontal : Math.abs(dx) >= Math.abs(dy);
     const stride = horizontal ? m.tw + m.gap : m.th + m.gap;
-    const magVis = horizontal
-      ? Math.abs(ctx.state.shift.visualTx)
-      : Math.abs(ctx.state.shift.visualTy);
+    const magVis = horizontal ? Math.abs(ctx.state.shift.visualTx) : Math.abs(ctx.state.shift.visualTy);
     const signedVis = horizontal ? ctx.state.shift.visualTx : ctx.state.shift.visualTy;
 
     const steps = shiftCommitStepsFromAxisMag(magVis, stride, n);

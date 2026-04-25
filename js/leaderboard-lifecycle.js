@@ -33,14 +33,18 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy) {
     return [
       String(r[0] || ""),
       Number(r[1]) === 1 ? 1 : 0,
-      r[2] === "" || r[2] === null || r[2] === undefined ? "" : Number(r[2]),
+      r[2] === "" || r[2] === null || r[2] === undefined
+        ? ""
+        : Number(r[2]),
       String(r[3] || ""),
     ];
   });
   /** @type {[string, number, number, string]} */
   const newRow = [name, 0, runScore, String(trophy || "")];
   const dataRows = filled.filter(
-    (r) => (r[0] && String(r[0]).trim()) || (r[2] !== "" && !Number.isNaN(Number(r[2])))
+    (r) =>
+      (r[0] && String(r[0]).trim()) ||
+      (r[2] !== "" && !Number.isNaN(Number(r[2])))
   );
   dataRows.push(newRow);
   dataRows.sort((a, b) => Number(b[2]) - Number(a[2]));

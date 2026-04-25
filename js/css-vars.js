@@ -17,5 +17,8 @@ export function syncWordReplaceAnimationCssVars() {
     "--leaderboard-postgame-fade-ms",
     `${LEADERBOARD_POSTGAME_FADE_MS}ms`
   );
-  root.style.setProperty("--endgame-tile-exit-ms", `${ENDGAME_TILE_SEQUENCE_MS}ms`);
+  root.style.setProperty(
+    "--endgame-tile-exit-ms",
+    `${ENDGAME_TILE_SEQUENCE_MS}ms`
+  );
 }
