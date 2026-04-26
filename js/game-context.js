@@ -8,6 +8,8 @@ export function createGameContext() {
       shift: createInitialShiftGestureState(),
       /** @type {string[][]} */
       gameBoard: [],
+      /** @type {string[] | null} */
+      perfectHunt: null,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */

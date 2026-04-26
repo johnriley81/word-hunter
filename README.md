@@ -49,7 +49,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt`, `grids.txt`, `nextletters.txt` loaded at startup. Grid layout for a day is `grids.txt` line `diffDays % gridCount`; the incoming-letter queue is `nextletters.txt` line `diffDays % queueCount`. Counts need not match (e.g. 99 vs 100), so the same grid+queue pair repeats on a longer combined cycle than either file alone.
+- **`text/`** — `wordlist.txt` and `puzzles.txt` (one or more `{ ... }` JSON objects per file—multi-line blocks are fine; legacy single-line objects also parse). `starting_grid` is the final 4×4 after nine builder commits; plus `next_letters`, `perfect_hunt`. Row index is `diffDays % puzzleCount`.
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 

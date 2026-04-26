@@ -153,9 +153,9 @@ export function initGame(ctx) {
   let score = 0;
   let nextLetters = [];
   let wordSet = new Set();
-  let gridsList = [];
+  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[] }>} */
+  let puzzles = [];
   let diffDays = 0;
-  let nextLettersList = [];
   let isPaused = false;
   let isMuted = false;
 
@@ -289,10 +289,13 @@ export function initGame(ctx) {
   });
 
   loadWordhunterTextAssets()
-    .then(({ wordSet: ws, gridsList: gl, nextLettersList: nll }) => {
+    .then(({ wordSet: ws, puzzles: pl }) => {
       wordSet = ws;
-      gridsList = gl;
-      nextLettersList = nll;
+      puzzles = pl;
+      if (!puzzles.length) {
+        console.error("text/puzzles.txt has no puzzle rows");
+        return;
+      }
       generateGrid();
       nextLetters = generateNextLetters();
       updateNextLetters();
@@ -523,7 +526,9 @@ export function initGame(ctx) {
       grid.removeChild(grid.firstChild);
     }
     diffDays = calculateDiffDays();
-    const gridLetters = gridsList[diffDays % gridsList.length];
+    const p = puzzles[diffDays % puzzles.length];
+    const gridLetters = p.starting_grid;
+    ctx.state.perfectHunt = p.perfect_hunt;
     ctx.state.gameBoard = [];
 
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -554,9 +559,8 @@ export function initGame(ctx) {
 
   function generateNextLetters() {
     diffDays = calculateDiffDays();
-    const idx = diffDays % nextLettersList.length;
-    const raw = nextLettersList[idx];
-    nextLetters = Array.isArray(raw) ? raw.slice() : [];
+    const p = puzzles[diffDays % puzzles.length];
+    nextLetters = p.next_letters.slice();
     return nextLetters;
   }
 
