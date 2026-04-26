@@ -49,7 +49,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt` and `puzzles.txt` (one or more `{ ... }` JSON objects per file—multi-line blocks are fine; legacy single-line objects also parse). `starting_grid` is the final 4×4 after nine builder commits; plus `next_letters`, `perfect_hunt`. Row index is `diffDays % puzzleCount`.
+- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines: one compact puzzle object per line: `starting_grid` = final 4×4 after nine builder commits, `next_letters`, `perfect_hunt`). Row index is `diffDays % puzzleCount`.
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 

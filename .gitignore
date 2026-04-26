@@ -10,5 +10,7 @@ __pycache__/
 requirements-dev.txt
 tests/test_wordhunter_cert.py
 text/word_metrics_7_10.csv
+text/word_metrics_7_10.pkl
+dp_word_result.txt
 # Generated reference dump (see tools/export_word_pool_jsonl.py)
 text/gamemaker/word-pool.jsonl

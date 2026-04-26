@@ -166,13 +166,19 @@ export function createWordDragHandlers(ctx, host) {
     }, WORD_LINE_FADE_MS + 40);
   }
 
-  function runSuccessPopThenStaggeredFlip(tilesToReplace) {
+  function runSuccessPopThenStaggeredFlip(
+    tilesToReplace,
+    onWordCommitAnimationsComplete
+  ) {
     const st = w();
     st.wordReplaceEpoch++;
     const epoch = st.wordReplaceEpoch;
     const n = tilesToReplace.length;
     const gridN = gridSize;
     if (n === 0) {
+      if (typeof onWordCommitAnimationsComplete === "function") {
+        onWordCommitAnimationsComplete();
+      }
       return;
     }
     st.wordReplaceLockGen = epoch;
@@ -226,6 +232,9 @@ export function createWordDragHandlers(ctx, host) {
             if (i === n - 1) {
               st.lastButton = null;
               st.wordReplaceLockGen = 0;
+              if (typeof onWordCommitAnimationsComplete === "function") {
+                onWordCommitAnimationsComplete();
+              }
             }
           }, WORD_LETTER_FLIP_MS + WORD_REPLACE_TAIL_SLACK_MS);
         };
@@ -412,13 +421,23 @@ export function createWordDragHandlers(ctx, host) {
 
     if (host.validateWord(w().currentWord)) {
       const len = w().currentWord.length;
-      playSound("bing", host.getMuted(), {
-        playbackRate: bingPlaybackRateForWordLength(len),
-      });
-      let wordScore = host.getWordScoreFromSelectedTiles(w().selectedButtons);
       const cw = w().currentWord;
+      const wordScore = host.getWordScoreFromSelectedTiles(w().selectedButtons);
+      const huntMeta = host.evaluatePerfectHuntSubmit(cw, wordScore);
+      if (!huntMeta.isPerfectCompletion) {
+        if (huntMeta.inList && huntMeta.choirPlaybackRate != null) {
+          playSound("choir", host.getMuted(), {
+            playbackRate: huntMeta.choirPlaybackRate,
+          });
+        } else {
+          playSound("bing", host.getMuted(), {
+            playbackRate: bingPlaybackRateForWordLength(len),
+          });
+        }
+      }
       const tilesToReplace = Array.from(w().selectedButtonSet);
       host.addToScore(wordScore);
+      host.commitPerfectHuntWordIfListed(cw);
       showMessage(
         ctx,
         `${cw.toUpperCase()} +${wordScore}`,
@@ -448,7 +467,11 @@ export function createWordDragHandlers(ctx, host) {
       host.updateScoreStrip();
       w().currentWord = "";
 
-      runSuccessPopThenStaggeredFlip(tilesToReplace);
+      runSuccessPopThenStaggeredFlip(tilesToReplace, () => {
+        if (!huntMeta.isPerfectCompletion) return;
+        if (!host.getGameActive()) return;
+        host.endGameWithStinger?.({ endgameStinger: "perfect" });
+      });
     } else {
       playSound("invalid", host.getMuted());
       showMessage(ctx, "INVALID", 1, redTextColor);
