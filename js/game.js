@@ -38,6 +38,11 @@ import {
   unlockGameAudio,
 } from "./audio.js";
 import { calculateDiffDays, loadWordhunterTextAssets } from "./game-lifecycle.js";
+import {
+  fetchDevGridPlaytestOverride,
+  applyDevGridOverrideDataset,
+  clearDevGridOverrideDataset,
+} from "./dev-grid-override.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
   getTileText,
@@ -156,6 +161,10 @@ export function initGame(ctx) {
   let gridsList = [];
   let diffDays = 0;
   let nextLettersList = [];
+  /** @type {string[][] | null} */
+  let playtestGrid4 = null;
+  /** @type {string[] | null} */
+  let playtestNextLetters = null;
   let isPaused = false;
   let isMuted = false;
 
@@ -289,12 +298,26 @@ export function initGame(ctx) {
   });
 
   loadWordhunterTextAssets()
-    .then(({ wordSet: ws, gridsList: gl, nextLettersList: nll }) => {
+    .then(async ({ wordSet: ws, gridsList: gl, nextLettersList: nll }) => {
       wordSet = ws;
       gridsList = gl;
       nextLettersList = nll;
-      generateGrid();
+      clearDevGridOverrideDataset();
+      const dev = await fetchDevGridPlaytestOverride();
+      playtestGrid4 = dev && dev.grid4 ? dev.grid4 : null;
+      playtestNextLetters =
+        dev && dev.nextLetters && dev.nextLetters.length > 0
+          ? dev.nextLetters.slice()
+          : null;
+      if (dev && dev.grid4) {
+        applyDevGridOverrideDataset(dev.label);
+        console.info("[devGrid] playtest override:", dev.label);
+      }
+      generateGrid(playtestGrid4);
       nextLetters = generateNextLetters();
+      if (playtestNextLetters) {
+        nextLetters = playtestNextLetters.slice();
+      }
       updateNextLetters();
       startButton.disabled = false;
     })
@@ -518,12 +541,18 @@ export function initGame(ctx) {
     scheduleDeferredGameAudioWarmup();
   }
 
-  function generateGrid() {
+  /** @param {string[][] | null} lettersOverride 4×4 from ?devGrid=, else daily grid from text. */
+  function generateGrid(lettersOverride) {
     while (grid.firstChild) {
       grid.removeChild(grid.firstChild);
     }
     diffDays = calculateDiffDays();
-    const gridLetters = gridsList[diffDays % gridsList.length];
+    const gridLetters =
+      lettersOverride != null &&
+      Array.isArray(lettersOverride) &&
+      lettersOverride.length === 4
+        ? lettersOverride
+        : gridsList[diffDays % gridsList.length];
     ctx.state.gameBoard = [];
 
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -942,8 +971,11 @@ export function initGame(ctx) {
     }
     resetSelectionState();
 
-    generateGrid();
-    generateNextLetters();
+    generateGrid(playtestGrid4);
+    nextLetters = generateNextLetters();
+    if (playtestNextLetters && playtestNextLetters.length > 0) {
+      nextLetters = playtestNextLetters.slice();
+    }
     updateNextLetters();
     updateScore();
 

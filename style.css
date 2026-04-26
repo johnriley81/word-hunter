@@ -1608,3 +1608,21 @@ line.grid-line--fade-out {
   background-color: var(--selected-tile-visit3-color);
   color: var(--selected-tile-visit3-text-color);
 }
+
+/* Local playtest: index.html?devGrid=<slug> — see text/dev-overrides/ */
+body.dev-grid-override--active::after {
+  content: "· playtest: " attr(data-dev-grid) " ·";
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20000;
+  font-size: 9px;
+  line-height: 1.2;
+  padding: 3px 8px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.72);
+  color: #6e6;
+  font-family: ui-monospace, monospace;
+  pointer-events: none;
+}
