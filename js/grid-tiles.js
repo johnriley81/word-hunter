@@ -46,7 +46,6 @@ export function setTileTextAllowEmpty(el, tileText) {
   const normalized = normalizeTileText(tileText);
   el.dataset.tileText = normalized;
   const isBlankTile = normalized === "";
-  el.classList.toggle("grid-button--build-empty", isBlankTile);
 
   let glyph = el.querySelector(".tile-glyph");
   if (!glyph) {
@@ -54,7 +53,7 @@ export function setTileTextAllowEmpty(el, tileText) {
     glyph.className = "tile-glyph";
     el.appendChild(glyph);
   }
-  glyph.textContent = isBlankTile ? "·" : normalized;
+  glyph.textContent = normalized;
 
   let badge = el.querySelector(".tile-weight-badge");
   if (!badge) {

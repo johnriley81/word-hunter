@@ -1,7 +1,4 @@
-/**
- * Pretty-printed clipboard JSON for the published-puzzle dict
- * (`starting_grids`, `next_letters`, `perfect_hunt`).
- */
+/** Clipboard JSON: starting_grids, next_letters, perfect_hunt (pretty-printed). */
 
 function formatJsonKeyValue(key, value, baseIndent) {
   const pad = " ".repeat(baseIndent);
@@ -15,9 +12,6 @@ function formatJsonKeyValue(key, value, baseIndent) {
     .join("\n")}`;
 }
 
-/**
- * @param {{ starting_grids: unknown, next_letters: unknown, perfect_hunt: unknown }} d
- */
 export function stringifyGamemakerDictExport(d) {
   return (
     "{\n" +
