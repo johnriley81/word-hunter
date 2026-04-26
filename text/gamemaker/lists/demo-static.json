@@ -1,0 +1,82 @@
+{
+  "lists": [
+    {
+      "id": "static-demo",
+      "testHarness": {
+        "startingGrid": [
+          ["a", "s", "a", "s"],
+          ["b", "e", "e", "v"],
+          ["a", "n", "a", "a"],
+          ["l", "o", "a", "b"]
+        ],
+        "note": "min_tiles / reuse follow the reuse rule. Recognizability is from word_metrics."
+      },
+      "words": [
+        {
+          "word": "aardwolves",
+          "min_tiles": 10,
+          "reuse": 0,
+          "wordTotal": 170,
+          "recognizability": 10
+        },
+        {
+          "word": "aardvarks",
+          "min_tiles": 7,
+          "reuse": 2,
+          "wordTotal": 153,
+          "recognizability": 6
+        },
+        {
+          "word": "abacterial",
+          "min_tiles": 9,
+          "reuse": 1,
+          "wordTotal": 140,
+          "recognizability": 6
+        },
+        {
+          "word": "abamperes",
+          "min_tiles": 9,
+          "reuse": 0,
+          "wordTotal": 135,
+          "recognizability": 6
+        },
+        {
+          "word": "aardvark",
+          "min_tiles": 6,
+          "reuse": 2,
+          "wordTotal": 128,
+          "recognizability": 6
+        },
+        {
+          "word": "aardwolf",
+          "min_tiles": 8,
+          "reuse": 0,
+          "wordTotal": 120,
+          "recognizability": 6
+        },
+        {
+          "word": "aasvogels",
+          "min_tiles": 7,
+          "reuse": 1,
+          "wordTotal": 117,
+          "recognizability": 6
+        },
+        {
+          "word": "aasvogel",
+          "min_tiles": 8,
+          "reuse": 0,
+          "wordTotal": 96,
+          "recognizability": 6
+        },
+        {
+          "word": "abalones",
+          "min_tiles": 8,
+          "reuse": 0,
+          "wordTotal": 80,
+          "recognizability": 6
+        }
+      ],
+      "alternates": [[], [], [], [], [], [], [], [], []]
+    }
+  ]
+}

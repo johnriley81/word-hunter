@@ -4,6 +4,9 @@ import {
   normalizeTileText,
   getLetterWeight,
   getLiveWordScoreBreakdownFromLabels,
+  wordToTileLabelSequence,
+  minUniqueTilesForReuseRule,
+  wordReuseStats,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
   shiftCommitStepsFromAxisMag,
@@ -14,6 +17,28 @@ import { GRID_SIZE, SHIFT_STRIDE_FIRST_FRAC } from "../js/config.js";
 test("normalizeTileText trims and maps q to qu", () => {
   assert.equal(normalizeTileText(" Q "), "qu");
   assert.equal(normalizeTileText("a"), "a");
+});
+
+test("wordToTileLabelSequence maps qu to one label", () => {
+  assert.deepEqual(wordToTileLabelSequence("quip"), ["qu", "i", "p"]);
+  assert.deepEqual(wordToTileLabelSequence("aardvark"), [
+    "a",
+    "a",
+    "r",
+    "d",
+    "v",
+    "a",
+    "r",
+    "k",
+  ]);
+});
+
+test("minUniqueTilesForReuseRule: two distinct between same labels", () => {
+  assert.equal(minUniqueTilesForReuseRule("happy"), 5);
+  assert.equal(minUniqueTilesForReuseRule("dudes"), 5);
+  assert.equal(wordReuseStats("binging").minTiles, 4);
+  assert.equal(wordReuseStats("binging").reuse, 3);
+  assert.equal(minUniqueTilesForReuseRule("aardvark"), 6);
 });
 
 test("getLiveWordScoreBreakdownFromLabels multiplies sum by string length", () => {
