@@ -1,4 +1,4 @@
-/** Writes text/gamemaker/pregen/puzzle-pool.json (9-word rows). POOL_SIZE, SEED env optional. */
+/** Writes text/gamemaker/pregen/puzzle-pool.json (9-word rows, 8–14 tile labels each). POOL_SIZE, SEED env optional. */
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
@@ -33,7 +33,7 @@ function loadCandidateWords() {
     if (!w || !/^[a-z]+$/.test(w)) continue;
     const labels = wordToTileLabelSequence(w);
     const n = labels.length;
-    if (n < 5 || n > 14) continue;
+    if (n < 8 || n > 14) continue;
     if (set.has(w)) continue;
     set.add(w);
     out.push(w);

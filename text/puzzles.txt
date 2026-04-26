@@ -1,0 +1,3 @@
+{
+"starting_grid":[["n","t","i","a"],["a","l","o","s"],["e","s","d","d"],["m","r","r","h"]],"next_letters":["r","t","i","m","e","m","s","a","o","n","d","r","f","h","s","r","a","u","m","a","b","m","y","a","i","h","y","s","k","i","m","a","s","e","d","r","c","c","s","i","a","a","n","a","n","a","s","p","a","i"],"perfect_hunt":["thorns","measles","dementias","hausfrau","mishmash","boyarisms","mydriatic","sandcracks","splendidnesses"]
+}

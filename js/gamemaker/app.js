@@ -13,7 +13,6 @@ import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
 import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js";
 import {
   buildNext50FromCoveredInBuildOrder,
-  simulateChronoToEndBoard,
   verifyForwardPuzzleIfCoveredChain50,
 } from "../puzzle-export-sim.js";
 import { loadWordhunterTextAssets } from "../game-lifecycle.js";
@@ -95,7 +94,6 @@ function createGamemaker() {
     Array.from({ length: WORD_COUNT }, () => [])
   );
   let boardSnapshotPreDrag = /** @type {string[][] | null} */ (null);
-  let exportEditorStartGrid = /** @type {string[][] | null} */ (null);
   let puzzleBatch = [];
 
   function copyBoard4(/** @type {string[][]} */ src) {
@@ -593,7 +591,6 @@ function createGamemaker() {
     pathByWordAsc = Array.from({ length: WORD_COUNT }, () => []);
     emptyBoard();
     syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
-    exportEditorStartGrid = copyBoard4(ctx.state.gameBoard);
     resetSelection();
     updateUi();
   }
@@ -625,15 +622,11 @@ function createGamemaker() {
     ta.remove();
   }
 
-  /** @returns {{ starting_grids: unknown[]; next_letters: unknown; perfect_hunt: string[] } | null} */
+  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null} */
   function buildDictExportFromState() {
-    const gEnd = ctx.state.gameBoard.map((row) => row.slice());
-    const editor0 =
-      exportEditorStartGrid && exportEditorStartGrid.length === 4
-        ? exportEditorStartGrid.map((r) => r.slice())
-        : Array(4)
-            .fill(null)
-            .map(() => Array(4).fill(""));
+    const gEndL = ctx.state.gameBoard.map((r) =>
+      r.map((c) => String(c || "").toLowerCase())
+    );
     const playsForExport =
       buildPlaysChron && buildPlaysChron.length
         ? buildPlaysChron.map((p) => {
@@ -659,11 +652,6 @@ function createGamemaker() {
       .sort((a, b) => (a.w.wordTotal || 0) - (b.w.wordTotal || 0));
     const wordsAsc = order.map((x) => (x.w.word || "").toLowerCase());
     const pathsInWordTotalAsc = order.map((x) => pathByWordAsc[x.i] || []);
-    const start4 = simulateChronoToEndBoard(
-      editor0,
-      buildPlaysChron.slice(0, WORD_COUNT - 1)
-    );
-    const gEndL = gEnd.map((r) => r.map((c) => String(c || "").toLowerCase()));
     const v2 =
       next50.length === 50
         ? verifyForwardPuzzleIfCoveredChain50(
@@ -681,12 +669,8 @@ function createGamemaker() {
     if (!v2.ok) {
       console.warn("[gamemaker export] forward verify:", v2.reason);
     }
-    const startGridNorm =
-      start4 && start4.length === 4
-        ? start4.map((r) => r.map((c) => String(c || "").toLowerCase()))
-        : null;
     return {
-      starting_grids: startGridNorm ? [startGridNorm] : [],
+      starting_grids: [gEndL],
       next_letters: next50,
       perfect_hunt: wordsAsc,
     };
@@ -711,10 +695,7 @@ function createGamemaker() {
       );
       return;
     }
-    const text =
-      n === 1
-        ? stringifyGamemakerDictExport(puzzleBatch[0])
-        : JSON.stringify(puzzleBatch, null, 2);
+    const text = puzzleBatch.map((d) => stringifyGamemakerDictExport(d)).join("\n\n");
     try {
       await copyTextToClipboard(text);
       puzzleBatch = [];

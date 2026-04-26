@@ -25,6 +25,10 @@ test("puzzle pool: 1000 entries, 9 words each, scores match board-logic", () => 
     for (const w of p.words) {
       const word = String(w.word || "").toLowerCase();
       const labels = wordToTileLabelSequence(word);
+      assert.ok(
+        labels.length >= 8 && labels.length <= 14,
+        "pool words use 8–14 tile labels: " + word
+      );
       const st = wordReuseStats(labels);
       const { wordTotal } = getLiveWordScoreBreakdownFromLabels(labels);
       assert.equal(w.min_tiles, st.minTiles, word);

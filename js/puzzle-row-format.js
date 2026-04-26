@@ -1,0 +1,166 @@
+/** puzzles.txt: one or more top-level `{...}` JSON objects (multi-line OK); minified one-liners also parse. */
+
+const GRID = 4;
+const NEXT_LEN = 50;
+const HUNT_LEN = 9;
+
+/** Top-level `{...}` slices; respects quoted strings. */
+export function extractJsonObjectSlices(text) {
+  const chunks = [];
+  let i = 0;
+  const s = text;
+  while (i < s.length) {
+    while (i < s.length && /\s/.test(s[i])) i++;
+    if (i >= s.length) break;
+    if (s[i] !== "{") {
+      throw new Error("expected '{' at offset " + i);
+    }
+    let depth = 0;
+    const start = i;
+    let inStr = false;
+    let esc = false;
+    for (; i < s.length; i++) {
+      const c = s[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') {
+        inStr = true;
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          chunks.push(s.slice(start, i + 1));
+          i++;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) {
+      throw new Error("unclosed '{' starting at offset " + start);
+    }
+  }
+  return chunks;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {{ starting_grid: unknown; next_letters: unknown; perfect_hunt: unknown }}
+ */
+export function normalizePuzzleRow(raw) {
+  if (!raw || typeof raw !== "object") throw new Error("puzzle row must be an object");
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  let starting_grid = o.starting_grid;
+  if (
+    starting_grid == null &&
+    Array.isArray(o.starting_grids) &&
+    o.starting_grids.length >= 1
+  ) {
+    starting_grid = o.starting_grids[0];
+  }
+  return {
+    starting_grid,
+    next_letters: o.next_letters,
+    perfect_hunt: o.perfect_hunt,
+  };
+}
+
+/**
+ * @param {{ starting_grid: unknown; next_letters: unknown; perfect_hunt: unknown }} row
+ */
+export function validatePuzzleRow(row) {
+  const { starting_grid, next_letters, perfect_hunt } = row;
+  if (!Array.isArray(starting_grid) || starting_grid.length !== GRID) {
+    throw new Error("starting_grid must be a 4×4 array");
+  }
+  for (let i = 0; i < GRID; i++) {
+    const r = starting_grid[i];
+    if (!Array.isArray(r) || r.length !== GRID) {
+      throw new Error("starting_grid row " + i + " must have 4 cells");
+    }
+  }
+  if (!Array.isArray(next_letters) || next_letters.length !== NEXT_LEN) {
+    throw new Error("next_letters must have length 50");
+  }
+  if (!Array.isArray(perfect_hunt) || perfect_hunt.length !== HUNT_LEN) {
+    throw new Error("perfect_hunt must have length 9");
+  }
+}
+
+export function serializePuzzleRow(row) {
+  const body =
+    '"starting_grid":' +
+    JSON.stringify(row.starting_grid) +
+    ',"next_letters":' +
+    JSON.stringify(row.next_letters) +
+    ',"perfect_hunt":' +
+    JSON.stringify(row.perfect_hunt);
+  return "{\n" + body + "\n}";
+}
+
+/**
+ * @param {string} text
+ * @param {{ fileLabel?: string }} [opts]
+ * @returns {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[] }>}
+ */
+export function parsePuzzlesFileText(text, opts = {}) {
+  const fileLabel = opts.fileLabel ?? "puzzles";
+  let slices;
+  try {
+    slices = extractJsonObjectSlices(text);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(fileLabel + ": " + msg);
+  }
+  const puzzles = [];
+  for (let rec = 0; rec < slices.length; rec++) {
+    let j;
+    try {
+      j = JSON.parse(slices[rec]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(fileLabel + " puzzle " + (rec + 1) + ": " + msg);
+    }
+    const norm = normalizePuzzleRow(j);
+    validatePuzzleRow(norm);
+    puzzles.push({
+      starting_grid: norm.starting_grid.map((r) =>
+        /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
+      ),
+      next_letters: /** @type {unknown[]} */ (norm.next_letters).map((c) =>
+        String(c || "").toLowerCase()
+      ),
+      perfect_hunt: /** @type {unknown[]} */ (norm.perfect_hunt).map((w) =>
+        String(w || "").toLowerCase()
+      ),
+    });
+  }
+  return puzzles;
+}
+
+export function dictExportToCanonicalRow(d) {
+  const g0 = d.starting_grids?.[0];
+  if (!g0) throw new Error("starting_grids[0] missing");
+  const row = normalizePuzzleRow({
+    starting_grid: g0,
+    next_letters: d.next_letters,
+    perfect_hunt: d.perfect_hunt,
+  });
+  validatePuzzleRow(row);
+  return {
+    starting_grid: row.starting_grid.map((r) =>
+      /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
+    ),
+    next_letters: /** @type {unknown[]} */ (row.next_letters).map((c) =>
+      String(c || "").toLowerCase()
+    ),
+    perfect_hunt: /** @type {unknown[]} */ (row.perfect_hunt).map((w) =>
+      String(w || "").toLowerCase()
+    ),
+  };
+}
