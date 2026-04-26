@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "gen:puzzle-pool": "node scripts/generate-puzzle-pool.mjs"
   },
   "devDependencies": {
     "prettier": "3.1.0"

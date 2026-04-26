@@ -7,7 +7,6 @@ import {
 } from "../config.js";
 import {
   wordToTileLabelSequence,
-  getLiveWordScoreBreakdownFromLabels,
   wordReuseStats,
   minUniqueTilesForReuseRule,
   applyColumnShiftInPlace,
@@ -81,12 +80,8 @@ function createGamemaker() {
   const boardShiftDismissButton = el("board-shift-dismiss");
   const targetEl = el("gamemaker-target");
   const repeatsEl = el("gamemaker-repeats");
-  const btnWord = el("gamemaker-btn-word");
   const btnList = el("gamemaker-btn-list");
-  const btnReset = el("gamemaker-btn-reset");
   const btnExport = el("gamemaker-btn-export");
-  const btnTestload = el("gamemaker-btn-testload");
-  const btnPuzzleTester = el("gamemaker-btn-puzzle-tester");
 
   Object.assign(ctx.refs, {
     grid,
@@ -128,17 +123,6 @@ function createGamemaker() {
     return src.map((row) => row.slice());
   }
 
-  function applyTestHarnessFromGrid(/** @type {string[][] | null} */ t) {
-    if (!t) return;
-    for (let r0 = 0; r0 < 4; r0++) {
-      for (let c0 = 0; c0 < 4; c0++) {
-        ctx.state.gameBoard[r0][c0] = (t[r0] && t[r0][c0]) || "";
-      }
-    }
-    syncDom(grid, ctx.state.gameBoard);
-    exportEditorStartGrid = copyBoard4(ctx.state.gameBoard);
-  }
-
   function getCurrentWordIndexAsc() {
     if (placementStep >= PLACEMENT_STEPS.length) return -1;
     return PLACEMENT_STEPS[placementStep];
@@ -153,21 +137,18 @@ function createGamemaker() {
   function updateUi() {
     const entry = getTargetEntry();
     if (!entry) {
-      targetEl.textContent = "Done — export or reset";
+      targetEl.textContent = "Done — export";
       repeatsEl.textContent = "";
-      btnWord.disabled = true;
       return;
     }
     const w = (entry.word || "").toLowerCase();
     const glyphs = wordToTileLabelSequence(w);
     const st = wordReuseStats(glyphs);
     targetEl.textContent = w.toUpperCase() + " (" + (placementStep + 1) + "/9)";
-    const parts = ["reuse " + st.reuse, "score " + (entry.wordTotal ?? "")];
-    const wordIx = getCurrentWordIndexAsc();
-    const alts = (alternates[wordIx] || []).length;
-    parts.push(alts ? alts + " alts" : "0 alts");
-    repeatsEl.textContent = parts.join(" · ");
-    btnWord.disabled = alts === 0;
+    repeatsEl.textContent = [
+      "reuse " + st.reuse,
+      "score " + (entry.wordTotal ?? ""),
+    ].join(" · ");
   }
 
   function restyleAllWordConnectorLines() {
@@ -602,15 +583,6 @@ function createGamemaker() {
   document.addEventListener("mouseup", () => onPointerUp());
   document.addEventListener("touchend", () => onPointerUp());
 
-  function listIndexForId(id) {
-    const lists = listsData.lists || [];
-    if (id && typeof id === "string") {
-      const ix = lists.findIndex((L) => L && L.id === id);
-      if (ix >= 0) return ix;
-    }
-    return 0;
-  }
-
   function randomListIndex() {
     const n = (listsData.lists || []).length;
     return n ? Math.floor(Math.random() * n) : 0;
@@ -640,40 +612,6 @@ function createGamemaker() {
     exportEditorStartGrid = copyBoard4(ctx.state.gameBoard);
     resetSelection();
     updateUi();
-  }
-
-  function swapWord() {
-    const ix = getCurrentWordIndexAsc();
-    if (ix < 0) return;
-    const alts = alternates[ix] || [];
-    if (!alts.length) return;
-    const cur = (currentWords[ix].word || "").toLowerCase();
-    const curG = wordToTileLabelSequence(cur);
-    const curM = minUniqueTilesForReuseRule(curG);
-    const next = alts
-      .map((w) => (w || "").toLowerCase())
-      .find(
-        (w) =>
-          w &&
-          w !== cur &&
-          wordSet.has(w) &&
-          wordToTileLabelSequence(w).length === curG.length &&
-          minUniqueTilesForReuseRule(wordToTileLabelSequence(w)) === curM
-      );
-    if (!next) return;
-    const total = getLiveWordScoreBreakdownFromLabels(
-      wordToTileLabelSequence(next)
-    ).wordTotal;
-    currentWords[ix] = {
-      ...currentWords[ix],
-      word: next,
-      wordTotal: total,
-    };
-    updateUi();
-  }
-
-  function resetAll() {
-    loadListAt(listIndex);
   }
 
   let exportCopyFeedbackTimer = 0;
@@ -789,53 +727,13 @@ function createGamemaker() {
     if (listsData.lists.length) loadListAt(randomListIndex());
     else {
       currentWords = [];
-      targetEl.textContent = "Add list bundles (text/gamemaker/manifest.json)";
+      targetEl.textContent =
+        "Run npm run gen:puzzle-pool (text/gamemaker/pregen/puzzle-pool.json)";
     }
     updateUi();
-    btnList.addEventListener("click", () => loadListAt(listIndex + 1));
-    btnWord.addEventListener("click", () => swapWord());
-    btnReset.addEventListener("click", () => resetAll());
+    btnList.addEventListener("click", () => loadListAt(randomListIndex()));
     btnExport.addEventListener("click", () => {
       void exportPuzzle();
-    });
-    btnTestload.addEventListener("click", () => {
-      const load = async () => {
-        listsData = await loadGamemakerListsData();
-        if (listsData.lists.length) loadListAt(randomListIndex());
-        updateUi();
-      };
-      void load();
-    });
-    btnPuzzleTester.addEventListener("click", () => {
-      const load = async () => {
-        try {
-          const r = await fetch("text/gamemaker/puzzle-tester-export.json");
-          if (!r.ok) return;
-          const j = await r.json();
-          if (
-            j &&
-            j.type === "wordhunter-gamemaker-export" &&
-            (j.editorHarness || j.startingGrid)
-          ) {
-            loadListAt(listIndexForId(j.listId));
-            const g =
-              (j.editorHarness && j.editorHarness.length === 4
-                ? j.editorHarness
-                : j.startingGrid) || null;
-            applyTestHarnessFromGrid(
-              g.map((row) => row.map((c) => String(c || "").toLowerCase()))
-            );
-            placementStep = 0;
-            buildPlaysChron = [];
-            pathByWordAsc = Array(9)
-              .fill(null)
-              .map(() => []);
-            resetSelection();
-            updateUi();
-          }
-        } catch (_) {}
-      };
-      void load();
     });
   }
 
