@@ -1,78 +1,157 @@
-/* Gamemaker layout — only used by gamemaker.html */
-.gamemaker-header {
-  display: flex;
-  justify-content: center;
+/* gamemaker.html — layout matches main game shell */
+
+body.gamemaker-page {
   align-items: center;
-  padding: var(--space-sm) var(--page-padding);
+}
+
+body.gamemaker-page > .gamemaker-header,
+body.gamemaker-page > .gamemaker-toolbar,
+body.gamemaker-page > #grid-line-wrapper,
+body.gamemaker-page > #bottom-dock {
   width: 100%;
   max-width: var(--app-shell-max-width);
-  margin: 0 auto;
+  min-width: 0;
   box-sizing: border-box;
 }
 
-.gamemaker-logo {
-  max-width: min(100%, 200px);
-  height: auto;
+.gamemaker-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: var(--logo-rules-padding-y) 0;
+  padding-inline: 0;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .gamemaker-toolbar {
+  --gamemaker-btn-row-gap: clamp(7px, 1.6vh, 15px);
+  padding: 1% 1% 0 1%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
   width: 100%;
-  max-width: var(--app-shell-max-width);
-  margin: 0 auto;
+  height: auto;
+  max-height: min(28dvh, 220px);
+  min-height: 0;
   box-sizing: border-box;
-  padding: 0 var(--page-padding) var(--space-sm);
-}
-
-.gamemaker-label-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  min-width: 0;
+  flex: 0 0 auto;
   font-family: "Press Start 2P", monospace, sans-serif;
-  font-size: clamp(9px, 2.4vw, 12px);
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--page-text-color);
   text-shadow: 0 0 1px var(--page-text-shadow-color);
 }
 
+@media (min-width: 600px) {
+  .gamemaker-toolbar {
+    max-height: min(200px, 26dvh);
+    flex-shrink: 0;
+    padding: 1% var(--grid-edge-padding) 0 var(--grid-edge-padding);
+  }
+
+  .gamemaker-score-slot {
+    min-height: 52px;
+  }
+}
+
+.gamemaker-score-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: clamp(52px, 7.6dvh, 88px);
+  height: auto;
+}
+
+.gamemaker-label-word {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1rem, 4.2vw, 1.45rem);
+  line-height: 1.15;
+  word-break: break-word;
+  text-align: center;
+  padding: 4px 10px 5px;
+  min-height: 56px;
+  border-style: outset;
+  border-color: var(--box-border-color);
+  background-color: var(--box-background-color);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow: hidden;
+}
+
+.gamemaker-label-stats {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 6px auto 0;
+  padding: 6px 8px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.58rem, 2.45vw, 0.84rem);
+  line-height: 1.2;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 1px 1px 2px var(--page-text-shadow-color);
+  background-color: #000000;
+  border-style: outset;
+  border-color: var(--box-border-color);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
 .gamemaker-btn-row {
+  order: 3;
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: center;
   width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  min-height: 28px;
+  height: auto;
+  margin-top: var(--gamemaker-btn-row-gap, clamp(7px, 1.6vh, 15px));
+  margin-bottom: var(--gamemaker-btn-row-gap, clamp(7px, 1.6vh, 15px));
+  padding-inline: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .gamemaker-target {
   color: #8ff7a8;
-  word-break: break-all;
-}
-
-.gamemaker-repeats {
-  color: #ffffff;
+  text-shadow: 1px 1px 2px var(--page-text-shadow-color);
 }
 
 .gamemaker-btn-group {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-xs);
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .gamemaker-btn {
-  font-family: "Press Start 2P", monospace, sans-serif;
-  font-size: clamp(6px, 1.6vw, 9px);
-  padding: 5px 8px;
-  flex: 0 0 auto;
+  font-family: "Press Start 2P", cursive;
+  font-size: clamp(1.15rem, 4.6vw, 1.7rem);
+  line-height: 1;
+  padding: 0.25em 12px;
+  flex: 1 1 0;
+  min-width: 0;
   white-space: nowrap;
   background: var(--button-background-color);
   color: var(--button-text-color);
@@ -86,16 +165,46 @@
   cursor: not-allowed;
 }
 
-.gamemaker-dock {
-  margin-top: -4px;
+body.gamemaker-page > #bottom-dock {
+  margin-top: auto;
+  flex: 0 0 auto;
   width: 100%;
-  max-width: var(--app-shell-max-width);
-  margin-inline: auto;
-  min-width: 0;
-  box-sizing: border-box;
+  min-height: var(--dock-min-height);
+  padding-bottom: 0;
+  padding-top: 0;
 }
 
-/* Empty build tiles: dot placeholder */
-#grid .grid-button--build-empty .tile-glyph {
-  opacity: 0.35;
+body.gamemaker-page > #grid-line-wrapper {
+  position: relative;
+  margin-top: 2px;
+  margin-bottom: -12px;
+  padding: 0 var(--grid-edge-padding) var(--grid-edge-padding);
+  align-self: center;
+  flex: 0 0 auto;
+  height: auto;
+  z-index: var(--z-grid-stage);
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (max-width: 599px) {
+  .gamemaker-label-word,
+  .gamemaker-label-stats {
+    width: 86%;
+    max-width: 86%;
+  }
+
+  .gamemaker-score-slot {
+    justify-content: center;
+  }
+
+  .gamemaker-label-word {
+    margin: 0 auto;
+  }
+
+  .gamemaker-label-stats {
+    align-self: center;
+  }
 }

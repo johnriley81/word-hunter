@@ -14,20 +14,20 @@
     />
     <link rel="icon" type="image/png" href="/images/favicon.png" />
   </head>
-  <body>
+  <body class="gamemaker-page">
     <div id="page-background" aria-hidden="true"></div>
     <div class="gamemaker-header">
-      <img id="logo" src="images/logo.png" alt="logo" class="gamemaker-logo" />
+      <img id="logo" src="images/logo.png" alt="logo" />
     </div>
-    <div class="gamemaker-toolbar">
-      <div class="gamemaker-label-row" aria-live="polite">
-        <span id="gamemaker-target" class="gamemaker-target">—</span>
-        <span id="gamemaker-repeats" class="gamemaker-repeats"></span>
+    <div class="gamemaker-toolbar" aria-live="polite">
+      <div class="gamemaker-score-slot">
+        <div id="gamemaker-target" class="gamemaker-label-word gamemaker-target">—</div>
       </div>
+      <div id="gamemaker-meta" class="gamemaker-label-stats gamemaker-meta"></div>
       <div class="gamemaker-btn-row">
         <div class="gamemaker-btn-group">
           <button type="button" id="gamemaker-btn-list" class="gamemaker-btn">
-            next
+            reset
           </button>
           <button type="button" id="gamemaker-btn-export" class="gamemaker-btn">
             export
@@ -54,7 +54,7 @@
       <svg id="line-container"></svg>
     </div>
 
-    <div id="bottom-dock" class="gamemaker-dock">
+    <div id="bottom-dock">
       <div
         id="board-shift-zone"
         class="visibleDisplay"

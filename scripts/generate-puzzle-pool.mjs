@@ -1,10 +1,4 @@
-/**
- * Build text/gamemaker/pregen/puzzle-pool.json: N compact 9-word puzzle rows
- * for puzzle builder (dictionary + board-logic scoring only).
- *
- * Usage: node scripts/generate-puzzle-pool.mjs
- * Optional: POOL_SIZE=1000 SEED=42 node scripts/generate-puzzle-pool.mjs
- */
+/** Writes text/gamemaker/pregen/puzzle-pool.json (9-word rows). POOL_SIZE, SEED env optional. */
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
@@ -21,7 +15,6 @@ const root = join(__dirname, "..");
 const POOL_SIZE = Math.max(1, parseInt(process.env.POOL_SIZE || "1000", 10) || 1000);
 const SEED = parseInt(process.env.SEED || "42", 10) || 42;
 
-/** Deterministic PRNG for reproducible pools */
 function mulberry32(a) {
   return function () {
     let t = (a += 0x6d2b79f5);
@@ -95,7 +88,6 @@ function main() {
     puzzles.push({
       id: `pool-${String(puzzles.length + 1).padStart(4, "0")}`,
       words: picked.map(wordEntry),
-      alternates: [[], [], [], [], [], [], [], [], []],
     });
   }
 
