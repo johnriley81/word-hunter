@@ -37,6 +37,7 @@
   --rules-accent-green: #07f03a;
   --rules-accent-pink: #ff7eb9;
   --rules-accent-purple: #b388ff;
+  --rules-perfect-hunt-total-color: #ff8500;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-text-shadow-color: black;
@@ -370,6 +371,11 @@ html {
 
 .rules-50-pink {
   color: var(--rules-accent-pink);
+  font-weight: 700;
+}
+
+.rules-perfect-hunt-total {
+  color: var(--rules-perfect-hunt-total-color);
   font-weight: 700;
 }
 

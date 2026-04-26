@@ -20,10 +20,12 @@ import {
   ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS,
   GAME_OVER_FLASH_TIMES,
   GAME_OVER_FLASH_HOLD_EXTRA_MS,
+  CHOIR_PLAYBACK_RATES_FOR_RANK,
 } from "./config.js";
 import {
   pickRandomScenarioMessage,
   getLiveWordScoreBreakdownFromLabels,
+  buildPerfectHuntMetadata,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
 } from "./board-logic.js";
@@ -88,6 +90,7 @@ export function initGame(ctx) {
     bottomDock: document.querySelector("#bottom-dock"),
     rules: document.querySelector("#rules"),
     rulesButton: document.querySelector("#rules-button"),
+    rulesPerfectHuntTotalElement: document.querySelector("#rules-perfect-hunt-total"),
     muteButton: document.getElementById("mute-button"),
     doneButton: document.querySelector("#done-button"),
     boardShiftZone: document.getElementById("board-shift-zone"),
@@ -124,6 +127,7 @@ export function initGame(ctx) {
     bottomDock,
     rules,
     rulesButton,
+    rulesPerfectHuntTotalElement,
     muteButton,
     doneButton,
     boardShiftZone,
@@ -485,6 +489,7 @@ export function initGame(ctx) {
 
     score = 0;
     wordState.currentWord = "";
+    ctx.state.perfectHuntWordsSubmitted?.clear();
     updateScore();
 
     const activateGridTilesForPlay = () => {
@@ -529,6 +534,24 @@ export function initGame(ctx) {
     const p = puzzles[diffDays % puzzles.length];
     const gridLetters = p.starting_grid;
     ctx.state.perfectHunt = p.perfect_hunt;
+    const huntMeta = buildPerfectHuntMetadata(
+      p.perfect_hunt,
+      CHOIR_PLAYBACK_RATES_FOR_RANK
+    );
+    if (huntMeta) {
+      ctx.state.perfectHuntTargetSum = huntMeta.targetSum;
+      ctx.state.perfectHuntChoirRateByWord = huntMeta.choirRateByWord;
+    } else {
+      ctx.state.perfectHuntTargetSum = null;
+      ctx.state.perfectHuntChoirRateByWord = null;
+    }
+    ctx.state.perfectHuntWordsSubmitted = new Set();
+    if (rulesPerfectHuntTotalElement) {
+      rulesPerfectHuntTotalElement.textContent =
+        ctx.state.perfectHuntTargetSum != null
+          ? String(ctx.state.perfectHuntTargetSum)
+          : "—";
+    }
     ctx.state.gameBoard = [];
 
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -671,6 +694,31 @@ export function initGame(ctx) {
     addToScore: (delta) => {
       score += delta;
     },
+    evaluatePerfectHuntSubmit(word, wordScore) {
+      const key = String(word || "").toLowerCase();
+      if (
+        !ctx.state.perfectHunt?.length ||
+        ctx.state.perfectHuntTargetSum == null ||
+        !ctx.state.perfectHuntChoirRateByWord
+      ) {
+        return { inList: false, isPerfectCompletion: false, choirPlaybackRate: null };
+      }
+      const inList = ctx.state.perfectHunt.some((w) => w.toLowerCase() === key);
+      if (!inList) {
+        return { inList: false, isPerfectCompletion: false, choirPlaybackRate: null };
+      }
+      const nextSet = new Set(ctx.state.perfectHuntWordsSubmitted);
+      nextSet.add(key);
+      const choirPlaybackRate = ctx.state.perfectHuntChoirRateByWord.get(key) ?? 1;
+      const isPerfectCompletion =
+        nextSet.size === 9 && score + wordScore === ctx.state.perfectHuntTargetSum;
+      return { inList: true, isPerfectCompletion, choirPlaybackRate };
+    },
+    commitPerfectHuntWordIfListed(word) {
+      const key = String(word || "").toLowerCase();
+      if (!ctx.state.perfectHunt?.some((w) => w.toLowerCase() === key)) return;
+      ctx.state.perfectHuntWordsSubmitted.add(key);
+    },
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -768,7 +816,8 @@ export function initGame(ctx) {
     }
   }
 
-  function endGame() {
+  function endGame(opts = {}) {
+    const stingerId = opts.endgameStinger === "perfect" ? "perfect" : "gameOver";
     isGameActive = false;
     clearWordSubmitFeedbackTimer(ctx);
     bumpWordReplaceEpoch(ctx);
@@ -822,7 +871,7 @@ export function initGame(ctx) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
     }
-    playSound("gameOver", isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
+    playSound(stingerId, isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
     }
@@ -873,6 +922,8 @@ export function initGame(ctx) {
       leaderboardDemoAdd.classList.add("hiddenDisplay");
     }
   }
+
+  wordDragHost.endGameWithStinger = (opts) => endGame(opts);
 
   function resetRoundToPregame(options = {}) {
     const forImmediateStart = options.forImmediateStart === true;

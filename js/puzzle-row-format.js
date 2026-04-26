@@ -1,52 +1,8 @@
-/** puzzles.txt: one or more top-level `{...}` JSON objects (multi-line OK); minified one-liners also parse. */
+/** puzzles.txt: JSON Lines — one compact `{...}` object per non-empty line. */
 
 const GRID = 4;
 const NEXT_LEN = 50;
 const HUNT_LEN = 9;
-
-/** Top-level `{...}` slices; respects quoted strings. */
-export function extractJsonObjectSlices(text) {
-  const chunks = [];
-  let i = 0;
-  const s = text;
-  while (i < s.length) {
-    while (i < s.length && /\s/.test(s[i])) i++;
-    if (i >= s.length) break;
-    if (s[i] !== "{") {
-      throw new Error("expected '{' at offset " + i);
-    }
-    let depth = 0;
-    const start = i;
-    let inStr = false;
-    let esc = false;
-    for (; i < s.length; i++) {
-      const c = s[i];
-      if (inStr) {
-        if (esc) esc = false;
-        else if (c === "\\") esc = true;
-        else if (c === '"') inStr = false;
-        continue;
-      }
-      if (c === '"') {
-        inStr = true;
-        continue;
-      }
-      if (c === "{") depth++;
-      else if (c === "}") {
-        depth--;
-        if (depth === 0) {
-          chunks.push(s.slice(start, i + 1));
-          i++;
-          break;
-        }
-      }
-    }
-    if (depth !== 0) {
-      throw new Error("unclosed '{' starting at offset " + start);
-    }
-  }
-  return chunks;
-}
 
 /**
  * @param {unknown} raw
@@ -93,14 +49,11 @@ export function validatePuzzleRow(row) {
 }
 
 export function serializePuzzleRow(row) {
-  const body =
-    '"starting_grid":' +
-    JSON.stringify(row.starting_grid) +
-    ',"next_letters":' +
-    JSON.stringify(row.next_letters) +
-    ',"perfect_hunt":' +
-    JSON.stringify(row.perfect_hunt);
-  return "{\n" + body + "\n}";
+  return JSON.stringify({
+    starting_grid: row.starting_grid,
+    next_letters: row.next_letters,
+    perfect_hunt: row.perfect_hunt,
+  });
 }
 
 /**
@@ -110,21 +63,19 @@ export function serializePuzzleRow(row) {
  */
 export function parsePuzzlesFileText(text, opts = {}) {
   const fileLabel = opts.fileLabel ?? "puzzles";
-  let slices;
-  try {
-    slices = extractJsonObjectSlices(text);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(fileLabel + ": " + msg);
-  }
+  const lines = text.split(/\r?\n/);
   const puzzles = [];
-  for (let rec = 0; rec < slices.length; rec++) {
+  let lineNo = 0;
+  for (const raw of lines) {
+    lineNo++;
+    const t = raw.trim();
+    if (!t) continue;
     let j;
     try {
-      j = JSON.parse(slices[rec]);
+      j = JSON.parse(t);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(fileLabel + " puzzle " + (rec + 1) + ": " + msg);
+      throw new Error(fileLabel + " line " + lineNo + ": " + msg);
     }
     const norm = normalizePuzzleRow(j);
     validatePuzzleRow(norm);

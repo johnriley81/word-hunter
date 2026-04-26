@@ -182,6 +182,30 @@ export function wordReuseStats(wordOrLabels) {
   return { labels, length: n, minTiles: minT, reuse: n - minT };
 }
 
+/** @returns {null | { targetSum: number, choirRateByWord: Map<string, number> }} */
+export function buildPerfectHuntMetadata(perfectHunt, choirRatesForRank) {
+  if (!Array.isArray(perfectHunt) || perfectHunt.length === 0) return null;
+  if (!Array.isArray(choirRatesForRank) || choirRatesForRank.length === 0) return null;
+  const words = perfectHunt.map((w) => String(w || "").toLowerCase());
+  const rows = words.map((word) => {
+    const labels = wordToTileLabelSequence(word);
+    const { wordTotal } = getLiveWordScoreBreakdownFromLabels(labels);
+    return { word, wordTotal };
+  });
+  rows.sort((a, b) => {
+    if (a.wordTotal !== b.wordTotal) return a.wordTotal - b.wordTotal;
+    return a.word.localeCompare(b.word);
+  });
+  const targetSum = rows.reduce((s, r) => s + r.wordTotal, 0);
+  const choirRateByWord = new Map();
+  const lastRank = choirRatesForRank.length - 1;
+  for (let i = 0; i < rows.length; i++) {
+    const rate = choirRatesForRank[Math.min(i, lastRank)];
+    choirRateByWord.set(rows[i].word, rate);
+  }
+  return { targetSum, choirRateByWord };
+}
+
 /** @param {string[]} labels Tile labels in path order */
 export function getLiveWordScoreBreakdownFromLabels(labels) {
   const sequence = Array.isArray(labels) ? labels : [];

@@ -11,8 +11,13 @@ import {
   applyRowShiftInPlace,
   shiftCommitStepsFromAxisMag,
   computeShiftSnapPlan,
+  buildPerfectHuntMetadata,
 } from "../js/board-logic.js";
-import { GRID_SIZE, SHIFT_STRIDE_FIRST_FRAC } from "../js/config.js";
+import {
+  GRID_SIZE,
+  SHIFT_STRIDE_FIRST_FRAC,
+  CHOIR_PLAYBACK_RATES_FOR_RANK,
+} from "../js/config.js";
 
 test("normalizeTileText trims and maps q to qu", () => {
   assert.equal(normalizeTileText(" Q "), "qu");
@@ -97,4 +102,43 @@ test("computeShiftSnapPlan returns target transform", () => {
   );
   assert.match(targetTransform, /translate\(/);
   assert.equal(typeof skipSnapAnimate, "boolean");
+});
+
+test("buildPerfectHuntMetadata: targetSum matches board-logic wordTotals", () => {
+  const hunt = ["aa", "zzz", "no"];
+  const rates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const meta = buildPerfectHuntMetadata(hunt, rates);
+  assert.ok(meta);
+  const rows = hunt.map((word) => {
+    const w = word.toLowerCase();
+    const { wordTotal } = getLiveWordScoreBreakdownFromLabels(
+      wordToTileLabelSequence(w)
+    );
+    return { word: w, wordTotal };
+  });
+  rows.sort((a, b) => {
+    if (a.wordTotal !== b.wordTotal) return a.wordTotal - b.wordTotal;
+    return a.word.localeCompare(b.word);
+  });
+  const expectedSum = rows.reduce((s, r) => s + r.wordTotal, 0);
+  assert.equal(meta.targetSum, expectedSum);
+  for (let i = 0; i < rows.length; i++) {
+    assert.equal(meta.choirRateByWord.get(rows[i].word), rates[i]);
+  }
+});
+
+test("buildPerfectHuntMetadata: ties break by word string", () => {
+  const hunt = ["ba", "ab"];
+  const meta = buildPerfectHuntMetadata(hunt, [1.1, 1.2]);
+  assert.ok(meta);
+  assert.equal(meta.choirRateByWord.get("ab"), 1.1);
+  assert.equal(meta.choirRateByWord.get("ba"), 1.2);
+});
+
+test("buildPerfectHuntMetadata: uses CHOIR_PLAYBACK_RATES_FOR_RANK length 9", () => {
+  assert.equal(CHOIR_PLAYBACK_RATES_FOR_RANK.length, 9);
+  const hunt = Array.from({ length: 9 }, (_, i) => "a".repeat(i + 3));
+  const meta = buildPerfectHuntMetadata(hunt, CHOIR_PLAYBACK_RATES_FOR_RANK);
+  assert.ok(meta);
+  assert.equal(meta.choirRateByWord.size, 9);
 });

@@ -8,7 +8,6 @@ import {
   parsePuzzlesFileText,
   dictExportToCanonicalRow,
   serializePuzzleRow,
-  extractJsonObjectSlices,
 } from "../js/puzzle-row-format.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -32,14 +31,19 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
 test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
   const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
   const puzzles = parsePuzzlesFileText(text);
-  assert.equal(puzzles.length, 1);
-  assert.equal(puzzles[0].starting_grid[0][0], "n");
-  assert.equal(puzzles[0].next_letters.length, 50);
-  assert.equal(puzzles[0].perfect_hunt[0], "thorns");
-  assert.equal(puzzles[0].perfect_hunt[8], "splendidnesses");
+  assert.equal(puzzles.length, 3);
+  for (const p of puzzles) {
+    assert.equal(p.starting_grid.length, 4);
+    assert.equal(p.next_letters.length, 50);
+    assert.equal(p.perfect_hunt.length, 9);
+  }
+  assert.equal(puzzles[0].starting_grid[0][0], "r");
+  assert.equal(puzzles[0].perfect_hunt[0], "supersaur");
+  assert.equal(puzzles[1].perfect_hunt[0], "clearings");
+  assert.equal(puzzles[2].perfect_hunt[0], "youngness");
 });
 
-test("dictExport round-trip multiline block", () => {
+test("dictExport round-trip one JSON line", () => {
   const d = {
     starting_grids: [
       [
@@ -52,10 +56,9 @@ test("dictExport round-trip multiline block", () => {
     next_letters: Array(50).fill("x"),
     perfect_hunt: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
   };
-  const blob = serializePuzzleRow(dictExportToCanonicalRow(d));
-  assert.match(blob, /^\{\n/);
-  assert.match(blob, /\n\}$/);
-  const again = parsePuzzlesFileText(blob);
+  const line = serializePuzzleRow(dictExportToCanonicalRow(d));
+  assert.ok(!line.includes("\n"), "single-line JSON");
+  const again = parsePuzzlesFileText(line);
   assert.equal(again.length, 1);
   assert.deepEqual(again[0].perfect_hunt, d.perfect_hunt);
 });
@@ -70,7 +73,7 @@ test("parsePuzzlesFileText accepts legacy single-line JSON object", () => {
   assert.equal(puzzles[0].starting_grid[0][0], "a");
 });
 
-test("extractJsonObjectSlices finds two concatenated blocks", () => {
+test("parsePuzzlesFileText parses multiple JSON lines", () => {
   const a =
     '{"starting_grid":[["a","a","a","a"],["a","a","a","a"],["a","a","a","a"],["a","a","a","a"]],"next_letters":' +
     JSON.stringify(Array(50).fill("1")) +
@@ -79,6 +82,8 @@ test("extractJsonObjectSlices finds two concatenated blocks", () => {
     '{"starting_grid":[["b","b","b","b"],["b","b","b","b"],["b","b","b","b"],["b","b","b","b"]],"next_letters":' +
     JSON.stringify(Array(50).fill("2")) +
     ',"perfect_hunt":["a","b","c","d","e","f","g","h","i"]}';
-  const slices = extractJsonObjectSlices(" \n" + a + "\n\n" + b + "\n");
-  assert.equal(slices.length, 2);
+  const puzzles = parsePuzzlesFileText(" \n" + a + "\n\n" + b + "\n");
+  assert.equal(puzzles.length, 2);
+  assert.equal(puzzles[0].next_letters[0], "1");
+  assert.equal(puzzles[1].next_letters[0], "2");
 });

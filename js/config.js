@@ -114,15 +114,22 @@ export const GAME_SOUND_SPEC = [
   { id: "button1", src: "sounds/button1.wav" },
   { id: "button2", src: "sounds/button2.wav" },
   { id: "bing", src: "sounds/bing.wav" },
+  { id: "choir", src: "sounds/choir.wav" },
   { id: "invalid", src: "sounds/invalid.wav" },
   { id: "submit", src: "sounds/submit.wav" },
   { id: "gameOver", src: "sounds/gameOver.wav" },
+  { id: "perfect", src: "sounds/perfect.wav" },
 ];
 
 export const GAME_SOUND_IDS = GAME_SOUND_SPEC.map((d) => d.id);
 
 export const BING_PLAYBACK_RATES_FOR_LENGTH = [
   0.82, 0.9, 0.98, 1.06, 1.14, 1.22, 1.3, 1.38,
+];
+
+/** Choir playbackRate steps by ascending hunt word score (rank 0 = lowest). */
+export const CHOIR_PLAYBACK_RATES_FOR_RANK = [
+  1.0, 1.06, 1.12, 1.18, 1.24, 1.3, 1.36, 1.42, 1.48,
 ];
 
 export const SFX_PLAY_POOL_SIZE = 4;

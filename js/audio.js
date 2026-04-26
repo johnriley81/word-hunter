@@ -2,6 +2,7 @@ import {
   GAME_SOUND_SPEC,
   SFX_PLAY_POOL_SIZE,
   BING_PLAYBACK_RATES_FOR_LENGTH,
+  CHOIR_PLAYBACK_RATES_FOR_RANK,
 } from "./config.js";
 import {
   initWebSfxFromSpec,
@@ -16,9 +17,10 @@ export {
   GAME_SOUND_SPEC,
   GAME_SOUND_IDS,
   BING_PLAYBACK_RATES_FOR_LENGTH,
+  CHOIR_PLAYBACK_RATES_FOR_RANK,
 } from "./config.js";
 
-function setBingPitchScalesWithPlaybackRate(el) {
+function setSfxPitchScalesWithPlaybackRate(el) {
   if (!el) return;
   try {
     el.preservesPitch = false;
@@ -35,7 +37,7 @@ function buildGameSoundsFromSpec(spec) {
   for (const { id, src } of spec) {
     const a = new Audio(src);
     a.preload = "auto";
-    if (id === "bing") setBingPitchScalesWithPlaybackRate(a);
+    if (id === "bing" || id === "choir") setSfxPitchScalesWithPlaybackRate(a);
     o[id] = a;
   }
   return o;
@@ -44,12 +46,12 @@ function buildGameSoundsFromSpec(spec) {
 function buildSoundPlayPools(spec, soundMap) {
   const pools = {};
   for (const { id, src } of spec) {
-    if (id === "gameOver") continue;
+    if (id === "gameOver" || id === "perfect") continue;
     const pool = [soundMap[id]];
     for (let i = 1; i < SFX_PLAY_POOL_SIZE; i++) {
       const a = new Audio(src);
       a.preload = "auto";
-      if (id === "bing") setBingPitchScalesWithPlaybackRate(a);
+      if (id === "bing" || id === "choir") setSfxPitchScalesWithPlaybackRate(a);
       pool.push(a);
     }
     pools[id] = pool;
@@ -66,6 +68,7 @@ export const soundPlayPoolCursor = Object.fromEntries(
 let gameAudioUnlocked = false;
 let gameAudioUnlockInFlight = null;
 let registeredHtmlGameOverEnded = null;
+let registeredHtmlPerfectEnded = null;
 
 async function primeHtmlAudioElement(el) {
   const prevMuted = el.muted;
@@ -151,12 +154,18 @@ function playHtmlSound(name, muted, opts) {
   const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
   const sound = sounds[name];
   if (!sound) return;
-  if (name === "gameOver") {
+  if (name === "gameOver" || name === "perfect") {
     if (registeredHtmlGameOverEnded) {
       try {
         sounds.gameOver.removeEventListener("ended", registeredHtmlGameOverEnded);
       } catch (_) {}
       registeredHtmlGameOverEnded = null;
+    }
+    if (registeredHtmlPerfectEnded) {
+      try {
+        sounds.perfect.removeEventListener("ended", registeredHtmlPerfectEnded);
+      } catch (_) {}
+      registeredHtmlPerfectEnded = null;
     }
     try {
       sound.pause();
@@ -168,11 +177,23 @@ function playHtmlSound(name, muted, opts) {
     sound.playbackRate = playbackRate;
     const onEnded = typeof opts.onEnded === "function" ? opts.onEnded : null;
     if (onEnded) {
-      registeredHtmlGameOverEnded = function onGameOverHtmlEnded() {
-        registeredHtmlGameOverEnded = null;
-        onEnded();
-      };
-      sounds.gameOver.addEventListener("ended", registeredHtmlGameOverEnded);
+      const handler =
+        name === "gameOver"
+          ? function onGameOverHtmlEnded() {
+              registeredHtmlGameOverEnded = null;
+              onEnded();
+            }
+          : function onPerfectHtmlEnded() {
+              registeredHtmlPerfectEnded = null;
+              onEnded();
+            };
+      if (name === "gameOver") {
+        registeredHtmlGameOverEnded = handler;
+        sounds.gameOver.addEventListener("ended", registeredHtmlGameOverEnded);
+      } else {
+        registeredHtmlPerfectEnded = handler;
+        sounds.perfect.addEventListener("ended", registeredHtmlPerfectEnded);
+      }
     }
     void sound.play().catch(() => {});
     return;
@@ -184,7 +205,7 @@ function playHtmlSound(name, muted, opts) {
   soundPlayPoolCursor[name] = (idx + 1) % pool.length;
   const a = pool[idx];
   a.muted = !!muted;
-  if (name === "bing") setBingPitchScalesWithPlaybackRate(a);
+  if (name === "bing" || name === "choir") setSfxPitchScalesWithPlaybackRate(a);
   a.defaultPlaybackRate = playbackRate;
   a.playbackRate = playbackRate;
   try {
@@ -223,9 +244,19 @@ export function resetGameOverAudio() {
     } catch (_) {}
     registeredHtmlGameOverEnded = null;
   }
+  if (registeredHtmlPerfectEnded) {
+    try {
+      sounds.perfect.removeEventListener("ended", registeredHtmlPerfectEnded);
+    } catch (_) {}
+    registeredHtmlPerfectEnded = null;
+  }
   try {
     sounds.gameOver.pause();
     sounds.gameOver.currentTime = 0;
+  } catch (_) {}
+  try {
+    sounds.perfect.pause();
+    sounds.perfect.currentTime = 0;
   } catch (_) {}
 }
 
@@ -242,6 +273,12 @@ export function scheduleDeferredGameAudioWarmup() {
           playbackRate: BING_PLAYBACK_RATES_FOR_LENGTH[7],
         });
         playSound("invalid", true);
+        playSound("choir", true, {
+          playbackRate: CHOIR_PLAYBACK_RATES_FOR_RANK[0],
+        });
+        playSound("choir", true, {
+          playbackRate: CHOIR_PLAYBACK_RATES_FOR_RANK[8],
+        });
       });
     });
   });

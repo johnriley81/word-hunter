@@ -5,6 +5,7 @@ let masterGain = null;
 let sfxBus = null;
 const bufferById = new Map();
 let lastGameOverSource = null;
+let lastPerfectSource = null;
 let didWireResume = false;
 let useWebSfx = false;
 
@@ -91,8 +92,19 @@ function stopWebGameOverIfPlaying() {
   lastGameOverSource = null;
 }
 
+function stopWebPerfectIfPlaying() {
+  if (!lastPerfectSource) return;
+  try {
+    lastPerfectSource.onended = null;
+    const when = context.currentTime;
+    lastPerfectSource.stop(when);
+  } catch (_) {}
+  lastPerfectSource = null;
+}
+
 export function resetWebGameOver() {
   stopWebGameOverIfPlaying();
+  stopWebPerfectIfPlaying();
 }
 
 export function playWebSfx(name, muted, options = {}) {
@@ -106,23 +118,31 @@ export function playWebSfx(name, muted, options = {}) {
   const playbackRateRaw =
     typeof options.playbackRate === "number" ? options.playbackRate : 1;
   const playbackRate = Math.min(2, Math.max(0.25, playbackRateRaw));
-  if (name === "gameOver") {
+  if (name === "gameOver" || name === "perfect") {
     try {
       sfxBus.gain.setValueAtTime(0, context.currentTime);
     } catch (_) {}
     stopWebGameOverIfPlaying();
+    stopWebPerfectIfPlaying();
     const src = context.createBufferSource();
     src.buffer = buffer;
     const g = context.createGain();
     g.gain.value = muted ? 0 : 1;
     const onEnded = typeof options.onEnded === "function" ? options.onEnded : null;
     src.onended = () => {
-      if (src === lastGameOverSource) {
+      if (name === "gameOver" && src === lastGameOverSource) {
         lastGameOverSource = null;
+      }
+      if (name === "perfect" && src === lastPerfectSource) {
+        lastPerfectSource = null;
       }
       if (onEnded) onEnded();
     };
-    lastGameOverSource = src;
+    if (name === "gameOver") {
+      lastGameOverSource = src;
+    } else {
+      lastPerfectSource = src;
+    }
     src.connect(g);
     g.connect(masterGain);
     src.start(context.currentTime);

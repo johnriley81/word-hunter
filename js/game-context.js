@@ -10,6 +10,12 @@ export function createGameContext() {
       gameBoard: [],
       /** @type {string[] | null} */
       perfectHunt: null,
+      /** @type {number | null} */
+      perfectHuntTargetSum: null,
+      /** @type {Map<string, number> | null} */
+      perfectHuntChoirRateByWord: null,
+      /** @type {Set<string> | null} */
+      perfectHuntWordsSubmitted: null,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */

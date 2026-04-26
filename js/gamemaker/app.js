@@ -695,7 +695,7 @@ function createGamemaker() {
       );
       return;
     }
-    const text = puzzleBatch.map((d) => stringifyGamemakerDictExport(d)).join("\n\n");
+    const text = puzzleBatch.map((d) => stringifyGamemakerDictExport(d)).join("\n");
     try {
       await copyTextToClipboard(text);
       puzzleBatch = [];
