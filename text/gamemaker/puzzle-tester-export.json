@@ -1,0 +1,253 @@
+{
+  "type": "wordhunter-gamemaker-export",
+  "listId": "static-demo",
+  "startingGrid": [
+    ["a", "a", "k", "e"],
+    ["a", "s", "w", "s"],
+    ["l", "v", "o", "l"],
+    ["r", "e", "e", "g"]
+  ],
+  "nextLetters": [
+    "a",
+    "a",
+    "l",
+    "r",
+    "e",
+    "v",
+    "s",
+    "a",
+    "a",
+    "a",
+    "a",
+    "s",
+    "v",
+    "m",
+    "g",
+    "o",
+    "k",
+    "r",
+    "o",
+    "d",
+    "v",
+    "f",
+    "l",
+    "i",
+    "a",
+    "l",
+    "r",
+    "a",
+    "d",
+    "a",
+    "e",
+    "p",
+    "a",
+    "e",
+    "b",
+    "r",
+    "e",
+    "a",
+    "a",
+    "b",
+    "c",
+    "b",
+    "a",
+    "t",
+    "a",
+    "s",
+    "s",
+    "d",
+    "r",
+    "l"
+  ],
+  "wordsAscending": [
+    {
+      "word": "abalones",
+      "min_tiles": 8,
+      "reuse": 0,
+      "wordTotal": 80
+    },
+    {
+      "word": "aasvogel",
+      "min_tiles": 8,
+      "reuse": 0,
+      "wordTotal": 96
+    },
+    {
+      "word": "aasvogels",
+      "min_tiles": 8,
+      "reuse": 1,
+      "wordTotal": 117
+    },
+    {
+      "word": "aardwolf",
+      "min_tiles": 8,
+      "reuse": 0,
+      "wordTotal": 120
+    },
+    {
+      "word": "aardvark",
+      "min_tiles": 6,
+      "reuse": 2,
+      "wordTotal": 128
+    },
+    {
+      "word": "abamperes",
+      "min_tiles": 9,
+      "reuse": 0,
+      "wordTotal": 135
+    },
+    {
+      "word": "abacterial",
+      "min_tiles": 9,
+      "reuse": 1,
+      "wordTotal": 140
+    },
+    {
+      "word": "aardvarks",
+      "min_tiles": 7,
+      "reuse": 2,
+      "wordTotal": 153
+    },
+    {
+      "word": "aardwolves",
+      "min_tiles": 10,
+      "reuse": 0,
+      "wordTotal": 170
+    }
+  ],
+  "pathByWordIndexAsc": [
+    [0, 4, 8, 12, 13, 9, 5, 1],
+    [0, 4, 5, 9, 10, 15, 14, 11],
+    [0, 5, 9, 10, 11, 14, 13, 8, 9],
+    [4, 1, 5, 10, 6, 9, 13, 14],
+    [10, 9, 5, 6, 11, 10, 5, 0],
+    [0, 5, 10, 15, 14, 9, 6, 3, 7],
+    [4, 5, 6, 10, 9, 13, 12, 8, 4, 1],
+    [9, 10, 5, 4, 8, 9, 5, 2, 3],
+    [0, 4, 8, 12, 13, 9, 6, 10, 11, 7]
+  ],
+  "buildPlaysChron": [
+    {
+      "word": "aardwolves",
+      "pathFlat": [0, 4, 8, 12, 13, 9, 6, 10, 11, 7],
+      "covered": ["a", "b", "a", "l", "o", "n", "e", "a", "a", "v"],
+      "min_tiles": 10
+    },
+    {
+      "word": "aardvarks",
+      "pathFlat": [9, 10, 5, 4, 8, 9, 5, 2, 3],
+      "covered": ["o", "v", "e", "a", "r", "a", "s"],
+      "min_tiles": 7
+    },
+    {
+      "word": "abacterial",
+      "pathFlat": [4, 5, 6, 10, 9, 13, 12, 8, 4, 1],
+      "covered": ["d", "r", "l", "a", "a", "w", "d", "v", "s"],
+      "min_tiles": 9
+    },
+    {
+      "word": "abamperes",
+      "pathFlat": [0, 5, 10, 15, 14, 9, 6, 3, 7],
+      "covered": ["a", "b", "c", "b", "a", "t", "a", "s", "s"],
+      "min_tiles": 9
+    },
+    {
+      "word": "aardvark",
+      "pathFlat": [10, 9, 5, 6, 11, 10, 5, 0],
+      "covered": ["a", "e", "b", "r", "e", "a"],
+      "min_tiles": 6
+    },
+    {
+      "word": "aardwolf",
+      "pathFlat": [4, 1, 5, 10, 6, 9, 13, 14],
+      "covered": ["a", "l", "r", "a", "d", "a", "e", "p"],
+      "min_tiles": 8
+    },
+    {
+      "word": "aasvogels",
+      "pathFlat": [0, 5, 9, 10, 11, 14, 13, 8, 9],
+      "covered": ["k", "r", "o", "d", "v", "f", "l", "i"],
+      "min_tiles": 8
+    },
+    {
+      "word": "aasvogel",
+      "pathFlat": [0, 4, 5, 9, 10, 15, 14, 11],
+      "covered": ["a", "a", "a", "s", "v", "m", "g", "o"],
+      "min_tiles": 8
+    },
+    {
+      "word": "abalones",
+      "pathFlat": [0, 4, 8, 12, 13, 9, 5, 1],
+      "covered": ["a", "a", "l", "r", "e", "v", "s", "a"],
+      "min_tiles": 8
+    }
+  ],
+  "forwardVerify": {
+    "ok": false,
+    "reason": "covered_chain_length: 73, need 50",
+    "queueLeft": [
+      "a",
+      "a",
+      "l",
+      "r",
+      "e",
+      "v",
+      "s",
+      "a",
+      "a",
+      "a",
+      "a",
+      "s",
+      "v",
+      "m",
+      "g",
+      "o",
+      "k",
+      "r",
+      "o",
+      "d",
+      "v",
+      "f",
+      "l",
+      "i",
+      "a",
+      "l",
+      "r",
+      "a",
+      "d",
+      "a",
+      "e",
+      "p",
+      "a",
+      "e",
+      "b",
+      "r",
+      "e",
+      "a",
+      "a",
+      "b",
+      "c",
+      "b",
+      "a",
+      "t",
+      "a",
+      "s",
+      "s",
+      "d",
+      "r",
+      "l"
+    ]
+  },
+  "editorHarness": [
+    ["a", "s", "a", "s"],
+    ["b", "e", "e", "v"],
+    ["a", "n", "a", "a"],
+    ["l", "o", "a", "b"]
+  ],
+  "solvedGrid": [
+    ["a", "s", "k", "e"],
+    ["b", "e", "w", "s"],
+    ["a", "n", "o", "l"],
+    ["l", "o", "e", "g"]
+  ]
+}

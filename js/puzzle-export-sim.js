@@ -1,0 +1,244 @@
+/** Forward simulation / export verification for published puzzles. */
+
+import {
+  wordToTileLabelSequence,
+  normalizeTileText,
+  minUniqueTilesForReuseRule,
+} from "./board-logic.js";
+
+/**
+ * @param {number[]} pathFlat
+ * @returns {number[]} unique flat indices in path order
+ */
+function uniquesInPathOrder(pathFlat) {
+  const out = [];
+  const seen = new Set();
+  for (const f of pathFlat) {
+    if (!seen.has(f)) {
+      seen.add(f);
+      out.push(f);
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string[][]} grid0 Solved 4×4 (all nine words on the board) — not the pre-9th-build snapshot.
+ * @param {string[]} nextIn 50 string tokens, each like "a" or "qu"
+ * @param {string[]} wordsAsc nine words, ascending by score
+ * @param {number[][]} pathFlatByWordAsc for each word, path as flat 0-15 in drag order, same order as `wordsAsc`
+ * @returns {{ ok: boolean, reason: string, queueLeft: string[]}}
+ */
+export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
+  const n = 4;
+  const b = grid0.map((row) => row.slice());
+  const q = Array.isArray(nextIn) ? nextIn.slice() : [];
+  if (q.length < 50) {
+    return { ok: false, reason: "next_letters need 50 entries", queueLeft: q };
+  }
+  for (let wi = 0; wi < 9; wi++) {
+    const w = (wordsAsc[wi] || "").toLowerCase();
+    const path = pathFlatByWordAsc[wi];
+    if (!w || !path || !path.length) {
+      return { ok: false, reason: "missing word or path at index " + wi, queueLeft: q };
+    }
+    const glyphs = wordToTileLabelSequence(w);
+    if (glyphs.length !== path.length) {
+      return { ok: false, reason: "glyphs vs path at word " + wi, queueLeft: q };
+    }
+    for (let i = 0; i < path.length; i++) {
+      const f = path[i];
+      if (f < 0 || f >= 16) {
+        return { ok: false, reason: "path index oob " + f, queueLeft: q };
+      }
+      const r = Math.floor(f / n);
+      const c = f % n;
+      const g = normalizeTileText(b[r][c]);
+      const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
+      if (g !== need) {
+        return {
+          ok: false,
+          reason: "word " + wi + " at step " + i + " want " + need + " got " + g,
+          queueLeft: q,
+        };
+      }
+    }
+    const uniques = uniquesInPathOrder(path);
+    if (uniques.length > q.length) {
+      return {
+        ok: false,
+        reason: "not enough next letters for word " + wi,
+        queueLeft: q,
+      };
+    }
+    for (const f of uniques) {
+      const rep = normalizeTileText((q.shift() || "").toLowerCase());
+      const r = Math.floor(f / n);
+      const c = f % n;
+      b[r][c] = rep;
+    }
+  }
+  if (q.length !== 0) {
+    return {
+      ok: false,
+      reason: "next letters not fully consumed, left: " + q.length,
+      queueLeft: q,
+    };
+  }
+  return { ok: true, reason: "ok", queueLeft: q };
+}
+
+/**
+ * Run forward verify only if sum of `covered` lengths is 50 (valid next-50).
+ */
+export function verifyForwardPuzzleIfCoveredChain50(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc,
+  playsChron
+) {
+  const n = coveredFirstVisitCountTotal(playsChron);
+  if (n !== 50) {
+    return {
+      ok: false,
+      reason: "covered_chain_length: " + n + ", need 50",
+      queueLeft: Array.isArray(nextIn) ? nextIn.slice() : [],
+    };
+  }
+  return verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc);
+}
+
+/** Sum of `covered` lengths — must be 50 for a valid next-50 run. */
+export function coveredFirstVisitCountTotal(playsChron) {
+  let n = 0;
+  for (const p of playsChron || []) {
+    n += (p.covered || []).length;
+  }
+  return n;
+}
+
+/** Build next[50] from per-play `covered`: chronological build, prepending each play (pad/slice 50). */
+export function buildNext50FromCoveredInBuildOrder(playsChron, options) {
+  const fillEmpty = (options && options.fillEmpty) || "a";
+  let flat = /** @type {string[]} */ ([]);
+  for (const p of playsChron || []) {
+    const part = (p.covered || []).map((ch) =>
+      ch === "" || ch == null ? fillEmpty : ch
+    );
+    flat = part.concat(flat);
+  }
+  while (flat.length < 50) flat.push(fillEmpty);
+  return flat.slice(0, 50);
+}
+
+/**
+ * Reconstruct the board immediately before the last chronological play (lowest word in
+ * forward play) from the end state and that play’s covered[] (snapshot under first-visit
+ * order). Fails (null) if covered length does not match first-visit count (e.g. revisits with
+ * inconsistent coverage) — in that case you must use a full snapshot.
+ *
+ * @param {string[][]} finalGrid
+ * @param {{ pathFlat: number[], covered: string[] }} lastPlay
+ * @returns {string[][] | null}
+ */
+export function reconstructForwardStartFromFinalAndLastPlay(finalGrid, lastPlay) {
+  if (!lastPlay) return null;
+  const path = lastPlay.pathFlat || [];
+  const cov = lastPlay.covered || [];
+  const uniques = uniquesInPathOrder(path);
+  if (uniques.length !== cov.length) return null;
+  const g0 = finalGrid.map((r) => r.map((c) => c));
+  const n = 4;
+  for (let i = 0; i < uniques.length; i++) {
+    const f = uniques[i];
+    const r = Math.floor(f / n);
+    const c = f % n;
+    g0[r][c] =
+      cov[i] === "" || cov[i] == null ? g0[r][c] : String(cov[i]).toLowerCase();
+  }
+  return g0;
+}
+
+/**
+ * Apply plays in chronological build order: each play writes its word glyphs to path
+ * (later plays overwrite on revisits). Used to get end board from a known editor start.
+ *
+ * @param {string[][]} initial4
+ * @param {Array<{ word: string, pathFlat: number[] }>} playsChron
+ * @returns {string[][]}
+ */
+export function simulateChronoToEndBoard(initial4, playsChron) {
+  const b = initial4.map((r) => r.map((c) => String(c || "").toLowerCase()));
+  const n = 4;
+  for (const p of playsChron || []) {
+    const w = (p.word || "").toLowerCase();
+    const glyphs = wordToTileLabelSequence(w);
+    const path = p.pathFlat || [];
+    for (let i = 0; i < path.length; i++) {
+      const f = path[i];
+      if (f < 0 || f >= 16) continue;
+      const r = Math.floor(f / n);
+      const c = f % n;
+      if (i < glyphs.length) b[r][c] = glyphs[i];
+    }
+  }
+  return b;
+}
+
+const N4 = 4;
+
+/**
+ * @param {string[][]} board
+ * @param {number[]} pathFlat
+ * @returns {string[]}
+ */
+function coveredFirstVisitsFromBoard(board, pathFlat) {
+  const seen = new Set();
+  const out = /** @type {string[]} */ ([]);
+  for (const f of pathFlat) {
+    if (seen.has(f)) continue;
+    seen.add(f);
+    const r = Math.floor(f / N4);
+    const c = f % N4;
+    out.push((board[r] && board[r][c]) || "");
+  }
+  return out;
+}
+
+/**
+ * Recompute covered[] for each play as the board *before* that play on first-visit
+ * cells, given an editor start grid. Matches gamemaker’s applyCommit “snap” for valid
+ * exports when paths are known.
+ *
+ * @param {string[][]} editorStart4
+ * @param {Array<{ word: string, pathFlat: number[], min_tiles?: number }>} playsChron
+ * @returns {Array<{ word: string, pathFlat: number[], covered: string[], min_tiles: number }>}
+ */
+export function recomputeCoveredChronFromHarness(editorStart4, playsChron) {
+  const b = editorStart4.map((r) => r.map((c) => String(c || "").toLowerCase()));
+  const out = [];
+  for (const p of playsChron || []) {
+    const w = (p.word || "").toLowerCase();
+    const path = p.pathFlat || [];
+    const covered = coveredFirstVisitsFromBoard(b, path);
+    const glyphs = wordToTileLabelSequence(w);
+    out.push({
+      word: p.word,
+      pathFlat: path,
+      covered,
+      min_tiles:
+        typeof p.min_tiles === "number"
+          ? p.min_tiles
+          : minUniqueTilesForReuseRule(glyphs),
+    });
+    for (let i = 0; i < path.length; i++) {
+      const f = path[i];
+      if (f < 0 || f >= 16) continue;
+      const r = Math.floor(f / N4);
+      const c = f % N4;
+      if (i < glyphs.length) b[r][c] = glyphs[i];
+    }
+  }
+  return out;
+}

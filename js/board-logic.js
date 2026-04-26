@@ -64,6 +64,124 @@ export function pickRandomScenarioMessage(scenarioKey, fallbackMessage = "") {
   return variants[i];
 }
 
+/**
+ * Decompose a lowercase word into per-tile labels as used on the board
+ * (each tile is one letter, or "qu" as a single two-character tile).
+ * @param {string} word
+ * @returns {string[]}
+ */
+export function wordToTileLabelSequence(word) {
+  const w = String(word || "").toLowerCase();
+  const out = [];
+  for (let i = 0; i < w.length; ) {
+    if (w[i] === "q" && w[i + 1] === "u") {
+      out.push("qu");
+      i += 2;
+    } else {
+      out.push(w[i]);
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether the same physical tile can be revisited for the j-th use of a letter:
+ * need two different tile-labels in the subword strictly between the two
+ * same-label positions (i & j). One letter between = not reusable.
+ * @param {string[]} labels
+ * @param {number} i
+ * @param {number} j
+ */
+export function canReuseLabelPair(labels, i, j) {
+  const a = labels;
+  if (i >= j) return false;
+  if (a[i] !== a[j]) return false;
+  if (j <= i + 1) return false;
+  const bet = new Set();
+  for (let k = i + 1; k < j; k++) {
+    bet.add(a[k]);
+  }
+  return bet.size >= 2;
+}
+
+/**
+ * Max number of non-overlapping reuses: each pair of indices shares one tile.
+ * A position appears in at most one pair. Greedy is wrong; n ≤ ~11 for normal words.
+ * @param {string[]} labels
+ * @returns {number}
+ */
+export function maxDisjointReusePairs(labels) {
+  const n = Array.isArray(labels) ? labels.length : 0;
+  if (n < 2) return 0;
+  const used = new Array(n).fill(false);
+  let best = 0;
+  let pairCount = 0;
+  function go() {
+    let i = 0;
+    while (i < n && used[i]) {
+      i++;
+    }
+    if (i >= n) {
+      if (pairCount > best) {
+        best = pairCount;
+      }
+      return;
+    }
+    for (let j = i + 1; j < n; j++) {
+      if (used[j]) {
+        continue;
+      }
+      if (canReuseLabelPair(labels, i, j)) {
+        used[i] = true;
+        used[j] = true;
+        pairCount++;
+        go();
+        pairCount--;
+        used[i] = false;
+        used[j] = false;
+      }
+    }
+    used[i] = true;
+    go();
+    used[i] = false;
+  }
+  go();
+  return best;
+}
+
+/**
+ * Min unique tiles to spell a word (tile labels) under the reuse rule: each saved
+ * pair is one “reuse”. minTiles = n - maxDisjointReusePairs
+ * @param {string | string[] | undefined | null} wordOrLabels
+ * @returns {number}
+ */
+export function minUniqueTilesForReuseRule(wordOrLabels) {
+  const labels = Array.isArray(wordOrLabels)
+    ? wordOrLabels
+    : wordToTileLabelSequence(String(wordOrLabels || "").toLowerCase());
+  if (labels.length === 0) return 0;
+  return labels.length - maxDisjointReusePairs(labels);
+}
+
+/**
+ * "Reuse" count = path glyph steps that share a tile with an earlier use (len - min tiles).
+ * @param {string | string[] | undefined | null} wordOrLabels
+ * @returns {{ labels: string[], length: number, minTiles: number, reuse: number }}
+ */
+export function wordReuseStats(wordOrLabels) {
+  const labels = Array.isArray(wordOrLabels)
+    ? wordOrLabels
+    : wordToTileLabelSequence(String(wordOrLabels || "").toLowerCase());
+  const n = labels.length;
+  if (n === 0) {
+    return { labels, length: 0, minTiles: 0, reuse: 0 };
+  }
+  const maxp = maxDisjointReusePairs(labels);
+  const minT = n - maxp;
+  return { labels, length: n, minTiles: minT, reuse: n - minT };
+}
+
 /** @param {string[]} labels Tile labels in path order */
 export function getLiveWordScoreBreakdownFromLabels(labels) {
   const sequence = Array.isArray(labels) ? labels : [];

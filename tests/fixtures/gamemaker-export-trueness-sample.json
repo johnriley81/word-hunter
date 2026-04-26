@@ -1,0 +1,152 @@
+{
+  "type": "wordhunter-gamemaker-export",
+  "listId": "generated",
+  "startingGrid": [
+    ["t", "e", "r", "s"],
+    ["n", "v", "r", "i"],
+    ["t", "u", "r", "s"],
+    ["s", "s", "c", "c"]
+  ],
+  "editorHarness": [
+    ["", "", "", ""],
+    ["", "", "", ""],
+    ["", "", "", ""],
+    ["", "", "", ""]
+  ],
+  "solvedGrid": [
+    ["e", "c", "s", "u"],
+    ["r", "s", "t", "r"],
+    ["r", "s", "t", "v"],
+    ["n", "s", "t", "e"]
+  ],
+  "nextLetters": [
+    "s",
+    "u",
+    "e",
+    "e",
+    "r",
+    "r",
+    "n",
+    "o",
+    "l",
+    "a",
+    "s",
+    "n",
+    "t",
+    "u",
+    "r",
+    "b",
+    "s",
+    "h",
+    "i",
+    "i",
+    "e",
+    "a",
+    "a",
+    "e",
+    "c",
+    "v",
+    "i",
+    "t",
+    "t",
+    "a",
+    "a",
+    "u",
+    "h",
+    "e",
+    "l",
+    "g",
+    "a",
+    "p",
+    "r",
+    "a",
+    "c",
+    "d",
+    "e",
+    "t",
+    "a",
+    "a",
+    "a",
+    "e",
+    "o",
+    "a"
+  ],
+  "wordsAscending": [
+    { "word": "trueness", "min_tiles": 8, "reuse": 0, "wordTotal": 64 },
+    { "word": "currents", "min_tiles": 8, "reuse": 0, "wordTotal": 80 },
+    { "word": "abrasions", "min_tiles": 7, "reuse": 2, "wordTotal": 99 },
+    { "word": "enuresises", "min_tiles": 8, "reuse": 2, "wordTotal": 100 },
+    { "word": "tentative", "min_tiles": 7, "reuse": 2, "wordTotal": 108 },
+    { "word": "chugalug", "min_tiles": 6, "reuse": 2, "wordTotal": 120 },
+    { "word": "malachite", "min_tiles": 9, "reuse": 0, "wordTotal": 144 },
+    { "word": "preadopted", "min_tiles": 7, "reuse": 3, "wordTotal": 160 },
+    { "word": "backache", "min_tiles": 6, "reuse": 2, "wordTotal": 168 }
+  ],
+  "pathByWordIndexAsc": [
+    [12, 9, 5, 1, 2, 6, 11, 15],
+    [14, 9, 6, 2, 1, 4, 8, 12],
+    [9, 12, 13, 9, 6, 10, 15, 11, 6],
+    [5, 0, 4, 8, 5, 9, 6, 7, 10, 9],
+    [9, 5, 2, 6, 10, 9, 8, 4, 5],
+    [0, 5, 9, 10, 15, 14, 9, 10],
+    [3, 7, 6, 5, 9, 12, 13, 14, 15],
+    [4, 0, 5, 6, 10, 9, 4, 1, 5, 10],
+    [14, 9, 4, 5, 9, 4, 1, 2]
+  ],
+  "buildPlaysChron": [
+    {
+      "word": "backache",
+      "pathFlat": [14, 9, 4, 5, 9, 4, 1, 2],
+      "covered": ["", "", "", "", "", ""],
+      "min_tiles": 6
+    },
+    {
+      "word": "preadopted",
+      "pathFlat": [4, 0, 5, 6, 10, 9, 4, 1, 5, 10],
+      "covered": ["c", "", "k", "", "", "a", "h"],
+      "min_tiles": 7
+    },
+    {
+      "word": "malachite",
+      "pathFlat": [3, 7, 6, 5, 9, 12, 13, 14, 15],
+      "covered": ["", "", "a", "e", "o", "", "", "b", ""],
+      "min_tiles": 9
+    },
+    {
+      "word": "chugalug",
+      "pathFlat": [0, 5, 9, 10, 15, 14, 9, 10],
+      "covered": ["r", "a", "c", "d", "e", "t"],
+      "min_tiles": 6
+    },
+    {
+      "word": "tentative",
+      "pathFlat": [9, 5, 2, 6, 10, 9, 8, 4, 5],
+      "covered": ["u", "h", "e", "l", "g", "", "p"],
+      "min_tiles": 7
+    },
+    {
+      "word": "enuresises",
+      "pathFlat": [5, 0, 4, 8, 5, 9, 6, 7, 10, 9],
+      "covered": ["e", "c", "v", "i", "t", "t", "a", "a"],
+      "min_tiles": 8
+    },
+    {
+      "word": "abrasions",
+      "pathFlat": [9, 12, 13, 9, 6, 10, 15, 11, 6],
+      "covered": ["s", "h", "i", "i", "e", "a", ""],
+      "min_tiles": 7
+    },
+    {
+      "word": "currents",
+      "pathFlat": [14, 9, 6, 2, 1, 4, 8, 12],
+      "covered": ["l", "a", "s", "n", "t", "u", "r", "b"],
+      "min_tiles": 8
+    },
+    {
+      "word": "trueness",
+      "pathFlat": [12, 9, 5, 1, 2, 6, 11, 15],
+      "covered": ["s", "u", "e", "e", "r", "r", "n", "o"],
+      "min_tiles": 8
+    }
+  ]
+}

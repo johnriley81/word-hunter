@@ -1,0 +1,101 @@
+/* Gamemaker layout — only used by gamemaker.html */
+.gamemaker-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-sm) var(--page-padding);
+  width: 100%;
+  max-width: var(--app-shell-max-width);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.gamemaker-logo {
+  max-width: min(100%, 200px);
+  height: auto;
+}
+
+.gamemaker-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: var(--app-shell-max-width);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 0 var(--page-padding) var(--space-sm);
+}
+
+.gamemaker-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-width: 0;
+  font-family: "Press Start 2P", monospace, sans-serif;
+  font-size: clamp(9px, 2.4vw, 12px);
+  line-height: 1.6;
+  color: var(--page-text-color);
+  text-shadow: 0 0 1px var(--page-text-shadow-color);
+}
+
+.gamemaker-btn-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gamemaker-target {
+  color: #8ff7a8;
+  word-break: break-all;
+}
+
+.gamemaker-repeats {
+  color: #ffffff;
+}
+
+.gamemaker-btn-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.gamemaker-btn {
+  font-family: "Press Start 2P", monospace, sans-serif;
+  font-size: clamp(6px, 1.6vw, 9px);
+  padding: 5px 8px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  background: var(--button-background-color);
+  color: var(--button-text-color);
+  border: 1px solid var(--box-border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.gamemaker-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gamemaker-dock {
+  margin-top: -4px;
+  width: 100%;
+  max-width: var(--app-shell-max-width);
+  margin-inline: auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Empty build tiles: dot placeholder */
+#grid .grid-button--build-empty .tile-glyph {
+  opacity: 0.35;
+}

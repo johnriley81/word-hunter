@@ -934,6 +934,7 @@ export function attachShiftGestures(ctx, host) {
   }
 
   function onShiftPointerDown(e) {
+    if (typeof host.getShiftsAllowed === "function" && !host.getShiftsAllowed()) return;
     if (!host.uiState.gameActive || host.uiState.paused || host.shiftState.animating)
       return;
     if (e.button != null && e.button !== 0) return;
@@ -1103,6 +1104,10 @@ export function attachShiftGestures(ctx, host) {
     const hadVisual = ctx.state.shift.visualTx !== 0 || ctx.state.shift.visualTy !== 0;
 
     if (!host.getIsGameActive() || host.getIsPaused()) {
+      resetShiftDragVisualHard();
+      return;
+    }
+    if (typeof host.getShiftsAllowed === "function" && !host.getShiftsAllowed()) {
       resetShiftDragVisualHard();
       return;
     }

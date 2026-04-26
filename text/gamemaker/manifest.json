@@ -1,0 +1,7 @@
+{
+  "bundles": [
+    "text/gamemaker/lists/demo-static.json",
+    "text/gamemaker/lists/authoring-variety.json",
+    "text/gamemaker/lists/generated.json"
+  ]
+}
