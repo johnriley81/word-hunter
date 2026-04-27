@@ -39,7 +39,11 @@ import {
   scheduleDeferredGameAudioWarmup,
   unlockGameAudio,
 } from "./audio.js";
-import { calculateDiffDays, loadWordhunterTextAssets } from "./game-lifecycle.js";
+import {
+  calculateDiffDays,
+  loadWordhunterTextAssets,
+  puzzleListIndex,
+} from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
   getTileText,
@@ -531,7 +535,7 @@ export function initGame(ctx) {
       grid.removeChild(grid.firstChild);
     }
     diffDays = calculateDiffDays();
-    const p = puzzles[diffDays % puzzles.length];
+    const p = puzzles[puzzleListIndex(puzzles.length)];
     const gridLetters = p.starting_grid;
     ctx.state.perfectHunt = p.perfect_hunt;
     const huntMeta = buildPerfectHuntMetadata(
@@ -582,7 +586,7 @@ export function initGame(ctx) {
 
   function generateNextLetters() {
     diffDays = calculateDiffDays();
-    const p = puzzles[diffDays % puzzles.length];
+    const p = puzzles[puzzleListIndex(puzzles.length)];
     nextLetters = p.next_letters.slice();
     return nextLetters;
   }

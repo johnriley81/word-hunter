@@ -36,16 +36,17 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
 test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
   const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
   const puzzles = parsePuzzlesFileText(text);
-  assert.equal(puzzles.length, 3);
+  assert.equal(puzzles.length, 4);
   for (const p of puzzles) {
     assert.equal(p.starting_grid.length, 4);
     assert.equal(p.next_letters.length, 50);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
   }
-  assert.equal(puzzles[0].starting_grid[0][0], "r");
-  assert.equal(puzzles[0].perfect_hunt[0], "supersaur");
-  assert.equal(puzzles[1].perfect_hunt[0], "clearings");
-  assert.equal(puzzles[2].perfect_hunt[0], "youngness");
+  assert.equal(puzzles[0].starting_grid[0][0], "e");
+  assert.equal(puzzles[0].perfect_hunt[0], "smelling");
+  assert.equal(puzzles[1].perfect_hunt[0], "supersaur");
+  assert.equal(puzzles[2].perfect_hunt[0], "clearings");
+  assert.equal(puzzles[3].perfect_hunt[0], "youngness");
 });
 
 test("dictExport round-trip one JSON line", () => {

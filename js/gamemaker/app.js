@@ -591,7 +591,7 @@ function createGamemaker() {
     const wordsIn = (L.words || []).slice();
     wordsIn.sort((a, b) =>
       (a.wordTotal || 0) !== (b.wordTotal || 0)
-        ? (a.wordTotal || 0) - (b.wordTotal || 0)
+        ? (b.wordTotal || 0) - (a.wordTotal || 0)
         : String(a.word || "").localeCompare(String(b.word || ""))
     );
     currentWords = wordsIn;
