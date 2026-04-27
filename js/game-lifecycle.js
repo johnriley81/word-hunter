@@ -1,4 +1,4 @@
-export { calculateDiffDays } from "./puzzle-calendar.js";
+export { calculateDiffDays, puzzleListIndex } from "./puzzle-calendar.js";
 import { parsePuzzlesFileText } from "./puzzle-row-format.js";
 
 export async function loadWordhunterTextAssets() {

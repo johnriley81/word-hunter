@@ -1,5 +1,10 @@
 import { createGameContext } from "../game-context.js";
-import { GRID_SIZE, WORD_PATH_COLOR_STEPS, WORD_INVALID_SHAKE_MS } from "../config.js";
+import {
+  GRID_SIZE,
+  PERFECT_HUNT_WORD_COUNT,
+  WORD_PATH_COLOR_STEPS,
+  WORD_INVALID_SHAKE_MS,
+} from "../config.js";
 import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
@@ -19,7 +24,7 @@ import { loadWordhunterTextAssets } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
 import { loadGamemakerPuzzlePool } from "./load-pool.js";
 
-const WORD_COUNT = 9;
+const WORD_COUNT = PERFECT_HUNT_WORD_COUNT;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function makeEl(tag, className, text) {
@@ -584,7 +589,11 @@ function createGamemaker() {
     const idx = ((ix % lists.length) + lists.length) % lists.length;
     const L = lists[idx];
     const wordsIn = (L.words || []).slice();
-    wordsIn.sort((a, b) => (b.wordTotal || 0) - (a.wordTotal || 0));
+    wordsIn.sort((a, b) =>
+      (a.wordTotal || 0) !== (b.wordTotal || 0)
+        ? (b.wordTotal || 0) - (a.wordTotal || 0)
+        : String(a.word || "").localeCompare(String(b.word || ""))
+    );
     currentWords = wordsIn;
     placementStep = 0;
     buildPlaysChron = [];
@@ -690,7 +699,9 @@ function createGamemaker() {
     const n = puzzleBatch.length;
     if (n === 0) {
       showExportMetaMessage(
-        "Nothing queued — finish 9 words, shift grid if needed, press next",
+        "Nothing queued — finish " +
+          WORD_COUNT +
+          " words, shift grid if needed, press next",
         2800
       );
       return;
