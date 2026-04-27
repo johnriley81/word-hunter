@@ -49,7 +49,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines: one compact puzzle object per line: `starting_grid` = final 4×4 after nine builder commits, `next_letters`, `perfect_hunt`). Row index is `diffDays % puzzleCount`.
+- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines: one compact puzzle object per line: `starting_grid` = final 4×4 after gamemaker completes all hunt placements, `next_letters` (50), `perfect_hunt` (six words; Σ min-tiles under the reuse rule = 50)). Row index is `diffDays % puzzleCount`.
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 

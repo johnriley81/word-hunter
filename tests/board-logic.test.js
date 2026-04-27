@@ -17,6 +17,7 @@ import {
   GRID_SIZE,
   SHIFT_STRIDE_FIRST_FRAC,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
+  PERFECT_HUNT_WORD_COUNT,
 } from "../js/config.js";
 
 test("normalizeTileText trims and maps q to qu", () => {
@@ -135,10 +136,12 @@ test("buildPerfectHuntMetadata: ties break by word string", () => {
   assert.equal(meta.choirRateByWord.get("ba"), 1.2);
 });
 
-test("buildPerfectHuntMetadata: uses CHOIR_PLAYBACK_RATES_FOR_RANK length 9", () => {
-  assert.equal(CHOIR_PLAYBACK_RATES_FOR_RANK.length, 9);
-  const hunt = Array.from({ length: 9 }, (_, i) => "a".repeat(i + 3));
+test("buildPerfectHuntMetadata: maps PERFECT_HUNT_WORD_COUNT words to choir rates", () => {
+  assert.ok(CHOIR_PLAYBACK_RATES_FOR_RANK.length >= PERFECT_HUNT_WORD_COUNT);
+  const hunt = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
+    "a".repeat(i + 3)
+  );
   const meta = buildPerfectHuntMetadata(hunt, CHOIR_PLAYBACK_RATES_FOR_RANK);
   assert.ok(meta);
-  assert.equal(meta.choirRateByWord.size, 9);
+  assert.equal(meta.choirRateByWord.size, PERFECT_HUNT_WORD_COUNT);
 });

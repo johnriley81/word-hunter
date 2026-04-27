@@ -9,6 +9,11 @@ import {
   dictExportToCanonicalRow,
   serializePuzzleRow,
 } from "../js/puzzle-row-format.js";
+import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
+
+const HUNT_PLACEHOLDERS = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
+  String.fromCharCode("a".charCodeAt(0) + i)
+);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -23,7 +28,7 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
       ],
     ],
     next_letters: Array(50).fill("a"),
-    perfect_hunt: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+    perfect_hunt: HUNT_PLACEHOLDERS.slice(),
   });
   assert.equal(row.starting_grid?.[0]?.[0], "a");
 });
@@ -35,7 +40,7 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
   for (const p of puzzles) {
     assert.equal(p.starting_grid.length, 4);
     assert.equal(p.next_letters.length, 50);
-    assert.equal(p.perfect_hunt.length, 9);
+    assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
   }
   assert.equal(puzzles[0].starting_grid[0][0], "r");
   assert.equal(puzzles[0].perfect_hunt[0], "supersaur");
@@ -54,7 +59,7 @@ test("dictExport round-trip one JSON line", () => {
       ],
     ],
     next_letters: Array(50).fill("x"),
-    perfect_hunt: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+    perfect_hunt: HUNT_PLACEHOLDERS.slice(),
   };
   const line = serializePuzzleRow(dictExportToCanonicalRow(d));
   assert.ok(!line.includes("\n"), "single-line JSON");
@@ -67,7 +72,9 @@ test("parsePuzzlesFileText accepts legacy single-line JSON object", () => {
   const one =
     '{"starting_grid":[["a","a","a","a"],["a","a","a","a"],["a","a","a","a"],["a","a","a","a"]],"next_letters":' +
     JSON.stringify(Array(50).fill("z")) +
-    ',"perfect_hunt":["a","b","c","d","e","f","g","h","i"]}';
+    ',"perfect_hunt":' +
+    JSON.stringify(HUNT_PLACEHOLDERS) +
+    "}";
   const puzzles = parsePuzzlesFileText(one);
   assert.equal(puzzles.length, 1);
   assert.equal(puzzles[0].starting_grid[0][0], "a");
@@ -77,11 +84,15 @@ test("parsePuzzlesFileText parses multiple JSON lines", () => {
   const a =
     '{"starting_grid":[["a","a","a","a"],["a","a","a","a"],["a","a","a","a"],["a","a","a","a"]],"next_letters":' +
     JSON.stringify(Array(50).fill("1")) +
-    ',"perfect_hunt":["a","b","c","d","e","f","g","h","i"]}';
+    ',"perfect_hunt":' +
+    JSON.stringify(HUNT_PLACEHOLDERS) +
+    "}";
   const b =
     '{"starting_grid":[["b","b","b","b"],["b","b","b","b"],["b","b","b","b"],["b","b","b","b"]],"next_letters":' +
     JSON.stringify(Array(50).fill("2")) +
-    ',"perfect_hunt":["a","b","c","d","e","f","g","h","i"]}';
+    ',"perfect_hunt":' +
+    JSON.stringify(HUNT_PLACEHOLDERS) +
+    "}";
   const puzzles = parsePuzzlesFileText(" \n" + a + "\n\n" + b + "\n");
   assert.equal(puzzles.length, 2);
   assert.equal(puzzles[0].next_letters[0], "1");

@@ -1,8 +1,10 @@
 /** puzzles.txt: JSON Lines — one compact `{...}` object per non-empty line. */
 
+import { PERFECT_HUNT_WORD_COUNT } from "./config.js";
+
 const GRID = 4;
 const NEXT_LEN = 50;
-const HUNT_LEN = 9;
+const HUNT_LEN = PERFECT_HUNT_WORD_COUNT;
 
 /**
  * @param {unknown} raw
@@ -44,7 +46,7 @@ export function validatePuzzleRow(row) {
     throw new Error("next_letters must have length 50");
   }
   if (!Array.isArray(perfect_hunt) || perfect_hunt.length !== HUNT_LEN) {
-    throw new Error("perfect_hunt must have length 9");
+    throw new Error("perfect_hunt must have length " + HUNT_LEN);
   }
 }
 

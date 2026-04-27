@@ -8,11 +8,12 @@ import {
   wordReuseStats,
   getLiveWordScoreBreakdownFromLabels,
 } from "../js/board-logic.js";
+import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pathPool = join(root, "text/gamemaker/pregen/puzzle-pool.json");
 
-test("puzzle pool: 1000 entries, 9 words each, scores match board-logic", () => {
+test("puzzle pool: 1000 entries, six words each, Σ min_tiles = 50, opener 8 tile labels", () => {
   const raw = readFileSync(pathPool, "utf8");
   const j = JSON.parse(raw);
   assert.equal(j.version, 1);
@@ -21,7 +22,32 @@ test("puzzle pool: 1000 entries, 9 words each, scores match board-logic", () => 
 
   for (const p of j.puzzles) {
     assert.ok(p.id && typeof p.id === "string");
-    assert.equal(p.words.length, 9);
+    assert.equal(p.words.length, PERFECT_HUNT_WORD_COUNT);
+    const byScore = p.words
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.wordTotal || 0) - (b.wordTotal || 0) ||
+          String(a.word || "").localeCompare(String(b.word || ""))
+      );
+    let sumMin = 0;
+    for (let i = 0; i < byScore.length; i++) {
+      const w = byScore[i];
+      sumMin += w.min_tiles;
+      if (i > 0) {
+        assert.ok(
+          w.wordTotal > byScore[i - 1].wordTotal,
+          "strict ascending wordTotal: " + w.word
+        );
+      }
+    }
+    assert.equal(sumMin, 50, "replacement cells sum: " + p.id);
+    assert.equal(
+      wordToTileLabelSequence(byScore[0].word).length,
+      8,
+      "lowest-score word has 8 tile labels: " + p.id
+    );
+
     for (const w of p.words) {
       const word = String(w.word || "").toLowerCase();
       const labels = wordToTileLabelSequence(word);

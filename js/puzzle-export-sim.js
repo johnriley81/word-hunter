@@ -23,9 +23,9 @@ function uniquesInPathOrder(pathFlat) {
 }
 
 /**
- * @param {string[][]} grid0 Solved 4×4 (all nine words on the board) — not the pre-9th-build snapshot.
+ * @param {string[][]} grid0 Solved 4×4 after the full `perfect_hunt` is on the board.
  * @param {string[]} nextIn 50 string tokens, each like "a" or "qu"
- * @param {string[]} wordsAsc nine words, ascending by score
+ * @param {string[]} wordsAsc hunt words, ascending by score (length must match paths)
  * @param {number[][]} pathFlatByWordAsc for each word, path as flat 0-15 in drag order, same order as `wordsAsc`
  * @returns {{ ok: boolean, reason: string, queueLeft: string[]}}
  */
@@ -36,7 +36,15 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
   if (q.length < 50) {
     return { ok: false, reason: "next_letters need 50 entries", queueLeft: q };
   }
-  for (let wi = 0; wi < 9; wi++) {
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  if (nw === 0 || !pathFlatByWordAsc || pathFlatByWordAsc.length !== nw) {
+    return {
+      ok: false,
+      reason: "wordsAsc and pathFlatByWordAsc length mismatch or empty",
+      queueLeft: q,
+    };
+  }
+  for (let wi = 0; wi < nw; wi++) {
     const w = (wordsAsc[wi] || "").toLowerCase();
     const path = pathFlatByWordAsc[wi];
     if (!w || !path || !path.length) {

@@ -11,6 +11,9 @@ export const PRE_START_WORDMARK = "WORDHUNTER";
 export const INTRO_MESSAGE_TEXT = "Happy Hunting";
 
 export const GRID_SIZE = 4;
+
+/** Perfect-hunt word count for daily puzzles, gamemaker export, and puzzles.txt rows. */
+export const PERFECT_HUNT_WORD_COUNT = 6;
 export const SHIFT_STRIDE_FIRST_FRAC = 0.4;
 export const SHIFT_AXIS_LOCK_PX = 8;
 export const SHIFT_SLIDE_SENSITIVITY = 2;

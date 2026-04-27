@@ -710,8 +710,11 @@ export function initGame(ctx) {
       const nextSet = new Set(ctx.state.perfectHuntWordsSubmitted);
       nextSet.add(key);
       const choirPlaybackRate = ctx.state.perfectHuntChoirRateByWord.get(key) ?? 1;
+      const huntLen = ctx.state.perfectHunt?.length ?? 0;
       const isPerfectCompletion =
-        nextSet.size === 9 && score + wordScore === ctx.state.perfectHuntTargetSum;
+        huntLen > 0 &&
+        nextSet.size === huntLen &&
+        score + wordScore === ctx.state.perfectHuntTargetSum;
       return { inList: true, isPerfectCompletion, choirPlaybackRate };
     },
     commitPerfectHuntWordIfListed(word) {
