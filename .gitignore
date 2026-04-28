@@ -11,6 +11,9 @@ requirements-dev.txt
 tests/test_wordhunter_cert.py
 text/word_metrics_7_10.csv
 text/word_metrics_7_10.pkl
+text/word_metrics_extended.pkl
 dp_word_result.txt
+# Intermediate: unfiltered rec map (see export-word-recognizability.mjs)
+text/gamemaker/pregen/word-recognizability.raw.json
 # Generated reference dump (see tools/export_word_pool_jsonl.py)
 text/gamemaker/word-pool.jsonl

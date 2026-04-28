@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
   <head>
-    <!-- ?pb=1 puzzle builder → gamemaker.html · ?devGrid=<slug> → text/dev-overrides/<slug>.json -->
+    <!-- dev: ?pb=1 → gamemaker.html -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -219,8 +219,9 @@
               <strong class="rules-accent-purple">upcoming</strong> letters
             </li>
             <li>
-              hunt until all <strong class="rules-50-pink">50</strong> replacement
-              letters are used up
+              hunt until all
+              <strong id="rules-next-letters-count" class="rules-50-pink">—</strong>
+              replacement letters are used up
             </li>
           </ul>
         </section>

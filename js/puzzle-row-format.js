@@ -1,10 +1,32 @@
 /** puzzles.txt: JSON Lines — one compact `{...}` object per non-empty line. */
 
-import { PERFECT_HUNT_WORD_COUNT } from "./config.js";
+import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "./config.js";
+import {
+  stripTrailingEmptyNextLetters,
+  padNextLettersToLen,
+} from "./puzzle-export-sim.js";
 
 const GRID = 4;
-const NEXT_LEN = 50;
+const NEXT_LEN = NEXT_LETTERS_LEN;
 const HUNT_LEN = PERFECT_HUNT_WORD_COUNT;
+
+/**
+ * @param {unknown[]} raw non-pad tokens including `""` where a first-visit tile was blank before play
+ * @returns {string[]} padded to `NEXT_LETTERS_LEN` for runtime
+ */
+function coerceNextLettersForRow(raw) {
+  if (!Array.isArray(raw)) throw new Error("next_letters must be an array");
+  const mapped = /** @type {unknown[]} */ (raw).map((c) =>
+    String(c || "").toLowerCase()
+  );
+  const compact = stripTrailingEmptyNextLetters(mapped);
+  if (compact.length === 0)
+    throw new Error("next_letters must have at least one entry");
+  if (compact.length > NEXT_LEN) {
+    throw new Error("next_letters at most " + NEXT_LEN + " entries");
+  }
+  return padNextLettersToLen(compact);
+}
 
 /**
  * @param {unknown} raw
@@ -42,18 +64,19 @@ export function validatePuzzleRow(row) {
       throw new Error("starting_grid row " + i + " must have 4 cells");
     }
   }
-  if (!Array.isArray(next_letters) || next_letters.length !== NEXT_LEN) {
-    throw new Error("next_letters must have length 50");
-  }
+  coerceNextLettersForRow(next_letters);
   if (!Array.isArray(perfect_hunt) || perfect_hunt.length !== HUNT_LEN) {
     throw new Error("perfect_hunt must have length " + HUNT_LEN);
   }
 }
 
 export function serializePuzzleRow(row) {
+  validatePuzzleRow(row);
   return JSON.stringify({
     starting_grid: row.starting_grid,
-    next_letters: row.next_letters,
+    next_letters: stripTrailingEmptyNextLetters(
+      /** @type {string[]} */ (row.next_letters)
+    ),
     perfect_hunt: row.perfect_hunt,
   });
 }
@@ -85,9 +108,7 @@ export function parsePuzzlesFileText(text, opts = {}) {
       starting_grid: norm.starting_grid.map((r) =>
         /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
       ),
-      next_letters: /** @type {unknown[]} */ (norm.next_letters).map((c) =>
-        String(c || "").toLowerCase()
-      ),
+      next_letters: coerceNextLettersForRow(norm.next_letters),
       perfect_hunt: /** @type {unknown[]} */ (norm.perfect_hunt).map((w) =>
         String(w || "").toLowerCase()
       ),
@@ -109,9 +130,7 @@ export function dictExportToCanonicalRow(d) {
     starting_grid: row.starting_grid.map((r) =>
       /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
     ),
-    next_letters: /** @type {unknown[]} */ (row.next_letters).map((c) =>
-      String(c || "").toLowerCase()
-    ),
+    next_letters: coerceNextLettersForRow(row.next_letters),
     perfect_hunt: /** @type {unknown[]} */ (row.perfect_hunt).map((w) =>
       String(w || "").toLowerCase()
     ),

@@ -8,19 +8,74 @@ import {
   wordReuseStats,
   getLiveWordScoreBreakdownFromLabels,
 } from "../js/board-logic.js";
-import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
+import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pathPool = join(root, "text/gamemaker/pregen/puzzle-pool.json");
 const pathRec = join(root, "text/gamemaker/pregen/word-recognizability.json");
 
-/** Default in generate-puzzle-pool.mjs; keep test in sync for regression. */
-const RECOG_MIN_EXPECTED = 8;
+const RECOG_MIN_EXPECTED = 7;
 
-test("puzzle pool: 1000 entries, six words each, Σ min_tiles = 50, opener 8 tile labels, scores high→low in file", () => {
+function assertPoolRankOrder(assertMod, prev, p, rankReuse, reuseTarget) {
+  if (rankReuse === "max") {
+    assertMod.ok(
+      (prev.reuseSum ?? 0) >= (p.reuseSum ?? 0),
+      "reuseSum descending first: " + p.id
+    );
+    if ((prev.reuseSum ?? 0) === (p.reuseSum ?? 0)) {
+      assertMod.ok(
+        prev.letterUnionSize >= p.letterUnionSize,
+        "letterUnionSize descending when reuseSum ties: " + p.id
+      );
+      if (prev.letterUnionSize === p.letterUnionSize) {
+        assertMod.ok(
+          prev.puzzleWordTotalSum >= p.puzzleWordTotalSum,
+          "puzzleWordTotalSum descending when reuse and letterUnion tie: " + p.id
+        );
+      }
+    }
+  } else if (rankReuse === "near") {
+    const dPrev = Math.abs((prev.reuseSum ?? 0) - reuseTarget);
+    const d = Math.abs((p.reuseSum ?? 0) - reuseTarget);
+    assertMod.ok(d >= dPrev, "|Σreuse − target| non-decreasing first: " + p.id);
+    if (d === dPrev) {
+      assertMod.ok(
+        prev.letterUnionSize >= p.letterUnionSize,
+        "letterUnionSize descending when reuse-distance ties: " + p.id
+      );
+      if (prev.letterUnionSize === p.letterUnionSize) {
+        assertMod.ok(
+          prev.puzzleWordTotalSum >= p.puzzleWordTotalSum,
+          "puzzleWordTotalSum descending when reuse-dist and letterUnion tie: " + p.id
+        );
+      }
+    }
+  } else {
+    assertMod.ok(
+      prev.letterUnionSize >= p.letterUnionSize,
+      "letterUnionSize sorted descending (reuse ignored): " + p.id
+    );
+    if (prev.letterUnionSize === p.letterUnionSize) {
+      assertMod.ok(
+        prev.puzzleWordTotalSum >= p.puzzleWordTotalSum,
+        "puzzleWordTotalSum descending when letterUnion ties: " + p.id
+      );
+    }
+  }
+}
+
+test("puzzle pool: 1000 entries, seven words each, Σ min_tiles = 66, Σreuse-led rank, opener labels, scores order", () => {
   const raw = readFileSync(pathPool, "utf8");
   const j = JSON.parse(raw);
   assert.equal(j.version, 1);
+  const rankReuse = j.poolReuseRank || "max";
+  const reuseTarget =
+    typeof j.poolReuseSumTarget === "number" ? j.poolReuseSumTarget : 10;
+  const openingExpect = typeof j.openingLabelLen === "number" ? j.openingLabelLen : 8;
+  assert.ok(
+    openingExpect >= 8 && openingExpect <= 16,
+    "openingLabelLen sane (or default 8 for legacy pools)"
+  );
   assert.ok(Array.isArray(j.puzzles));
   assert.equal(j.puzzles.length, 1000);
 
@@ -32,16 +87,7 @@ test("puzzle pool: 1000 entries, six words each, Σ min_tiles = 50, opener 8 til
     const p = j.puzzles[pi];
     const prev = pi > 0 ? j.puzzles[pi - 1] : null;
     if (prev) {
-      assert.ok(
-        p.letterUnionSize <= prev.letterUnionSize,
-        "letterUnionSize sorted descending: " + p.id
-      );
-      if (p.letterUnionSize === prev.letterUnionSize) {
-        assert.ok(
-          p.puzzleWordTotalSum <= prev.puzzleWordTotalSum,
-          "puzzleWordTotalSum descending within same letterUnionSize: " + p.id
-        );
-      }
+      assertPoolRankOrder(assert, prev, p, rankReuse, reuseTarget);
     }
     assert.ok(
       typeof p.letterUnionSize === "number" &&
@@ -80,11 +126,23 @@ test("puzzle pool: 1000 entries, six words each, Σ min_tiles = 50, opener 8 til
         );
       }
     }
-    assert.equal(sumMin, 50, "replacement cells sum: " + p.id);
+    assert.equal(
+      sumMin,
+      NEXT_LETTERS_LEN,
+      "replacement cells sum (Σ min_tiles): " + p.id
+    );
+    assert.equal(typeof p.reuseSum, "number", "puzzle exposes reuseSum: " + p.id);
+    let reuseTotal = 0;
+    for (const w of byScore) reuseTotal += w.reuse || 0;
+    assert.equal(
+      reuseTotal,
+      p.reuseSum,
+      "Σ reuse across words matches puzzle: " + p.id
+    );
     assert.equal(
       wordToTileLabelSequence(byScore[0].word).length,
-      8,
-      "lowest-score word has 8 tile labels: " + p.id
+      openingExpect,
+      "lowest-score word opener label count matches pool opener rule: " + p.id
     );
 
     const sumWordTotal = byScore.reduce((s, w) => s + (w.wordTotal || 0), 0);
@@ -98,8 +156,8 @@ test("puzzle pool: 1000 entries, six words each, Σ min_tiles = 50, opener 8 til
       const word = String(w.word || "").toLowerCase();
       const labels = wordToTileLabelSequence(word);
       assert.ok(
-        labels.length >= 8 && labels.length <= 14,
-        "pool words use 8–14 tile labels: " + word
+        labels.length >= 8 && labels.length <= 16,
+        "pool words use 8–16 tile labels: " + word
       );
       const rec = recMap[word];
       assert.ok(

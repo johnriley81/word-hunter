@@ -6,6 +6,8 @@ import {
   UPCOMING_PREVIEW_MAX,
   PRE_START_WORDMARK,
   GRID_SIZE,
+  NEXT_LETTERS_LEN,
+  NEXT_LETTERS_UI_COUNT,
   START_TOUCHPAD_FADE_MS,
   TILE_PALETTE_MS,
   TILE_PALETTE_TRANSITION_SETTLE_MS,
@@ -66,6 +68,7 @@ import {
   resetWordSelectionState,
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
+import { stripTrailingEmptyNextLetters } from "./puzzle-export-sim.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -95,6 +98,7 @@ export function initGame(ctx) {
     rules: document.querySelector("#rules"),
     rulesButton: document.querySelector("#rules-button"),
     rulesPerfectHuntTotalElement: document.querySelector("#rules-perfect-hunt-total"),
+    rulesNextLettersCountElement: document.querySelector("#rules-next-letters-count"),
     muteButton: document.getElementById("mute-button"),
     doneButton: document.querySelector("#done-button"),
     boardShiftZone: document.getElementById("board-shift-zone"),
@@ -132,6 +136,7 @@ export function initGame(ctx) {
     rules,
     rulesButton,
     rulesPerfectHuntTotalElement,
+    rulesNextLettersCountElement,
     muteButton,
     doneButton,
     boardShiftZone,
@@ -148,6 +153,10 @@ export function initGame(ctx) {
     leaderboardButton,
     leaderboardDemoAdd,
   } = ctx.refs;
+
+  if (rulesNextLettersCountElement) {
+    rulesNextLettersCountElement.textContent = String(NEXT_LETTERS_UI_COUNT);
+  }
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const wordState = ctx.state.word;
@@ -650,7 +659,9 @@ export function initGame(ctx) {
     const hasMoreUpcoming = nextLetters.length > UPCOMING_PREVIEW_MAX;
 
     if (queueSackCountElement) {
-      queueSackCountElement.textContent = String(nextLetters.length);
+      queueSackCountElement.textContent = String(
+        stripTrailingEmptyNextLetters(nextLetters).length
+      );
     }
 
     if (slice.length === 0) {

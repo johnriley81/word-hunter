@@ -11,7 +11,7 @@
  * Usage: node scripts/analyze-puzzle-json.mjs '{"starting_grid":...}'
  *
  * Precheck: each hunt word uses exactly `minUniqueTilesForReuseRule` replacement cells per
- * play; PERFECT_HUNT_WORD_COUNT words must sum to 50 to match `next_letters`. If not, the puzzle JSON cannot
+ * play; PERFECT_HUNT_WORD_COUNT words must sum to NEXT_LETTERS_LEN to match `next_letters`. If not, the puzzle JSON cannot
  * represent a full perfect run (shifts do not change that accounting).
  */
 import {
@@ -22,8 +22,12 @@ import {
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
 } from "../js/board-logic.js";
-import { verifyForwardPuzzle } from "../js/puzzle-export-sim.js";
-import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
+import {
+  padNextLettersToLen,
+  stripTrailingEmptyNextLetters,
+  verifyForwardPuzzle,
+} from "../js/puzzle-export-sim.js";
+import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
 const N = 4;
 
@@ -256,11 +260,24 @@ if (!raw.trim()) {
 
 const p = JSON.parse(raw);
 const grid = p.starting_grid ?? p.startingGrid;
-const next = p.next_letters ?? p.nextLetters;
+const nextRaw = p.next_letters ?? p.nextLetters;
 const hunt = (p.perfect_hunt ?? p.perfectHunt).map((w) => String(w).toLowerCase());
 
 if (!Array.isArray(grid) || grid.length !== 4) throw new Error("bad grid");
-if (!Array.isArray(next) || next.length !== 50) throw new Error("bad next_letters");
+if (!Array.isArray(nextRaw)) throw new Error("bad next_letters");
+const mapped = nextRaw.map((c) => String(c || "").toLowerCase());
+const compact = stripTrailingEmptyNextLetters(mapped);
+if (compact.length < 1 || compact.length > NEXT_LETTERS_LEN) {
+  throw new Error(
+    "bad next_letters length (expect 1–" + NEXT_LETTERS_LEN + " non-empty entries)"
+  );
+}
+if (compact.some((c) => c === "")) {
+  throw new Error(
+    "bad next_letters: empty placeholders not allowed except trailing (use compact JSON)"
+  );
+}
+const next = padNextLettersToLen(compact);
 if (!Array.isArray(hunt) || hunt.length !== PERFECT_HUNT_WORD_COUNT) {
   throw new Error("bad perfect_hunt (need " + PERFECT_HUNT_WORD_COUNT + " words)");
 }
@@ -272,16 +289,16 @@ const scored = hunt.map((w) => ({
 scored.sort((a, b) => a.wordTotal - b.wordTotal || a.w.localeCompare(b.w));
 const wordsAsc = scored.map((x) => x.w);
 
-/** Each valid play replaces exactly minUniqueTilesForReuseRule glyphs; hunt plays must sum to 50. */
+/** Each valid play replaces exactly minUniqueTilesForReuseRule glyphs; hunt plays must sum to NEXT_LETTERS_LEN. */
 const sumMinRepl = wordsAsc.reduce(
   (s, w) => s + minUniqueTilesForReuseRule(wordToTileLabelSequence(w)),
   0
 );
-if (sumMinRepl !== 50) {
+if (sumMinRepl !== NEXT_LETTERS_LEN) {
   console.log(
     "Precheck FAIL: Σ min unique replacement cells =",
     sumMinRepl,
-    "for this ascending hunt, but next_letters length is 50."
+    "for this ascending hunt, but next_letters length is " + NEXT_LETTERS_LEN + "."
   );
   console.log(
     "No sequence of " +
@@ -320,7 +337,7 @@ if (sol.ok) {
     sumUniq += u;
     console.log(" ", i, wordsAsc[i], "| shifts:", shiftSeqLabel(sh), "| uniqRepl:", u);
   }
-  console.log("sum(unique replacement cells):", sumUniq, "/ 50");
+  console.log("sum(unique replacement cells):", sumUniq, "/" + NEXT_LETTERS_LEN);
 
   const v = verifyForwardPuzzle(grid, next, wordsAsc, sol.paths);
   console.log(
