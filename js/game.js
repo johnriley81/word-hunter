@@ -655,13 +655,12 @@ export function initGame(ctx) {
     while (nextLettersElement.firstChild) {
       nextLettersElement.removeChild(nextLettersElement.firstChild);
     }
-    const slice = nextLetters.slice(0, UPCOMING_PREVIEW_MAX);
-    const hasMoreUpcoming = nextLetters.length > UPCOMING_PREVIEW_MAX;
+    const pending = omitEmptyNextLetterSlots(nextLetters);
+    const slice = pending.slice(0, UPCOMING_PREVIEW_MAX);
+    const hasMoreUpcoming = pending.length > UPCOMING_PREVIEW_MAX;
 
     if (queueSackCountElement) {
-      queueSackCountElement.textContent = String(
-        omitEmptyNextLetterSlots(nextLetters).length
-      );
+      queueSackCountElement.textContent = String(pending.length);
     }
 
     if (slice.length === 0) {
