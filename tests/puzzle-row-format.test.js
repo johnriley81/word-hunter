@@ -36,17 +36,28 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
 test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
   const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
   const puzzles = parsePuzzlesFileText(text);
-  assert.equal(puzzles.length, 4);
+  const jsonLineCount = text
+    .split("\n")
+    .filter((line) => line.trim().length > 0).length;
+  assert.equal(puzzles.length, jsonLineCount);
   for (const p of puzzles) {
     assert.equal(p.starting_grid.length, 4);
     assert.equal(p.next_letters.length, NEXT_LETTERS_LEN);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
   }
   assert.equal(puzzles[0].starting_grid[0][0], "e");
-  assert.equal(puzzles[0].perfect_hunt[0], "symbiote");
-  assert.equal(puzzles[1].perfect_hunt[0], "foremilk");
-  assert.equal(puzzles[2].perfect_hunt[0], "antilogs");
-  assert.equal(puzzles[3].perfect_hunt[0], "clammers");
+  const expectedFirstWords = [
+    "symbiote",
+    "foremilk",
+    "prattled",
+    "nonrival",
+    "antilogs",
+    "clammers",
+  ];
+  assert.equal(puzzles.length, expectedFirstWords.length);
+  for (let i = 0; i < puzzles.length; i++) {
+    assert.equal(puzzles[i].perfect_hunt[0], expectedFirstWords[i]);
+  }
 });
 
 test("dictExport round-trip one JSON line", () => {
