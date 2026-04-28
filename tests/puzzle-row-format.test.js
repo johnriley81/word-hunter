@@ -9,7 +9,7 @@ import {
   dictExportToCanonicalRow,
   serializePuzzleRow,
 } from "../js/puzzle-row-format.js";
-import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
+import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
 const HUNT_PLACEHOLDERS = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
   String.fromCharCode("a".charCodeAt(0) + i)
@@ -27,7 +27,7 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
         ["m", "n", "o", "p"],
       ],
     ],
-    next_letters: Array(50).fill("a"),
+    next_letters: Array(NEXT_LETTERS_LEN).fill("a"),
     perfect_hunt: HUNT_PLACEHOLDERS.slice(),
   });
   assert.equal(row.starting_grid?.[0]?.[0], "a");
@@ -39,14 +39,14 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
   assert.equal(puzzles.length, 4);
   for (const p of puzzles) {
     assert.equal(p.starting_grid.length, 4);
-    assert.equal(p.next_letters.length, 50);
+    assert.equal(p.next_letters.length, NEXT_LETTERS_LEN);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
   }
   assert.equal(puzzles[0].starting_grid[0][0], "e");
-  assert.equal(puzzles[0].perfect_hunt[0], "smelling");
-  assert.equal(puzzles[1].perfect_hunt[0], "supersaur");
-  assert.equal(puzzles[2].perfect_hunt[0], "clearings");
-  assert.equal(puzzles[3].perfect_hunt[0], "youngness");
+  assert.equal(puzzles[0].perfect_hunt[0], "symbiote");
+  assert.equal(puzzles[1].perfect_hunt[0], "foremilk");
+  assert.equal(puzzles[2].perfect_hunt[0], "antilogs");
+  assert.equal(puzzles[3].perfect_hunt[0], "clammers");
 });
 
 test("dictExport round-trip one JSON line", () => {
@@ -59,7 +59,7 @@ test("dictExport round-trip one JSON line", () => {
         ["c", "i", "s", "r"],
       ],
     ],
-    next_letters: Array(50).fill("x"),
+    next_letters: Array(NEXT_LETTERS_LEN).fill("x"),
     perfect_hunt: HUNT_PLACEHOLDERS.slice(),
   };
   const line = serializePuzzleRow(dictExportToCanonicalRow(d));
@@ -72,7 +72,7 @@ test("dictExport round-trip one JSON line", () => {
 test("parsePuzzlesFileText accepts legacy single-line JSON object", () => {
   const one =
     '{"starting_grid":[["a","a","a","a"],["a","a","a","a"],["a","a","a","a"],["a","a","a","a"]],"next_letters":' +
-    JSON.stringify(Array(50).fill("z")) +
+    JSON.stringify(Array(NEXT_LETTERS_LEN).fill("z")) +
     ',"perfect_hunt":' +
     JSON.stringify(HUNT_PLACEHOLDERS) +
     "}";
@@ -84,13 +84,13 @@ test("parsePuzzlesFileText accepts legacy single-line JSON object", () => {
 test("parsePuzzlesFileText parses multiple JSON lines", () => {
   const a =
     '{"starting_grid":[["a","a","a","a"],["a","a","a","a"],["a","a","a","a"],["a","a","a","a"]],"next_letters":' +
-    JSON.stringify(Array(50).fill("1")) +
+    JSON.stringify(Array(NEXT_LETTERS_LEN).fill("1")) +
     ',"perfect_hunt":' +
     JSON.stringify(HUNT_PLACEHOLDERS) +
     "}";
   const b =
     '{"starting_grid":[["b","b","b","b"],["b","b","b","b"],["b","b","b","b"],["b","b","b","b"]],"next_letters":' +
-    JSON.stringify(Array(50).fill("2")) +
+    JSON.stringify(Array(NEXT_LETTERS_LEN).fill("2")) +
     ',"perfect_hunt":' +
     JSON.stringify(HUNT_PLACEHOLDERS) +
     "}";

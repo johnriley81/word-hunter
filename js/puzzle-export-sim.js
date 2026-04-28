@@ -1,10 +1,28 @@
 /** Forward simulation / export verification for published puzzles. */
 
+import { NEXT_LETTERS_LEN } from "./config.js";
 import {
   wordToTileLabelSequence,
   normalizeTileText,
   minUniqueTilesForReuseRule,
 } from "./board-logic.js";
+
+/**
+ * Omit trailing sack padding from JSON — runtime still pads to NEXT_LETTERS_LEN.
+ */
+export function stripTrailingEmptyNextLetters(tokens) {
+  const out = Array.isArray(tokens) ? tokens.slice() : [];
+  while (out.length > 0 && out[out.length - 1] === "") out.pop();
+  return out;
+}
+
+/** Canonical runtime sack length after importing compact JSON. */
+export function padNextLettersToLen(tokens, len = NEXT_LETTERS_LEN) {
+  const src = Array.isArray(tokens) ? tokens : [];
+  const out = src.slice(0, len);
+  while (out.length < len) out.push("");
+  return out;
+}
 
 /**
  * @param {number[]} pathFlat
@@ -24,7 +42,7 @@ function uniquesInPathOrder(pathFlat) {
 
 /**
  * @param {string[][]} grid0 Solved 4×4 after the full `perfect_hunt` is on the board.
- * @param {string[]} nextIn 50 string tokens, each like "a" or "qu"
+ * @param {string[]} nextIn compact sack or full length; short JSON is padded with "" on load
  * @param {string[]} wordsAsc hunt words, ascending by score (length must match paths)
  * @param {number[][]} pathFlatByWordAsc for each word, path as flat 0-15 in drag order, same order as `wordsAsc`
  * @returns {{ ok: boolean, reason: string, queueLeft: string[]}}
@@ -32,10 +50,15 @@ function uniquesInPathOrder(pathFlat) {
 export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
   const n = 4;
   const b = grid0.map((row) => row.slice());
-  const q = Array.isArray(nextIn) ? nextIn.slice() : [];
-  if (q.length < 50) {
-    return { ok: false, reason: "next_letters need 50 entries", queueLeft: q };
+  let q = stripTrailingEmptyNextLetters(Array.isArray(nextIn) ? nextIn.slice() : []);
+  if (q.length > NEXT_LETTERS_LEN) {
+    return {
+      ok: false,
+      reason: "next_letters at most " + NEXT_LETTERS_LEN + " entries",
+      queueLeft: q,
+    };
   }
+  q = padNextLettersToLen(q);
   const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
   if (nw === 0 || !pathFlatByWordAsc || pathFlatByWordAsc.length !== nw) {
     return {
@@ -97,9 +120,9 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
 }
 
 /**
- * Run forward verify only if sum of `covered` lengths is 50 (valid next-50).
+ * Run forward verify only if sum of `covered` lengths matches `NEXT_LETTERS_LEN`.
  */
-export function verifyForwardPuzzleIfCoveredChain50(
+export function verifyForwardPuzzleIfCoveredChain(
   grid0,
   nextIn,
   wordsAsc,
@@ -107,17 +130,17 @@ export function verifyForwardPuzzleIfCoveredChain50(
   playsChron
 ) {
   const n = coveredFirstVisitCountTotal(playsChron);
-  if (n !== 50) {
+  if (n !== NEXT_LETTERS_LEN) {
     return {
       ok: false,
-      reason: "covered_chain_length: " + n + ", need 50",
+      reason: "covered_chain_length: " + n + ", need " + NEXT_LETTERS_LEN,
       queueLeft: Array.isArray(nextIn) ? nextIn.slice() : [],
     };
   }
   return verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc);
 }
 
-/** Sum of `covered` lengths — must be 50 for a valid next-50 run. */
+/** Sum of `covered` lengths — must equal `NEXT_LETTERS_LEN` for a valid run. */
 export function coveredFirstVisitCountTotal(playsChron) {
   let n = 0;
   for (const p of playsChron || []) {
@@ -126,9 +149,17 @@ export function coveredFirstVisitCountTotal(playsChron) {
   return n;
 }
 
-/** Build next[50] from per-play `covered`: chronological build, prepending each play (pad/slice 50). */
-export function buildNext50FromCoveredInBuildOrder(playsChron, options) {
-  const fillEmpty = (options && options.fillEmpty) || "a";
+/**
+ * Build `next_letters` from per-play `covered`: chronological build, prepend each play,
+ * pad/slice to `NEXT_LETTERS_LEN`; strip trailing empties in JSON exports (see stripTrailingEmptyNextLetters).
+ */
+export function buildNextLettersFromCoveredInBuildOrder(playsChron, options) {
+  const len =
+    options && typeof options.chainLen === "number"
+      ? options.chainLen
+      : NEXT_LETTERS_LEN;
+  const fillEmpty =
+    options && typeof options.fillEmpty === "string" ? options.fillEmpty : "";
   let flat = /** @type {string[]} */ ([]);
   for (const p of playsChron || []) {
     const part = (p.covered || []).map((ch) =>
@@ -136,8 +167,8 @@ export function buildNext50FromCoveredInBuildOrder(playsChron, options) {
     );
     flat = part.concat(flat);
   }
-  while (flat.length < 50) flat.push(fillEmpty);
-  return flat.slice(0, 50);
+  while (flat.length < len) flat.push(fillEmpty);
+  return flat.slice(0, len);
 }
 
 /**

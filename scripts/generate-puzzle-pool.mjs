@@ -1,9 +1,9 @@
-/** Writes pregen puzzle-pool.json: six words, Σ min_tiles = 50, JSON lists words by descending wordTotal (low-score opener has 8 tile labels). */
+/** Pregen puzzle-pool.json: Σ min_tiles = NEXT_LETTERS_LEN; rows high→low wordTotal; opener = openingLabelLen glyphs. */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
-import { PERFECT_HUNT_WORD_COUNT } from "../js/config.js";
+import { NEXT_LETTERS_LEN } from "../js/config.js";
 import {
   wordToTileLabelSequence,
   wordReuseStats,
@@ -17,7 +17,7 @@ const POOL_SIZE = Math.max(1, parseInt(process.env.POOL_SIZE || "1000", 10) || 1
 const SEED = parseInt(process.env.SEED || "42", 10) || 42;
 const RECOG_MIN = Math.max(
   1,
-  Math.min(10, parseInt(process.env.RECOG_MIN || "8", 10) || 8)
+  Math.min(10, parseInt(process.env.RECOG_MIN || "7", 10) || 7)
 );
 
 const POOL_OVERSAMPLE = Math.max(
@@ -27,24 +27,80 @@ const POOL_OVERSAMPLE = Math.max(
 
 const POOL_RANK_BY_LETTER_UNION = process.env.POOL_RANK_BY_LETTER_UNION !== "0";
 
-/** Tie-break after letter union: "max" = higher Σ wordTotal; "target" = near POOL_WORD_TOTAL_TARGET. */
+/** After reuse + letterUnion: Σ wordTotal (“max”), or distance to POOL_WORD_TOTAL_TARGET (“target”). */
 const POOL_WORD_TOTAL_RANK = process.env.POOL_WORD_TOTAL_RANK || "max";
 const POOL_WORD_TOTAL_TARGET =
   parseInt(process.env.POOL_WORD_TOTAL_TARGET || "1100", 10) || 1100;
 
-const HUNT = PERFECT_HUNT_WORD_COUNT;
-const TARGET_MIN_SUM = 50;
+/** Σreuse = Σ(labelLength − min_tiles). Rank: reuse (max | near target | ignore), then letterUnion, then wordTotals. */
+const POOL_REUSE_SUM_TARGET = Math.max(
+  0,
+  parseInt(process.env.POOL_REUSE_SUM_TARGET || "10", 10) || 10
+);
+const POOL_REUSE_RANK = process.env.POOL_REUSE_RANK || "max";
 
-/** Integer partitions of TARGET_MIN_SUM into HUNT parts (min tile counts 6–11). */
+/** Defaults must match filter-word-recogniz-by-tile-length.mjs. */
+const TILE_LABEL_MIN = Math.max(
+  1,
+  parseInt(process.env.TILE_LABEL_MIN || "8", 10) || 8
+);
+const TILE_LABEL_MAX = Math.max(
+  TILE_LABEL_MIN,
+  parseInt(process.env.TILE_LABEL_MAX || "16", 10) || 16
+);
+
+const TARGET_MIN_SUM = NEXT_LETTERS_LEN;
+
+/** Partitions of 66 into seven min_tile counts (6–12 each). */
 const MIN_TILE_PATTERNS = [
-  [7, 8, 8, 9, 9, 9],
-  [8, 8, 8, 8, 9, 9],
-  [7, 7, 8, 9, 9, 10],
-  [6, 8, 8, 9, 9, 10],
-  [7, 8, 8, 8, 9, 10],
-  [6, 7, 9, 9, 9, 10],
-  [8, 8, 9, 9, 8, 8],
+  [9, 9, 9, 9, 10, 10, 10],
+  [8, 9, 9, 10, 10, 10, 10],
+  [8, 8, 9, 10, 11, 10, 10],
+  [10, 10, 9, 10, 9, 10, 8],
+  [11, 10, 10, 9, 9, 9, 8],
+  [11, 10, 9, 10, 9, 9, 8],
+  [11, 9, 9, 9, 10, 10, 8],
+  [12, 9, 9, 9, 9, 9, 9],
+  [10, 10, 10, 10, 9, 8, 9],
+  [10, 10, 10, 9, 9, 9, 9],
 ];
+
+/** Fallback when only min_tiles 9–10 buckets are non-empty. */
+function minTilePatternsNineTenOnly() {
+  const patterns = [];
+  for (let a = 0; a < 7; a++) {
+    for (let b = a + 1; b < 7; b++) {
+      for (let c = b + 1; c < 7; c++) {
+        const p = Array(7).fill(9);
+        p[a] = p[b] = p[c] = 10;
+        patterns.push(p);
+      }
+    }
+  }
+  return patterns;
+}
+
+function viableMinTilePatterns(byMin) {
+  const viable = MIN_TILE_PATTERNS.filter((pattern) =>
+    pattern.every((m) => (byMin.get(m)?.length ?? 0) > 0)
+  );
+  if (viable.length > 0) return viable;
+
+  const alt = minTilePatternsNineTenOnly();
+  const ok = alt.filter((pattern) =>
+    pattern.every((m) => (byMin.get(m)?.length ?? 0) > 0)
+  );
+  return ok.length > 0 ? ok : [];
+}
+
+function computeMinOpeningLabelLen(poolWords) {
+  let n = Infinity;
+  for (const w of poolWords) {
+    const len = wordToTileLabelSequence(w).length;
+    if (len < n) n = len;
+  }
+  return Number.isFinite(n) ? n : 8;
+}
 
 function mulberry32(a) {
   return function () {
@@ -59,10 +115,7 @@ function loadRecognizabilityMap() {
   const path = join(root, "text/gamemaker/pregen/word-recognizability.json");
   if (!existsSync(path)) {
     console.error(
-      "Missing " +
-        path +
-        " — run: npm run gen:word-rec\n" +
-        "(Requires Python 3 and text/word_metrics_7_10.pkl.)"
+      `Missing ${path} — run: npm run gen:word-rec (see README for metrics pickle).`
     );
     process.exit(1);
   }
@@ -85,7 +138,7 @@ function loadCandidateWords(recMap) {
     if (!w || !/^[a-z]+$/.test(w)) continue;
     const labels = wordToTileLabelSequence(w);
     const n = labels.length;
-    if (n < 8 || n > 14) continue;
+    if (n < TILE_LABEL_MIN || n > TILE_LABEL_MAX) continue;
     const rec = recMap[w];
     if (typeof rec !== "number" || rec < RECOG_MIN) continue;
     if (set.has(w)) continue;
@@ -111,7 +164,7 @@ function puzzleKey(sortedWords) {
   return sortedWords.join("\0");
 }
 
-/** Unique a–z letters across the six spelling strings (max 26). */
+/** Count of distinct letters used in spelling strings. */
 function letterUnionSize(wordEntries) {
   const s = new Set();
   for (const e of wordEntries) {
@@ -132,7 +185,26 @@ function puzzleWordTotalSum(wordEntries) {
   return s;
 }
 
-function tryBuildPuzzle(rng, byMin, pattern) {
+/** Σ per-word reuse (label glyphs minus minTiles). */
+function puzzleReuseSum(wordEntries) {
+  let s = 0;
+  for (const e of wordEntries) {
+    s += Number(e.reuse) || 0;
+  }
+  return s;
+}
+
+function reuseSortCompare(a, b) {
+  if (POOL_REUSE_RANK === "ignore") return 0;
+  if (POOL_REUSE_RANK === "max") {
+    return (b.reuseSum || 0) - (a.reuseSum || 0);
+  }
+  const da = Math.abs((a.reuseSum || 0) - POOL_REUSE_SUM_TARGET);
+  const db = Math.abs((b.reuseSum || 0) - POOL_REUSE_SUM_TARGET);
+  return da - db;
+}
+
+function tryBuildPuzzle(rng, byMin, pattern, openingLabelLen) {
   const picked = [];
   const words = [];
   for (const m of pattern) {
@@ -154,7 +226,7 @@ function tryBuildPuzzle(rng, byMin, pattern) {
     if (entries[i].wordTotal <= entries[i - 1].wordTotal) return null;
   }
   const openerLabels = wordToTileLabelSequence(entries[0].word);
-  if (openerLabels.length !== 8) return null;
+  if (openerLabels.length !== openingLabelLen) return null;
   const sum = entries.reduce((s, e) => s + e.min_tiles, 0);
   if (sum !== TARGET_MIN_SUM) return null;
   return { words: entries };
@@ -178,10 +250,20 @@ function main() {
   for (const w of poolWords) {
     const e = wordEntry(w);
     const m = e.min_tiles;
-    if (m < 6 || m > 11) continue;
+    if (m < 6 || m > 12) continue;
     if (!byMin.has(m)) byMin.set(m, []);
     byMin.get(m).push(e);
   }
+
+  const patterns = viableMinTilePatterns(byMin);
+  if (patterns.length === 0) {
+    console.error(
+      "No min_tiles partition fits non-empty buckets; relax RECOG_MIN or fix word/rec data."
+    );
+    process.exit(1);
+  }
+
+  const openingLabelLen = computeMinOpeningLabelLen(poolWords);
 
   const collectTarget = POOL_RANK_BY_LETTER_UNION
     ? POOL_SIZE * POOL_OVERSAMPLE
@@ -195,8 +277,8 @@ function main() {
 
   while (puzzles.length < collectTarget && attempts < maxAttempts) {
     attempts++;
-    const pattern = MIN_TILE_PATTERNS[Math.floor(rng() * MIN_TILE_PATTERNS.length)];
-    const built = tryBuildPuzzle(rng, byMin, pattern);
+    const pattern = patterns[Math.floor(rng() * patterns.length)];
+    const built = tryBuildPuzzle(rng, byMin, pattern, openingLabelLen);
     if (!built) continue;
     const sorted = built.words.map((x) => x.word).sort();
     const key = puzzleKey(sorted);
@@ -204,10 +286,12 @@ function main() {
     seen.add(key);
     const u = letterUnionSize(built.words);
     const scoreSum = puzzleWordTotalSum(built.words);
+    const reuseSum = puzzleReuseSum(built.words);
     puzzles.push({
       words: built.words,
       letterUnionSize: u,
       puzzleWordTotalSum: scoreSum,
+      reuseSum,
     });
   }
 
@@ -225,6 +309,7 @@ function main() {
       .slice()
       .sort(
         (a, b) =>
+          reuseSortCompare(a, b) ||
           (b.letterUnionSize || 0) - (a.letterUnionSize || 0) ||
           byTarget(a, b) ||
           puzzleKey(a.words.map((x) => x.word).sort()).localeCompare(
@@ -249,20 +334,36 @@ function main() {
     id: `pool-${String(i + 1).padStart(4, "0")}`,
     letterUnionSize: p.letterUnionSize,
     puzzleWordTotalSum: p.puzzleWordTotalSum,
+    reuseSum: p.reuseSum,
     words: p.words.slice().reverse(),
   }));
 
   writeFileSync(
     outPath,
-    JSON.stringify({ version: 1, count: numbered.length, puzzles: numbered }, null, 2) +
-      "\n",
+    JSON.stringify(
+      {
+        version: 1,
+        openingLabelLen,
+        poolReuseSumTarget: POOL_REUSE_SUM_TARGET,
+        poolReuseRank: POOL_REUSE_RANK,
+        tileLabelLength: [TILE_LABEL_MIN, TILE_LABEL_MAX],
+        count: numbered.length,
+        puzzles: numbered,
+      },
+      null,
+      2
+    ) + "\n",
     "utf8"
   );
   console.log(
     `Wrote ${
       numbered.length
-    } puzzles to ${outPath} (RECOG_MIN=${RECOG_MIN}, rankByLetterUnion=${POOL_RANK_BY_LETTER_UNION}, wordTotalRank=${POOL_WORD_TOTAL_RANK}${
-      POOL_WORD_TOTAL_RANK === "target" ? " target=" + POOL_WORD_TOTAL_TARGET : ""
+    } puzzles to ${outPath} (RECOG_MIN=${RECOG_MIN}, openingLabelLen=${openingLabelLen}, tileLabels=${TILE_LABEL_MIN}–${TILE_LABEL_MAX}, rank reuse→letterUnion→ΣwordTotal; reuseRank=${POOL_REUSE_RANK}${
+      POOL_REUSE_RANK === "near" ? " targetΣreuse=" + POOL_REUSE_SUM_TARGET : ""
+    }, rankByLetterUnion=${POOL_RANK_BY_LETTER_UNION}, wordTotalRank=${POOL_WORD_TOTAL_RANK}${
+      POOL_WORD_TOTAL_RANK === "target"
+        ? " targetΣwordTotal=" + POOL_WORD_TOTAL_TARGET
+        : ""
     })`
   );
 }

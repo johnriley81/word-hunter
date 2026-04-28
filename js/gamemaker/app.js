@@ -17,8 +17,8 @@ import { wordPathDragStrokeColorAt } from "../word-path.js";
 import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
 import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js";
 import {
-  buildNext50FromCoveredInBuildOrder,
-  verifyForwardPuzzleIfCoveredChain50,
+  buildNextLettersFromCoveredInBuildOrder,
+  stripTrailingEmptyNextLetters,
 } from "../puzzle-export-sim.js";
 import { loadWordhunterTextAssets } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
@@ -653,34 +653,16 @@ function createGamemaker() {
           })
         : [];
     if (playsForExport.length !== WORD_COUNT) return null;
-    const next50 = buildNext50FromCoveredInBuildOrder(playsForExport, {
-      fillEmpty: "a",
+    const nextLetters = buildNextLettersFromCoveredInBuildOrder(playsForExport, {
+      fillEmpty: "",
     });
     const order = currentWords
       .map((w, i) => ({ w, i }))
       .sort((a, b) => (a.w.wordTotal || 0) - (b.w.wordTotal || 0));
     const wordsAsc = order.map((x) => (x.w.word || "").toLowerCase());
-    const pathsInWordTotalAsc = order.map((x) => pathByWordAsc[x.i] || []);
-    const v2 =
-      next50.length === 50
-        ? verifyForwardPuzzleIfCoveredChain50(
-            gEndL,
-            next50,
-            wordsAsc,
-            pathsInWordTotalAsc,
-            playsForExport
-          )
-        : {
-            ok: false,
-            reason: "next_letters need 50 entries for forward verify",
-            queueLeft: next50.slice(),
-          };
-    if (!v2.ok) {
-      console.warn("[gamemaker export] forward verify:", v2.reason);
-    }
     return {
       starting_grids: [gEndL],
-      next_letters: next50,
+      next_letters: stripTrailingEmptyNextLetters(nextLetters),
       perfect_hunt: wordsAsc,
     };
   }
@@ -696,27 +678,43 @@ function createGamemaker() {
   }
 
   async function exportPuzzle() {
-    const n = puzzleBatch.length;
-    if (n === 0) {
+    let lines = puzzleBatch.slice();
+    if (lines.length === 0 && isPuzzleCompleteForExport()) {
+      const d = buildDictExportFromState();
+      if (d) lines = [d];
+    }
+    const nLines = lines.length;
+    if (nLines === 0) {
       showExportMetaMessage(
-        "Nothing queued — finish " +
+        "Nothing to export — place all " +
           WORD_COUNT +
-          " words, shift grid if needed, press next",
+          " hunt words first (tap list when placement is locked)",
         2800
       );
       return;
     }
-    const text = puzzleBatch.map((d) => stringifyGamemakerDictExport(d)).join("\n");
+    let text;
+    try {
+      text = lines.map((d) => stringifyGamemakerDictExport(d)).join("\n");
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+            ? e
+            : "Export stringify failed";
+      showExportMetaMessage(msg.slice(0, 200), 4000);
+      return;
+    }
     try {
       await copyTextToClipboard(text);
       puzzleBatch = [];
       showExportMetaMessage(
-        n === 1 ? "Copied 1 puzzle" : "Copied " + n + " puzzles",
+        nLines === 1 ? "Copied 1 puzzle" : "Copied " + nLines + " puzzles",
         2000
       );
-    } catch (e) {
-      console.error(e);
-      showExportMetaMessage("Copy failed", 2500);
+    } catch {
+      showExportMetaMessage("Copy failed — check HTTPS or clipboard permission", 2500);
     }
   }
 
@@ -735,10 +733,11 @@ function createGamemaker() {
         "Run npm run gen:puzzle-pool (text/gamemaker/pregen/puzzle-pool.json)";
     }
     updateUi();
-    btnList.addEventListener("click", () => loadNextOrReset());
-    btnExport.addEventListener("click", () => {
-      void exportPuzzle();
-    });
+    if (btnList) btnList.addEventListener("click", () => loadNextOrReset());
+    if (btnExport)
+      btnExport.addEventListener("click", () => {
+        void exportPuzzle();
+      });
   }
 
   void init();

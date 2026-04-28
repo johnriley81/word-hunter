@@ -12,8 +12,20 @@ export const INTRO_MESSAGE_TEXT = "Happy Hunting";
 
 export const GRID_SIZE = 4;
 
+/** Cells on the opening board (`GRID_SIZE` × `GRID_SIZE`). */
+export const GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
+
 /** Perfect-hunt word count for daily puzzles, gamemaker export, and puzzles.txt rows. */
-export const PERFECT_HUNT_WORD_COUNT = 6;
+export const PERFECT_HUNT_WORD_COUNT = 7;
+
+/**
+ * Σ `min_unique_tiles` over the seven hunt words (= padded runtime `next_letters`.length).
+ * Compact JSON omits trailing empty slots — exported token count is often `NEXT_LETTERS_UI_COUNT`.
+ */
+export const NEXT_LETTERS_LEN = 66;
+
+/** Player-facing sack size in UI (listed replacement letters excluding implicit pad slots). `NEXT_LETTERS_LEN − GRID_CELL_COUNT`. */
+export const NEXT_LETTERS_UI_COUNT = NEXT_LETTERS_LEN - GRID_CELL_COUNT;
 export const SHIFT_STRIDE_FIRST_FRAC = 0.4;
 export const SHIFT_AXIS_LOCK_PX = 8;
 export const SHIFT_SLIDE_SENSITIVITY = 2;

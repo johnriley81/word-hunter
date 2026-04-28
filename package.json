@@ -6,6 +6,7 @@
     "test": "node --test tests/",
     "format": "prettier --write .",
     "gen:word-rec": "node scripts/export-word-recognizability.mjs",
+    "gen:extend-metrics": "python3 scripts/build-extended-word-metrics.py",
     "gen:puzzle-pool": "node scripts/generate-puzzle-pool.mjs"
   },
   "devDependencies": {

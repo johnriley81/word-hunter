@@ -2,13 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   verifyForwardPuzzle,
-  verifyForwardPuzzleIfCoveredChain50,
-  buildNext50FromCoveredInBuildOrder,
+  verifyForwardPuzzleIfCoveredChain,
+  buildNextLettersFromCoveredInBuildOrder,
   recomputeCoveredChronFromHarness,
   coveredFirstVisitCountTotal,
+  stripTrailingEmptyNextLetters,
 } from "../js/puzzle-export-sim.js";
+import { NEXT_LETTERS_LEN } from "../js/config.js";
 
-test("verifyForwardPuzzle requires 50 next letters", () => {
+test("verifyForwardPuzzle rejects too-long next_letters", () => {
   const g = [
     ["a", "a", "a", "a"],
     ["a", "a", "a", "a"],
@@ -17,7 +19,7 @@ test("verifyForwardPuzzle requires 50 next letters", () => {
   ];
   const r = verifyForwardPuzzle(
     g,
-    ["a", "a"],
+    Array(NEXT_LETTERS_LEN + 3).fill("a"),
     ["ab", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "ab"],
     [
       [0, 1],
@@ -32,15 +34,32 @@ test("verifyForwardPuzzle requires 50 next letters", () => {
     ]
   );
   assert.equal(r.ok, false);
-  assert(r.reason.includes("50"));
+  assert.ok(r.reason.includes("at most"));
 });
 
-test("buildNext50FromCoveredInBuildOrder prepends each play’s covered in chron build order", () => {
+test("verifyForwardPuzzle strips compact sack to full length internally", () => {
+  const plays = [{ covered: ["z"] }];
+  assert.equal(
+    stripTrailingEmptyNextLetters(buildNextLettersFromCoveredInBuildOrder(plays))
+      .length,
+    1
+  );
+});
+
+test("buildNextLettersFromCoveredInBuildOrder prepends each play’s covered in iteration order", () => {
   const plays = [{ covered: ["a", "b"] }, { covered: ["c"] }];
-  const n = buildNext50FromCoveredInBuildOrder(plays, { fillEmpty: "x" });
+  const n = buildNextLettersFromCoveredInBuildOrder(plays, { fillEmpty: "x" });
   assert.equal(n[0], "c");
   assert.equal(n[1], "a");
-  assert(n.length === 50);
+  assert.equal(n.length, NEXT_LETTERS_LEN);
+});
+
+test("buildNextLettersFromCoveredInBuildOrder pads with empty string when fillEmpty omitted", () => {
+  const plays = [{ covered: ["z"] }];
+  const n = buildNextLettersFromCoveredInBuildOrder(plays);
+  assert.equal(n[0], "z");
+  assert.equal(n[NEXT_LETTERS_LEN - 1], "");
+  assert.ok(n.slice(1).every((ch) => ch === ""));
 });
 
 test("coveredFirstVisitCountTotal sums per-play covered lengths", () => {
@@ -48,19 +67,19 @@ test("coveredFirstVisitCountTotal sums per-play covered lengths", () => {
   assert.equal(coveredFirstVisitCountTotal(plays), 7);
 });
 
-test("verifyForwardPuzzleIfCoveredChain50 skips per-word sim when chain length != 50", () => {
+test("verifyForwardPuzzleIfCoveredChain skips per-word sim when chain length != NEXT_LETTERS_LEN", () => {
   const g = [
     ["a", "a", "a", "a"],
     ["a", "a", "a", "a"],
     ["a", "a", "a", "a"],
     ["a", "a", "a", "a"],
   ];
-  const next50 = Array(50).fill("a");
+  const nextFull = Array(NEXT_LETTERS_LEN).fill("a");
   const words9 = Array(9).fill("aa");
   const paths9 = Array(9)
     .fill(null)
     .map(() => [0, 1]);
-  const plays66 = [
+  const playsMismatch = [
     { covered: new Array(7).fill("x") },
     { covered: new Array(7).fill("x") },
     { covered: new Array(7).fill("x") },
@@ -69,13 +88,19 @@ test("verifyForwardPuzzleIfCoveredChain50 skips per-word sim when chain length !
     { covered: new Array(8).fill("x") },
     { covered: new Array(7).fill("x") },
     { covered: new Array(7).fill("x") },
-    { covered: new Array(7).fill("x") },
+    { covered: new Array(8).fill("x") },
   ];
-  assert.equal(coveredFirstVisitCountTotal(plays66), 66);
-  const r = verifyForwardPuzzleIfCoveredChain50(g, next50, words9, paths9, plays66);
+  assert.equal(coveredFirstVisitCountTotal(playsMismatch), 67);
+  const r = verifyForwardPuzzleIfCoveredChain(
+    g,
+    nextFull,
+    words9,
+    paths9,
+    playsMismatch
+  );
   assert.equal(r.ok, false);
-  assert(r.reason.includes("covered_chain_length: 66"));
-  assert(r.reason.includes("need 50"));
+  assert(r.reason.includes("covered_chain_length: 67"));
+  assert(r.reason.includes("need " + NEXT_LETTERS_LEN));
 });
 
 test("recomputeCoveredChronFromHarness matches per-play first-visit letters", () => {
