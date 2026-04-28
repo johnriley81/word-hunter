@@ -1,17 +1,14 @@
 /** puzzles.txt: JSON Lines — one compact `{...}` object per non-empty line. */
 
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "./config.js";
-import {
-  stripTrailingEmptyNextLetters,
-  padNextLettersToLen,
-} from "./puzzle-export-sim.js";
+import { omitEmptyNextLetterSlots, padNextLettersToLen } from "./puzzle-export-sim.js";
 
 const GRID = 4;
 const NEXT_LEN = NEXT_LETTERS_LEN;
 const HUNT_LEN = PERFECT_HUNT_WORD_COUNT;
 
 /**
- * @param {unknown[]} raw non-pad tokens including `""` where a first-visit tile was blank before play
+ * @param {unknown[]} raw tokens from compact JSON (`""` padding removed on export; ignored on load)
  * @returns {string[]} padded to `NEXT_LETTERS_LEN` for runtime
  */
 function coerceNextLettersForRow(raw) {
@@ -19,7 +16,7 @@ function coerceNextLettersForRow(raw) {
   const mapped = /** @type {unknown[]} */ (raw).map((c) =>
     String(c || "").toLowerCase()
   );
-  const compact = stripTrailingEmptyNextLetters(mapped);
+  const compact = omitEmptyNextLetterSlots(mapped);
   if (compact.length === 0)
     throw new Error("next_letters must have at least one entry");
   if (compact.length > NEXT_LEN) {
@@ -74,9 +71,7 @@ export function serializePuzzleRow(row) {
   validatePuzzleRow(row);
   return JSON.stringify({
     starting_grid: row.starting_grid,
-    next_letters: stripTrailingEmptyNextLetters(
-      /** @type {string[]} */ (row.next_letters)
-    ),
+    next_letters: omitEmptyNextLetterSlots(/** @type {string[]} */ (row.next_letters)),
     perfect_hunt: row.perfect_hunt,
   });
 }

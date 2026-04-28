@@ -424,16 +424,14 @@ export function createWordDragHandlers(ctx, host) {
       const cw = w().currentWord;
       const wordScore = host.getWordScoreFromSelectedTiles(w().selectedButtons);
       const huntMeta = host.evaluatePerfectHuntSubmit(cw, wordScore);
-      if (!huntMeta.isPerfectCompletion) {
-        if (huntMeta.inList && huntMeta.choirPlaybackRate != null) {
-          playSound("choir", host.getMuted(), {
-            playbackRate: huntMeta.choirPlaybackRate,
-          });
-        } else {
-          playSound("bing", host.getMuted(), {
-            playbackRate: bingPlaybackRateForWordLength(len),
-          });
-        }
+      if (huntMeta.inList && huntMeta.choirPlaybackRate != null) {
+        playSound("choir", host.getMuted(), {
+          playbackRate: huntMeta.choirPlaybackRate,
+        });
+      } else if (!huntMeta.isPerfectCompletion) {
+        playSound("bing", host.getMuted(), {
+          playbackRate: bingPlaybackRateForWordLength(len),
+        });
       }
       const tilesToReplace = Array.from(w().selectedButtonSet);
       host.addToScore(wordScore);

@@ -18,7 +18,7 @@ import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
 import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js";
 import {
   buildNextLettersFromCoveredInBuildOrder,
-  stripTrailingEmptyNextLetters,
+  omitEmptyNextLetterSlots,
 } from "../puzzle-export-sim.js";
 import { loadWordhunterTextAssets } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
@@ -662,7 +662,7 @@ function createGamemaker() {
     const wordsAsc = order.map((x) => (x.w.word || "").toLowerCase());
     return {
       starting_grids: [gEndL],
-      next_letters: stripTrailingEmptyNextLetters(nextLetters),
+      next_letters: omitEmptyNextLetterSlots(nextLetters),
       perfect_hunt: wordsAsc,
     };
   }

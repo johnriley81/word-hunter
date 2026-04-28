@@ -7,8 +7,13 @@ import {
   recomputeCoveredChronFromHarness,
   coveredFirstVisitCountTotal,
   stripTrailingEmptyNextLetters,
+  omitEmptyNextLetterSlots,
 } from "../js/puzzle-export-sim.js";
 import { NEXT_LETTERS_LEN } from "../js/config.js";
+
+test("omitEmptyNextLetterSlots drops all empty string entries", () => {
+  assert.deepEqual(omitEmptyNextLetterSlots(["a", "", "b", ""]), ["a", "b"]);
+});
 
 test("verifyForwardPuzzle rejects too-long next_letters", () => {
   const g = [
