@@ -68,7 +68,7 @@ import {
   resetWordSelectionState,
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
-import { stripTrailingEmptyNextLetters } from "./puzzle-export-sim.js";
+import { omitEmptyNextLetterSlots } from "./puzzle-export-sim.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -660,7 +660,7 @@ export function initGame(ctx) {
 
     if (queueSackCountElement) {
       queueSackCountElement.textContent = String(
-        stripTrailingEmptyNextLetters(nextLetters).length
+        omitEmptyNextLetterSlots(nextLetters).length
       );
     }
 

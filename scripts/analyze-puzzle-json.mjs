@@ -23,8 +23,8 @@ import {
   applyRowShiftInPlace,
 } from "../js/board-logic.js";
 import {
+  omitEmptyNextLetterSlots,
   padNextLettersToLen,
-  stripTrailingEmptyNextLetters,
   verifyForwardPuzzle,
 } from "../js/puzzle-export-sim.js";
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
@@ -266,15 +266,12 @@ const hunt = (p.perfect_hunt ?? p.perfectHunt).map((w) => String(w).toLowerCase(
 if (!Array.isArray(grid) || grid.length !== 4) throw new Error("bad grid");
 if (!Array.isArray(nextRaw)) throw new Error("bad next_letters");
 const mapped = nextRaw.map((c) => String(c || "").toLowerCase());
-const compact = stripTrailingEmptyNextLetters(mapped);
+const compact = omitEmptyNextLetterSlots(mapped);
 if (compact.length < 1 || compact.length > NEXT_LETTERS_LEN) {
   throw new Error(
-    "bad next_letters length (expect 1–" + NEXT_LETTERS_LEN + " non-empty entries)"
-  );
-}
-if (compact.some((c) => c === "")) {
-  throw new Error(
-    "bad next_letters: empty placeholders not allowed except trailing (use compact JSON)"
+    "bad next_letters length (expect 1–" +
+      NEXT_LETTERS_LEN +
+      ' letters after omitting "" slots)'
   );
 }
 const next = padNextLettersToLen(compact);

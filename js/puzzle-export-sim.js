@@ -16,6 +16,11 @@ export function stripTrailingEmptyNextLetters(tokens) {
   return out;
 }
 
+/** Every non-letter sack slot omitted for compact JSON (`""` placeholders removed everywhere). */
+export function omitEmptyNextLetterSlots(tokens) {
+  return (Array.isArray(tokens) ? tokens : []).filter((t) => t !== "");
+}
+
 /** Canonical runtime sack length after importing compact JSON. */
 export function padNextLettersToLen(tokens, len = NEXT_LETTERS_LEN) {
   const src = Array.isArray(tokens) ? tokens : [];
@@ -50,7 +55,7 @@ function uniquesInPathOrder(pathFlat) {
 export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
   const n = 4;
   const b = grid0.map((row) => row.slice());
-  let q = stripTrailingEmptyNextLetters(Array.isArray(nextIn) ? nextIn.slice() : []);
+  let q = omitEmptyNextLetterSlots(Array.isArray(nextIn) ? nextIn.slice() : []);
   if (q.length > NEXT_LETTERS_LEN) {
     return {
       ok: false,
@@ -151,7 +156,7 @@ export function coveredFirstVisitCountTotal(playsChron) {
 
 /**
  * Build `next_letters` from per-play `covered`: chronological build, prepend each play,
- * pad/slice to `NEXT_LETTERS_LEN`; strip trailing empties in JSON exports (see stripTrailingEmptyNextLetters).
+ * pad/slice to `NEXT_LETTERS_LEN`; JSON exports omit every `""` via `omitEmptyNextLetterSlots`.
  */
 export function buildNextLettersFromCoveredInBuildOrder(playsChron, options) {
   const len =
