@@ -962,9 +962,7 @@ export function initGame(ctx) {
         "grid-button--endgame-flip-exit"
       );
       buttons[i].style.removeProperty("--endgame-flip-delay");
-      syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]), {
-        deferInstantHideForBlank: true,
-      });
+      syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]));
     }
     runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
       const tiles = grid.getElementsByClassName("grid-button");

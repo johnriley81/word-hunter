@@ -45,12 +45,13 @@ export function setTileText(el, tileText) {
 }
 
 /**
- * Peeled-slot styling for empty cells during play (`grid-button--slot-consumed*`).
- * Blanks hide instantly unless `deferInstantHideForBlank` — used for end-game grid
- * and shift ghost preview so blanks stay visible like normal inactive tiles.
+ * Peeled-slot styling (`grid-button--slot-consumed*`).
+ * For blanks, `slot-consumed-instant` fully hides the tile. By default blanks
+ * stay visible; pass `deferInstantHideForBlank: false` only if you need that
+ * legacy instant-hide (unused in main game flow).
  */
 export function syncConsumedEmptySlotVisual(el, cellText, opts = {}) {
-  const deferInstantHideForBlank = opts.deferInstantHideForBlank === true;
+  const deferInstantHideForBlank = opts.deferInstantHideForBlank !== false;
   const blank = normalizeTileText(cellText) === "";
   if (blank) {
     el.classList.remove(
@@ -101,6 +102,7 @@ export function setTileTextAllowEmpty(el, tileText) {
   el.disabled = false;
 }
 
+/** Resync tiles from logical board — blank cells stay visible (no instant peel-hide). */
 export function syncDomFromBoard(grid, gameBoard, gridSize) {
   const n = gridSize;
   const tiles = grid.children;

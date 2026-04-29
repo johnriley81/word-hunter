@@ -125,9 +125,7 @@ export function attachShiftGestures(ctx, host) {
       const ch = ctx.state.gameBoard[mapped.r][mapped.c];
       const el = tiles[t++];
       if (getTileText(el) !== ch) setTileText(el, ch);
-      syncConsumedEmptySlotVisual(el, ch, {
-        deferInstantHideForBlank: true,
-      });
+      syncConsumedEmptySlotVisual(el, ch);
     }
     showPreviewTiles(inner, need);
   }
