@@ -8,11 +8,30 @@ import {
   coveredFirstVisitCountTotal,
   stripTrailingEmptyNextLetters,
   omitEmptyNextLetterSlots,
+  canonicalNextLettersFromJsonArray,
 } from "../js/puzzle-export-sim.js";
 import { NEXT_LETTERS_LEN } from "../js/config.js";
 
 test("omitEmptyNextLetterSlots drops all empty string entries", () => {
   assert.deepEqual(omitEmptyNextLetterSlots(["a", "", "b", ""]), ["a", "b"]);
+});
+
+test("canonicalNextLettersFromJsonArray preserves internal empty peel slots", () => {
+  const raw = ["A", "", "b", "", "z"];
+  const q = canonicalNextLettersFromJsonArray(raw);
+  assert.equal(q[0], "a");
+  assert.equal(q[1], "");
+  assert.equal(q[2], "b");
+  assert.equal(q[3], "");
+  assert.equal(q[4], "z");
+  assert.equal(q.length, NEXT_LETTERS_LEN);
+});
+
+test("canonicalNextLettersFromJsonArray strips trailing empties before pad", () => {
+  const trailing = [...Array.from({ length: 5 }, () => ""), "", "", ""];
+  const q = canonicalNextLettersFromJsonArray(["a", "", "b"].concat(trailing));
+  assert.deepEqual(q.slice(0, 3), ["a", "", "b"]);
+  assert.equal(q.length, NEXT_LETTERS_LEN);
 });
 
 test("verifyForwardPuzzle rejects too-long next_letters", () => {

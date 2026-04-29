@@ -20,7 +20,8 @@ export const PERFECT_HUNT_WORD_COUNT = 7;
 
 /**
  * Σ `min_unique_tiles` over the seven hunt words (= padded runtime `next_letters`.length).
- * Compact JSON omits trailing empty slots — exported token count is often `NEXT_LETTERS_UI_COUNT`.
+ * JSON may omit trailing `""` pads; **`""` elsewhere encode positional peels** — do not strip
+ * when loading (see `canonicalNextLettersFromJsonArray`).
  */
 export const NEXT_LETTERS_LEN = 66;
 

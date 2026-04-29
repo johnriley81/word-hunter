@@ -18,7 +18,7 @@ import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
 import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js";
 import {
   buildNextLettersFromCoveredInBuildOrder,
-  omitEmptyNextLetterSlots,
+  stripTrailingEmptyNextLetters,
 } from "../puzzle-export-sim.js";
 import { loadWordhunterTextAssets } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
@@ -95,9 +95,6 @@ function createGamemaker() {
   let placementStep = 0;
   let buildPlaysChron =
     /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[] }>} */ ([]);
-  let pathByWordAsc = /** @type {number[][]} */ (
-    Array.from({ length: WORD_COUNT }, () => [])
-  );
   let boardSnapshotPreDrag = /** @type {string[][] | null} */ (null);
   let puzzleBatch = [];
 
@@ -441,7 +438,6 @@ function createGamemaker() {
     boardSnapshotPreDrag = null;
     const wiAsc = getCurrentWordIndexAsc();
     if (wiAsc >= 0) {
-      pathByWordAsc[wiAsc] = pathFlat;
       buildPlaysChron.push({
         word: w,
         min_tiles: minTiles,
@@ -597,7 +593,6 @@ function createGamemaker() {
     currentWords = wordsIn;
     placementStep = 0;
     buildPlaysChron = [];
-    pathByWordAsc = Array.from({ length: WORD_COUNT }, () => []);
     emptyBoard();
     syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     resetSelection();
@@ -631,7 +626,11 @@ function createGamemaker() {
     ta.remove();
   }
 
-  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null} */
+  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null}
+   *  Stacks `covered` with `buildNextLettersFromCoveredInBuildOrder` — **descending** score
+   *  so the **lowest-score** (first forward) play is iterated last and its refills sit at the
+   *  sack head (see `puzzle-export-sim.js`).
+   */
   function buildDictExportFromState() {
     const gEndL = ctx.state.gameBoard.map((r) =>
       r.map((c) => String(c || "").toLowerCase())
@@ -653,16 +652,24 @@ function createGamemaker() {
           })
         : [];
     if (playsForExport.length !== WORD_COUNT) return null;
-    const nextLetters = buildNextLettersFromCoveredInBuildOrder(playsForExport, {
-      fillEmpty: "",
-    });
     const order = currentWords
       .map((w, i) => ({ w, i }))
       .sort((a, b) => (a.w.wordTotal || 0) - (b.w.wordTotal || 0));
     const wordsAsc = order.map((x) => (x.w.word || "").toLowerCase());
+    const orderDescForSack = currentWords
+      .map((w, i) => ({ w, i }))
+      .sort((a, b) => {
+        const d = (b.w.wordTotal || 0) - (a.w.wordTotal || 0);
+        if (d !== 0) return d;
+        return String(b.w.word || "").localeCompare(String(a.w.word || ""));
+      });
+    const playsDescForSack = orderDescForSack.map((x) => playsForExport[x.i]);
+    const nextLetters = buildNextLettersFromCoveredInBuildOrder(playsDescForSack, {
+      fillEmpty: "",
+    });
     return {
       starting_grids: [gEndL],
-      next_letters: omitEmptyNextLetterSlots(nextLetters),
+      next_letters: stripTrailingEmptyNextLetters(nextLetters),
       perfect_hunt: wordsAsc,
     };
   }
