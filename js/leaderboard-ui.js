@@ -2,8 +2,9 @@ import {
   LEADERBOARD_USE_DEMO_DATA,
   DEMO_LEADERBOARD_NAME_MAX,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
-  LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS,
+  LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS as DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS,
   SCORE_SUBMIT_THRESHOLD,
+  CURRENT_WORD_BRIEF_FADE_IN_MS,
   happyHuntingColor,
   goldTextColor,
   redTextColorLeaderboard,
@@ -314,6 +315,9 @@ export function createLeaderboardController(rt) {
     refs().currentWordElement.classList.remove("current-word--valid-solve");
     rt.setEndgameUiShown(true);
     fadeInCurrentWordLine(rt.ctx, "Copy Score", happyHuntingColor, {});
+    window.setTimeout(() => {
+      rt.revealPostgameRetryAfterCopyScoreVisible?.();
+    }, CURRENT_WORD_BRIEF_FADE_IN_MS);
     rt.updateNextLetters();
     const { playerName, leaderboardButton } = refs();
     playerName.classList.add("hiddenDisplay");
@@ -396,7 +400,7 @@ export function createLeaderboardController(rt) {
         window.setTimeout(() => {
           rt.setPostgameCopyScoreTimer(null);
           revealPostGameCopyScoreLine();
-        }, LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS)
+        }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS)
       );
       return;
     }
@@ -423,7 +427,7 @@ export function createLeaderboardController(rt) {
         window.setTimeout(() => {
           rt.setPostgameCopyScoreTimer(null);
           revealPostGameCopyScoreLine();
-        }, LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS)
+        }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS)
       );
     })();
   }

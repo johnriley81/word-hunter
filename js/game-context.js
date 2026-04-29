@@ -16,6 +16,10 @@ export function createGameContext() {
       perfectHuntChoirRateByWord: null,
       /** @type {Set<string> | null} */
       perfectHuntWordsSubmitted: null,
+      /** On-pace sequential perfect-hunt list play; cleared if order breaks. */
+      perfectHuntOnPace: false,
+      /** Index of next expected hunt word while on pace. */
+      perfectHuntOrderIndex: 0,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */

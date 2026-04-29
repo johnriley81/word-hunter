@@ -4,7 +4,8 @@ import {
   WORD_COMMIT_AFTER_PULSE_MS,
   CURRENT_WORD_FADE_MS,
   LEADERBOARD_POSTGAME_FADE_MS,
-  ENDGAME_TILE_SEQUENCE_MS,
+  ENDGAME_FLIP_EXIT_MS,
+  ENDGAME_GRID_BATCH_FADE_MS,
 } from "./config.js";
 
 export function syncWordReplaceAnimationCssVars() {
@@ -17,5 +18,9 @@ export function syncWordReplaceAnimationCssVars() {
     "--leaderboard-postgame-fade-ms",
     `${LEADERBOARD_POSTGAME_FADE_MS}ms`
   );
-  root.style.setProperty("--endgame-tile-exit-ms", `${ENDGAME_TILE_SEQUENCE_MS}ms`);
+  root.style.setProperty("--endgame-flip-exit-ms", `${ENDGAME_FLIP_EXIT_MS}ms`);
+  root.style.setProperty(
+    "--endgame-grid-batch-fade-ms",
+    `${ENDGAME_GRID_BATCH_FADE_MS}ms`
+  );
 }

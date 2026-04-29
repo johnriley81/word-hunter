@@ -34,7 +34,37 @@ export function setTileText(el, tileText) {
   }
   badge.textContent = isBlankTile ? "" : String(getLetterWeight(normalized));
   badge.style.display = isBlankTile ? "none" : "";
+  if (!isBlankTile) {
+    el.classList.remove(
+      "grid-button--slot-consumed",
+      "grid-button--slot-consumed-hunt-pace",
+      "grid-button--slot-consumed-instant"
+    );
+  }
   el.disabled = isBlankTile;
+}
+
+/** Empty peel slot visuals: instant hide unless `deferInstantHideForBlank` (endgame). */
+export function syncConsumedEmptySlotVisual(el, cellText, opts = {}) {
+  const deferInstantHideForBlank = opts.deferInstantHideForBlank === true;
+  const blank = normalizeTileText(cellText) === "";
+  if (blank) {
+    el.classList.remove(
+      "grid-button--slot-consumed",
+      "grid-button--slot-consumed-hunt-pace"
+    );
+    if (deferInstantHideForBlank) {
+      el.classList.remove("grid-button--slot-consumed-instant");
+    } else {
+      el.classList.add("grid-button--slot-consumed-instant");
+    }
+  } else {
+    el.classList.remove(
+      "grid-button--slot-consumed",
+      "grid-button--slot-consumed-hunt-pace",
+      "grid-button--slot-consumed-instant"
+    );
+  }
 }
 
 /**
@@ -72,7 +102,9 @@ export function syncDomFromBoard(grid, gameBoard, gridSize) {
   const tiles = grid.children;
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
-      setTileText(tiles[r * n + c], gameBoard[r][c]);
+      const v = gameBoard[r][c];
+      setTileText(tiles[r * n + c], v);
+      syncConsumedEmptySlotVisual(tiles[r * n + c], v);
     }
   }
 }
