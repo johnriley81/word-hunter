@@ -44,7 +44,11 @@ export function setTileText(el, tileText) {
   el.disabled = isBlankTile;
 }
 
-/** Empty peel slot visuals: instant hide unless `deferInstantHideForBlank` (endgame). */
+/**
+ * Peeled-slot styling for empty cells during play (`grid-button--slot-consumed*`).
+ * Blanks hide instantly unless `deferInstantHideForBlank` — used for end-game grid
+ * and shift ghost preview so blanks stay visible like normal inactive tiles.
+ */
 export function syncConsumedEmptySlotVisual(el, cellText, opts = {}) {
   const deferInstantHideForBlank = opts.deferInstantHideForBlank === true;
   const blank = normalizeTileText(cellText) === "";
