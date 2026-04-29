@@ -125,7 +125,9 @@ export function attachShiftGestures(ctx, host) {
       const ch = ctx.state.gameBoard[mapped.r][mapped.c];
       const el = tiles[t++];
       if (getTileText(el) !== ch) setTileText(el, ch);
-      syncConsumedEmptySlotVisual(el, ch);
+      syncConsumedEmptySlotVisual(el, ch, {
+        deferInstantHideForBlank: true,
+      });
     }
     showPreviewTiles(inner, need);
   }
@@ -160,51 +162,6 @@ export function attachShiftGestures(ctx, host) {
       const c = idx % n;
       return { r, c };
     });
-  }
-
-  function refillShiftPreviewFromBoardAfterCommit(horizontal, signedVis, k, opts) {
-    const reuseTileText = opts && opts.reuseTileText;
-    const n = GRID_SIZE;
-    const m = getGridCellMetrics();
-    const inner = shiftPreviewStrip
-      ? shiftPreviewStrip.querySelector(".shift-preview-inner")
-      : null;
-    if (!inner) return;
-    const need = n * k;
-    if (horizontal) {
-      if (signedVis > 0) {
-        setPreviewInnerGrid(inner, n, k, m);
-        inner.classList.remove("shift-preview-inner--col");
-        inner.classList.add("shift-preview-inner--row");
-        if (!reuseTileText) {
-          fillPreviewStripHorizontalLeft(inner, k);
-        }
-      } else {
-        setPreviewInnerGrid(inner, n, k, m);
-        inner.classList.remove("shift-preview-inner--col");
-        inner.classList.add("shift-preview-inner--row");
-        if (!reuseTileText) {
-          fillPreviewStripHorizontalRight(inner, k);
-        }
-      }
-    } else {
-      if (signedVis > 0) {
-        setPreviewInnerGrid(inner, k, n, m);
-        inner.classList.remove("shift-preview-inner--row");
-        inner.classList.add("shift-preview-inner--col");
-        if (!reuseTileText) {
-          fillPreviewStripVerticalTop(inner, k);
-        }
-      } else {
-        setPreviewInnerGrid(inner, k, n, m);
-        inner.classList.remove("shift-preview-inner--row");
-        inner.classList.add("shift-preview-inner--col");
-        if (!reuseTileText) {
-          fillPreviewStripVerticalBottom(inner, k);
-        }
-      }
-    }
-    showPreviewTiles(inner, need);
   }
 
   function updateShiftStageVisual(txVis, tyVis, horizontal, rawTx, rawTy) {
