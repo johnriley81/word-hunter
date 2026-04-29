@@ -8,6 +8,8 @@ import {
   happyHuntingColor,
 } from "./config.js";
 
+export const SHOW_MESSAGE_CHAIN_GAP_MS = 380;
+
 export function getShowMessageDurationMs(flashTimes, flashHoldExtraMs = 0) {
   const flashes = Math.max(1, Number(flashTimes) || 1);
   const onMs = CURRENT_WORD_MESSAGE_ON_MS;
@@ -16,7 +18,12 @@ export function getShowMessageDurationMs(flashTimes, flashHoldExtraMs = 0) {
   if (flashes === 1) {
     return onMs + extra + fadeInPad;
   }
-  return flashes * onMs + (flashes - 1) * 380 + flashes * extra + fadeInPad;
+  return (
+    flashes * onMs +
+    (flashes - 1) * SHOW_MESSAGE_CHAIN_GAP_MS +
+    flashes * extra +
+    fadeInPad
+  );
 }
 
 export function clearWordLineTimers(ctx) {
@@ -285,7 +292,7 @@ export function showMessage(
             visibleHoldMs,
             flashHoldExtraMs
           );
-        }, 380);
+        }, SHOW_MESSAGE_CHAIN_GAP_MS);
       }, CURRENT_WORD_FADE_MS);
     }, untilFadeOutStart);
   } else {

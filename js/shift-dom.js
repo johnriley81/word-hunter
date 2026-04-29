@@ -22,7 +22,7 @@ import {
   computeShiftStageTransformString,
   gridInverseCompensateTranslateString,
 } from "./board-logic.js";
-import { getTileText, setTileText } from "./grid-tiles.js";
+import { getTileText, setTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
 import { unlockGameAudio, playSound } from "./audio.js";
 
 export function ensureShiftPreviewElements(ctx) {
@@ -125,6 +125,7 @@ export function attachShiftGestures(ctx, host) {
       const ch = ctx.state.gameBoard[mapped.r][mapped.c];
       const el = tiles[t++];
       if (getTileText(el) !== ch) setTileText(el, ch);
+      syncConsumedEmptySlotVisual(el, ch);
     }
     showPreviewTiles(inner, need);
   }

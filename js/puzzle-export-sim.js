@@ -16,7 +16,9 @@ export function stripTrailingEmptyNextLetters(tokens) {
   return out;
 }
 
-/** Every non-letter sack slot omitted for compact JSON (`""` placeholders removed everywhere). */
+/**
+ * Drops every `""` — use for **counts / display**, not sack FIFO (positional blanks matter).
+ */
 export function omitEmptyNextLetterSlots(tokens) {
   return (Array.isArray(tokens) ? tokens : []).filter((t) => t !== "");
 }
@@ -27,6 +29,27 @@ export function padNextLettersToLen(tokens, len = NEXT_LETTERS_LEN) {
   const out = src.slice(0, len);
   while (out.length < len) out.push("");
   return out;
+}
+
+/**
+ * Same rules as puzzles.txt load: lowercase, strip **trailing** `""` only, pad to
+ * `NEXT_LETTERS_LEN`. Internal `""` entries are **positional peel slots** and must be retained.
+ *
+ * @param {unknown[]} raw compact or full sack from JSON
+ * @returns {string[]}
+ */
+export function canonicalNextLettersFromJsonArray(raw) {
+  if (!Array.isArray(raw)) throw new Error("next_letters must be an array");
+  const mapped = /** @type {string[]} */ (
+    raw.map((c) => String(c ?? "").toLowerCase())
+  );
+  const trimmed = stripTrailingEmptyNextLetters(mapped);
+  if (trimmed.length === 0)
+    throw new Error("next_letters must have at least one entry");
+  if (trimmed.length > NEXT_LETTERS_LEN) {
+    throw new Error("next_letters at most " + NEXT_LETTERS_LEN + " entries");
+  }
+  return padNextLettersToLen(trimmed);
 }
 
 /**
@@ -55,15 +78,17 @@ function uniquesInPathOrder(pathFlat) {
 export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
   const n = 4;
   const b = grid0.map((row) => row.slice());
-  let q = omitEmptyNextLetterSlots(Array.isArray(nextIn) ? nextIn.slice() : []);
-  if (q.length > NEXT_LETTERS_LEN) {
+  let q;
+  try {
+    q = canonicalNextLettersFromJsonArray(Array.isArray(nextIn) ? nextIn : []);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      reason: "next_letters at most " + NEXT_LETTERS_LEN + " entries",
-      queueLeft: q,
+      reason: msg,
+      queueLeft: [],
     };
   }
-  q = padNextLettersToLen(q);
   const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
   if (nw === 0 || !pathFlatByWordAsc || pathFlatByWordAsc.length !== nw) {
     return {
@@ -155,8 +180,12 @@ export function coveredFirstVisitCountTotal(playsChron) {
 }
 
 /**
- * Build `next_letters` from per-play `covered`: chronological build, prepend each play,
- * pad/slice to `NEXT_LETTERS_LEN`; JSON exports omit every `""` via `omitEmptyNextLetterSlots`.
+ * Build `next_letters` from per-play `covered`: for each play prepend that play’s `covered`
+ * in first-visit order onto the front of `flat` (`part.concat(flat)`). So the **last**
+ * `play` in the array ends up supplying the **first** consumed sack slots (front of FIFO).
+ * Forward play runs hunt words **ascending** by score, so the **first** refills must come
+ * from the **lowest-score** word’s `covered` — pass plays in **descending** score order so
+ * that word is iterated last (or use placement order only when it matches that).
  */
 export function buildNextLettersFromCoveredInBuildOrder(playsChron, options) {
   const len =

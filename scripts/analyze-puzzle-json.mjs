@@ -23,9 +23,8 @@ import {
   applyRowShiftInPlace,
 } from "../js/board-logic.js";
 import {
-  omitEmptyNextLetterSlots,
-  padNextLettersToLen,
   verifyForwardPuzzle,
+  canonicalNextLettersFromJsonArray,
 } from "../js/puzzle-export-sim.js";
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
@@ -265,16 +264,13 @@ const hunt = (p.perfect_hunt ?? p.perfectHunt).map((w) => String(w).toLowerCase(
 
 if (!Array.isArray(grid) || grid.length !== 4) throw new Error("bad grid");
 if (!Array.isArray(nextRaw)) throw new Error("bad next_letters");
-const mapped = nextRaw.map((c) => String(c || "").toLowerCase());
-const compact = omitEmptyNextLetterSlots(mapped);
-if (compact.length < 1 || compact.length > NEXT_LETTERS_LEN) {
-  throw new Error(
-    "bad next_letters length (expect 1–" +
-      NEXT_LETTERS_LEN +
-      ' letters after omitting "" slots)'
-  );
+let next;
+try {
+  next = canonicalNextLettersFromJsonArray(nextRaw);
+} catch (e) {
+  const msg = e instanceof Error ? e.message : String(e);
+  throw new Error("bad next_letters: " + msg);
 }
-const next = padNextLettersToLen(compact);
 if (!Array.isArray(hunt) || hunt.length !== PERFECT_HUNT_WORD_COUNT) {
   throw new Error("bad perfect_hunt (need " + PERFECT_HUNT_WORD_COUNT + " words)");
 }

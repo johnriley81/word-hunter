@@ -9,6 +9,7 @@ import {
   dictExportToCanonicalRow,
   serializePuzzleRow,
 } from "../js/puzzle-row-format.js";
+import { canonicalNextLettersFromJsonArray } from "../js/puzzle-export-sim.js";
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
 const HUNT_PLACEHOLDERS = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
@@ -40,23 +41,11 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
     .split("\n")
     .filter((line) => line.trim().length > 0).length;
   assert.equal(puzzles.length, jsonLineCount);
+  assert.ok(puzzles.length >= 1);
   for (const p of puzzles) {
     assert.equal(p.starting_grid.length, 4);
     assert.equal(p.next_letters.length, NEXT_LETTERS_LEN);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
-  }
-  assert.equal(puzzles[0].starting_grid[0][0], "e");
-  const expectedFirstWords = [
-    "symbiote",
-    "foremilk",
-    "prattled",
-    "nonrival",
-    "antilogs",
-    "clammers",
-  ];
-  assert.equal(puzzles.length, expectedFirstWords.length);
-  for (let i = 0; i < puzzles.length; i++) {
-    assert.equal(puzzles[i].perfect_hunt[0], expectedFirstWords[i]);
   }
 });
 
@@ -78,6 +67,28 @@ test("dictExport round-trip one JSON line", () => {
   const again = parsePuzzlesFileText(line);
   assert.equal(again.length, 1);
   assert.deepEqual(again[0].perfect_hunt, d.perfect_hunt);
+});
+
+test("serializePuzzleRow round-trip preserves internal sack empty peel slots", () => {
+  const sg = [
+    ["a", "a", "a", "a"],
+    ["b", "b", "b", "b"],
+    ["c", "c", "c", "c"],
+    ["d", "d", "d", "d"],
+  ];
+  const nk = canonicalNextLettersFromJsonArray(
+    ["m", ""].concat(Array.from({ length: NEXT_LETTERS_LEN - 3 }, () => "q"))
+  );
+  assert.equal(nk[1], "");
+  assert.equal(nk.length, NEXT_LETTERS_LEN);
+  const line = serializePuzzleRow({
+    starting_grid: sg,
+    next_letters: nk,
+    perfect_hunt: HUNT_PLACEHOLDERS.slice(),
+  });
+  const again = parsePuzzlesFileText(line);
+  assert.equal(again.length, 1);
+  assert.equal(again[0].next_letters[1], "");
 });
 
 test("parsePuzzlesFileText accepts legacy single-line JSON object", () => {

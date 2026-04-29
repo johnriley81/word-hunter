@@ -10,18 +10,17 @@ import {
   NEXT_LETTERS_UI_COUNT,
   START_TOUCHPAD_FADE_MS,
   TILE_PALETTE_MS,
+  ENDGAME_TILE_TO_INACTIVE_MS,
   TILE_PALETTE_TRANSITION_SETTLE_MS,
-  POSTGAME_BEAT_MS,
-  ENDGAME_TILE_SEQUENCE_MS,
-  ENDGAME_TILE_EXIT_BUFFER_MS,
+  ENDGAME_GRID_BATCH_FADE_MS,
   LEADERBOARD_USE_DEMO_DATA,
-  LEADERBOARD_REVEAL_LEAD_MS,
-  LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   ENDGAME_SOUND_FALLBACK_MS,
-  ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS,
   GAME_OVER_FLASH_TIMES,
   GAME_OVER_FLASH_HOLD_EXTRA_MS,
+  ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS,
+  PERFECT_HUNT_GAME_OVER_MESSAGE,
+  PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
 } from "./config.js";
 import {
@@ -50,6 +49,7 @@ import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
   getTileText,
   setTileText,
+  syncConsumedEmptySlotVisual,
   syncDomFromBoard as syncDomFromBoardTiles,
 } from "./grid-tiles.js";
 import { attachShiftGestures, ensureShiftPreviewElements } from "./shift-dom.js";
@@ -194,7 +194,7 @@ export function initGame(ctx) {
   let endgameBlankRestoreFallbackTimer = null;
   let startUiTransitionTimer = null;
   let endgameTileStartTimer = null;
-  let endgameTileRevealTimer = null;
+  let endgamePostgameRevealDelayTimer = null;
   let endgamePostUiReady = false;
   let endgameUiShown = false;
   let postgameSequenceStarted = false;
@@ -204,7 +204,9 @@ export function initGame(ctx) {
   let demoLeaderboardRows = null;
   let demoLeaderboardSubmitUsed = false;
   let copyScoreLineUsed = false;
+  let deferRetryUntilCopyScoreLineVisible = false;
   let tilePaletteTransitionTimer = null;
+  let perfectGameOverDeferTimer = null;
   const shiftState = {
     get pointerId() {
       return ctx.state.shift.pointerId;
@@ -503,6 +505,8 @@ export function initGame(ctx) {
     score = 0;
     wordState.currentWord = "";
     ctx.state.perfectHuntWordsSubmitted?.clear();
+    ctx.state.perfectHuntOrderIndex = 0;
+    ctx.state.perfectHuntOnPace = Boolean(ctx.state.perfectHunt?.length);
     updateScore();
 
     const activateGridTilesForPlay = () => {
@@ -519,7 +523,17 @@ export function initGame(ctx) {
         b.classList.add("grid-button--active");
         b.classList.remove("grid-button--inactive");
         b.style.color = "";
-        b.classList.remove("grid-button--endgame-exit");
+        b.style.removeProperty("background-color");
+        b.style.removeProperty("border-color");
+        b.style.removeProperty("filter");
+        b.classList.remove(
+          "grid-button--endgame-exit",
+          "grid-button--endgame-flip-exit",
+          "grid-button--slot-consumed",
+          "grid-button--slot-consumed-hunt-pace",
+          "grid-button--slot-consumed-instant"
+        );
+        b.style.removeProperty("--endgame-flip-delay");
       }
     };
     if (fadeTilesToActive) {
@@ -559,6 +573,9 @@ export function initGame(ctx) {
       ctx.state.perfectHuntChoirRateByWord = null;
     }
     ctx.state.perfectHuntWordsSubmitted = new Set();
+    ctx.state.perfectHuntOrderIndex = 0;
+    ctx.state.perfectHuntOnPace =
+      Array.isArray(p.perfect_hunt) && p.perfect_hunt.length > 0;
     if (rulesPerfectHuntTotalElement) {
       rulesPerfectHuntTotalElement.textContent =
         ctx.state.perfectHuntTargetSum != null
@@ -576,6 +593,7 @@ export function initGame(ctx) {
         button.classList.add("grid-button");
         button.classList.add("grid-button--inactive");
         setTileText(button, gridLetters[i][j]);
+        syncConsumedEmptySlotVisual(button, gridLetters[i][j]);
         button.disabled = true;
         button.addEventListener("mousedown", (e) => wordDrag.handleMouseDown(e));
         button.addEventListener("mouseover", (e) => wordDrag.handleMouseOver(e));
@@ -655,12 +673,14 @@ export function initGame(ctx) {
     while (nextLettersElement.firstChild) {
       nextLettersElement.removeChild(nextLettersElement.firstChild);
     }
-    const pending = omitEmptyNextLetterSlots(nextLetters);
-    const slice = pending.slice(0, UPCOMING_PREVIEW_MAX);
-    const hasMoreUpcoming = pending.length > UPCOMING_PREVIEW_MAX;
+    const lettersOnlyPreview = omitEmptyNextLetterSlots(nextLetters);
+    const slice = lettersOnlyPreview.slice(0, UPCOMING_PREVIEW_MAX);
+    const hasMoreUpcoming = lettersOnlyPreview.length > UPCOMING_PREVIEW_MAX;
 
     if (queueSackCountElement) {
-      queueSackCountElement.textContent = String(pending.length);
+      queueSackCountElement.textContent = String(
+        omitEmptyNextLetterSlots(nextLetters).length
+      );
     }
 
     if (slice.length === 0) {
@@ -736,6 +756,34 @@ export function initGame(ctx) {
       if (!ctx.state.perfectHunt?.some((w) => w.toLowerCase() === key)) return;
       ctx.state.perfectHuntWordsSubmitted.add(key);
     },
+    recordPerfectHuntOrderPace(word) {
+      if (!ctx.state.perfectHuntOnPace) return;
+      const hunt = ctx.state.perfectHunt;
+      if (!hunt?.length) {
+        ctx.state.perfectHuntOnPace = false;
+        return;
+      }
+      const idx = ctx.state.perfectHuntOrderIndex;
+      if (idx >= hunt.length) {
+        return;
+      }
+      const key = String(word || "").toLowerCase();
+      const expected = hunt[idx];
+      if (key === String(expected).toLowerCase()) {
+        ctx.state.perfectHuntOrderIndex = idx + 1;
+      } else {
+        ctx.state.perfectHuntOnPace = false;
+      }
+    },
+    isWordKeepingPerfectHuntPace(word) {
+      if (!ctx.state.perfectHuntOnPace) return false;
+      const hunt = ctx.state.perfectHunt;
+      if (!hunt?.length) return false;
+      const idx = ctx.state.perfectHuntOrderIndex;
+      if (idx >= hunt.length) return false;
+      const key = String(word || "").toLowerCase();
+      return key === String(hunt[idx]).toLowerCase();
+    },
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -784,46 +832,67 @@ export function initGame(ctx) {
     },
     playSound,
     updateNextLetters,
+    revealPostgameRetryAfterCopyScoreVisible: () => {
+      if (!deferRetryUntilCopyScoreLineVisible) return;
+      deferRetryUntilCopyScoreLineVisible = false;
+      retryButton.classList.remove("hiddenDisplay");
+      retryButton.classList.add("visibleDisplay", "dock-fade-in");
+      retryButton.disabled = false;
+    },
   });
-
-  function setEndgameBlankTilesHidden(hide) {
-    const tiles = grid.getElementsByClassName("grid-button");
-    for (let i = 0; i < tiles.length; i++) {
-      const el = tiles[i];
-      if (getTileText(el) === "") {
-        el.classList.toggle("grid-button--endgame-blank-hidden", hide);
-      }
-    }
-  }
 
   function triggerEndgameTileExitAnimation() {
     const tiles = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < tiles.length; i++) {
-      tiles[i].classList.remove("grid-button--endgame-exit");
+      const el = tiles[i];
+      el.classList.remove(
+        "grid-button--endgame-exit",
+        "grid-button--endgame-flip-exit"
+      );
+      el.style.removeProperty("--endgame-flip-delay");
+      if (getTileText(el) === "") {
+        el.classList.remove(
+          "grid-button--slot-consumed",
+          "grid-button--slot-consumed-hunt-pace",
+          "grid-button--slot-consumed-instant"
+        );
+        el.classList.add("grid-button--inactive");
+      } else {
+        el.classList.remove("selected");
+        el.classList.remove(
+          "grid-button--word-release-green",
+          "grid-button--word-release-hunt-pace",
+          "grid-button--slot-consumed",
+          "grid-button--slot-consumed-hunt-pace",
+          "grid-button--slot-consumed-instant",
+          "grid-button--active",
+          "grid-button--letter-flip",
+          "grid-button--letter-swap-in",
+          "grid-button--palette-to-active",
+          "grid-button--palette-to-inactive",
+          "grid-button--palette-to-active-fade-in"
+        );
+        el.classList.add("grid-button--inactive");
+        el.style.animation = "none";
+        el.style.transition = "none";
+      }
     }
     void grid.offsetWidth;
-    for (let i = 0; i < tiles.length; i++) {
-      const el = tiles[i];
-      if (getTileText(el) === "") continue;
-      el.classList.add("grid-button--endgame-exit");
+    if (endgamePostgameRevealDelayTimer !== null) {
+      window.clearTimeout(endgamePostgameRevealDelayTimer);
+      endgamePostgameRevealDelayTimer = null;
     }
-    if (endgameTileRevealTimer !== null) {
-      window.clearTimeout(endgameTileRevealTimer);
-    }
-    endgameTileRevealTimer = window.setTimeout(
-      () => {
-        endgamePostUiReady = true;
-        endgameTileRevealTimer = null;
-        lbCtl.maybeShowPostGameUi();
-      },
-      Math.max(
-        0,
-        ENDGAME_TILE_SEQUENCE_MS +
-          ENDGAME_TILE_EXIT_BUFFER_MS -
-          LEADERBOARD_REVEAL_LEAD_MS +
-          LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS
-      )
+    grid.style.setProperty(
+      "--endgame-grid-batch-fade-ms",
+      `${ENDGAME_GRID_BATCH_FADE_MS}ms`
     );
+    void grid.offsetWidth;
+    grid.classList.add("grid--endgame-final-fade");
+    endgamePostgameRevealDelayTimer = window.setTimeout(() => {
+      endgamePostgameRevealDelayTimer = null;
+      endgamePostUiReady = true;
+      lbCtl.maybeShowPostGameUi();
+    }, ENDGAME_GRID_BATCH_FADE_MS);
   }
 
   function onGameOverSoundEndedPostGameUi() {
@@ -834,7 +903,7 @@ export function initGame(ctx) {
   }
 
   function endGame(opts = {}) {
-    const stingerId = opts.endgameStinger === "perfect" ? "perfect" : "gameOver";
+    const isPerfectStinger = opts.endgameStinger === "perfect";
     isGameActive = false;
     clearWordSubmitFeedbackTimer(ctx);
     bumpWordReplaceEpoch(ctx);
@@ -852,13 +921,20 @@ export function initGame(ctx) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
     }
-    if (endgameTileRevealTimer !== null) {
-      window.clearTimeout(endgameTileRevealTimer);
-      endgameTileRevealTimer = null;
+    if (endgamePostgameRevealDelayTimer !== null) {
+      window.clearTimeout(endgamePostgameRevealDelayTimer);
+      endgamePostgameRevealDelayTimer = null;
+    }
+    if (perfectGameOverDeferTimer !== null) {
+      window.clearTimeout(perfectGameOverDeferTimer);
+      perfectGameOverDeferTimer = null;
     }
     clearTapStreak();
 
     setRulesOverlayVisible(false);
+
+    grid.classList.remove("grid--endgame-final-fade");
+    grid.style.removeProperty("--endgame-grid-batch-fade-ms");
 
     const buttons = grid.getElementsByClassName("grid-button");
     for (let i = 0; i < buttons.length; i++) {
@@ -869,28 +945,41 @@ export function initGame(ctx) {
         "grid-button--invalid-shake",
         "grid-button--word-success",
         "grid-button--word-release-green",
+        "grid-button--word-release-hunt-pace",
         "grid-button--letter-flip",
-        "grid-button--letter-swap-in"
+        "grid-button--letter-swap-in",
+        "grid-button--slot-consumed",
+        "grid-button--slot-consumed-hunt-pace",
+        "grid-button--slot-consumed-instant"
       );
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
-      buttons[i].classList.remove("grid-button--endgame-exit");
+      buttons[i].style.removeProperty("background-color");
+      buttons[i].style.removeProperty("border-color");
+      buttons[i].style.removeProperty("filter");
+      buttons[i].classList.remove(
+        "grid-button--endgame-exit",
+        "grid-button--endgame-flip-exit"
+      );
+      buttons[i].style.removeProperty("--endgame-flip-delay");
+      syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]), {
+        deferInstantHideForBlank: true,
+      });
     }
-    runGridTilePaletteTransition("toInactive", TILE_PALETTE_MS, () => {
+    runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
       const tiles = grid.getElementsByClassName("grid-button");
       for (let i = 0; i < tiles.length; i++) {
-        tiles[i].classList.remove("grid-button--active");
-        tiles[i].classList.add("grid-button--inactive");
+        const el = tiles[i];
+        el.classList.remove("grid-button--active");
+        el.classList.add("grid-button--inactive");
       }
     });
-    setEndgameBlankTilesHidden(true);
     if (endgameBlankRestoreFallbackTimer !== null) {
       window.clearTimeout(endgameBlankRestoreFallbackTimer);
       endgameBlankRestoreFallbackTimer = null;
     }
-    playSound(stingerId, isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
+    if (!isPerfectStinger) {
+      playSound("gameOver", isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
     }
     endgameBlankRestoreFallbackTimer = window.setTimeout(() => {
       endgameBlankRestoreFallbackTimer = null;
@@ -909,26 +998,48 @@ export function initGame(ctx) {
     buttonContainer.classList.remove("hiddenDisplay");
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
-    retryButton.classList.remove("hiddenDisplay");
-    retryButton.classList.add("visibleDisplay");
-    retryButton.disabled = false;
+    deferRetryUntilCopyScoreLineVisible = isPerfectStinger;
+    if (isPerfectStinger) {
+      retryButton.classList.add("hiddenDisplay");
+      retryButton.classList.remove("visibleDisplay", "dock-fade-in");
+      retryButton.disabled = true;
+    } else {
+      retryButton.classList.remove("dock-fade-in", "hiddenDisplay");
+      retryButton.classList.add("visibleDisplay");
+      retryButton.disabled = false;
+    }
 
-    showMessage(
-      ctx,
-      pickRandomScenarioMessage("game_over", "Game Over"),
-      GAME_OVER_FLASH_TIMES,
-      happyHuntingColor,
-      null,
-      GAME_OVER_FLASH_HOLD_EXTRA_MS
-    );
-    endgameTileStartTimer = window.setTimeout(
-      () => {
+    const gameOverFlashText = isPerfectStinger
+      ? PERFECT_HUNT_GAME_OVER_MESSAGE
+      : pickRandomScenarioMessage("game_over", "Game Over");
+
+    const scheduleGameOverFlashesAndGridFadeExit = () => {
+      showMessage(
+        ctx,
+        gameOverFlashText,
+        GAME_OVER_FLASH_TIMES,
+        happyHuntingColor,
+        null,
+        GAME_OVER_FLASH_HOLD_EXTRA_MS
+      );
+      const gameOverMessageLeadMs = getShowMessageDurationMs(
+        GAME_OVER_FLASH_TIMES,
+        GAME_OVER_FLASH_HOLD_EXTRA_MS
+      );
+      endgameTileStartTimer = window.setTimeout(() => {
         endgameTileStartTimer = null;
         triggerEndgameTileExitAnimation();
-      },
-      getShowMessageDurationMs(GAME_OVER_FLASH_TIMES, GAME_OVER_FLASH_HOLD_EXTRA_MS) +
-        ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS
-    );
+      }, gameOverMessageLeadMs + ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS);
+    };
+
+    if (isPerfectStinger) {
+      perfectGameOverDeferTimer = window.setTimeout(() => {
+        perfectGameOverDeferTimer = null;
+        scheduleGameOverFlashesAndGridFadeExit();
+      }, PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS);
+    } else {
+      scheduleGameOverFlashesAndGridFadeExit();
+    }
     playerName.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
@@ -941,12 +1052,15 @@ export function initGame(ctx) {
   }
 
   wordDragHost.endGameWithStinger = (opts) => endGame(opts);
+  wordDragHost.onPerfectFanfareEnded = onGameOverSoundEndedPostGameUi;
 
   function resetRoundToPregame(options = {}) {
     const forImmediateStart = options.forImmediateStart === true;
     const skipLeaderboardOverlayTeardown =
       options.skipLeaderboardOverlayTeardown === true;
     grid.classList.remove("grid--awaiting-retry-fade-in");
+    grid.classList.remove("grid--endgame-final-fade");
+    grid.style.removeProperty("--endgame-grid-batch-fade-ms");
     isGameActive = false;
     isPaused = false;
     isMouseDown = false;
@@ -960,9 +1074,13 @@ export function initGame(ctx) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
     }
-    if (endgameTileRevealTimer !== null) {
-      window.clearTimeout(endgameTileRevealTimer);
-      endgameTileRevealTimer = null;
+    if (endgamePostgameRevealDelayTimer !== null) {
+      window.clearTimeout(endgamePostgameRevealDelayTimer);
+      endgamePostgameRevealDelayTimer = null;
+    }
+    if (perfectGameOverDeferTimer !== null) {
+      window.clearTimeout(perfectGameOverDeferTimer);
+      perfectGameOverDeferTimer = null;
     }
     if (postgameCopyScoreTimer !== null) {
       window.clearTimeout(postgameCopyScoreTimer);
@@ -995,6 +1113,7 @@ export function initGame(ctx) {
     endgamePostUiReady = false;
     endgameUiShown = false;
     copyScoreLineUsed = false;
+    deferRetryUntilCopyScoreLineVisible = false;
 
     ctx.state.shift.animating = false;
     ctx.state.shift.pointerId = null;
@@ -1029,7 +1148,7 @@ export function initGame(ctx) {
 
     buttonContainer.classList.remove("hiddenDisplay");
     retryButton.classList.add("hiddenDisplay");
-    retryButton.classList.remove("visibleDisplay");
+    retryButton.classList.remove("visibleDisplay", "dock-fade-in");
 
     if (forImmediateStart) {
       boardShiftZone.classList.remove("dock-fade-in");
@@ -1078,9 +1197,14 @@ export function initGame(ctx) {
         "grid-button--invalid-shake",
         "grid-button--word-success",
         "grid-button--word-release-green",
+        "grid-button--word-release-hunt-pace",
         "grid-button--letter-flip",
         "grid-button--letter-swap-in",
-        "grid-button--endgame-exit"
+        "grid-button--endgame-exit",
+        "grid-button--endgame-flip-exit",
+        "grid-button--slot-consumed",
+        "grid-button--slot-consumed-hunt-pace",
+        "grid-button--slot-consumed-instant"
       );
     }
 

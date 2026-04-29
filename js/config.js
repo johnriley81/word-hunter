@@ -4,6 +4,8 @@ export const lightGreenPreviewColor = "#8ff7a8";
 export const lightRedPreviewColor = "#ff9b9b";
 export const redTextColorLeaderboard = "red";
 export const goldTextColor = "#e3af02";
+/** Success message / highlights when the submitted word is the next perfect-hunt list word on pace. */
+export const huntPaceSuccessFlashColor = "#ffdd22";
 export const happyHuntingColor = "gold";
 export const UPCOMING_LABEL = "UPCOMING:";
 export const UPCOMING_PREVIEW_MAX = 7;
@@ -20,7 +22,8 @@ export const PERFECT_HUNT_WORD_COUNT = 7;
 
 /**
  * Σ `min_unique_tiles` over the seven hunt words (= padded runtime `next_letters`.length).
- * Compact JSON omits trailing empty slots — exported token count is often `NEXT_LETTERS_UI_COUNT`.
+ * JSON may omit trailing `""` pads; **`""` elsewhere encode positional peels** — do not strip
+ * when loading (see `canonicalNextLettersFromJsonArray`).
  */
 export const NEXT_LETTERS_LEN = 66;
 
@@ -43,37 +46,45 @@ export const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE = 550;
 export const SCORE_SUBMIT_THRESHOLD = 50;
 export const START_TOUCHPAD_FADE_MS = 420;
 export const TILE_PALETTE_MS = 420;
+/** Endgame only: active → inactive tile color transition (`tilePaletteToInactive`). */
+export const ENDGAME_TILE_TO_INACTIVE_MS = 950;
 export const TILE_PALETTE_TRANSITION_SETTLE_MS = 120;
 export const CURRENT_WORD_FADE_MS = 220;
 export const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 export const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
-export const POSTGAME_BEAT_MS = 300;
-export const ENDGAME_TILE_SEQUENCE_MS = POSTGAME_BEAT_MS;
-export const ENDGAME_TILE_EXIT_BUFFER_MS = 0;
 export const LEADERBOARD_USE_DEMO_DATA = true;
 export const DEMO_LEADERBOARD_NAME_MAX = 8;
-export const LEADERBOARD_REVEAL_LEAD_MS = 0;
-export const LEADERBOARD_AFTER_ENDGAME_TILE_FADE_MS = 200;
-export const LEADERBOARD_POSTGAME_FADE_MS = POSTGAME_BEAT_MS * 2;
+/** Leaderboard overlay `#leaderboard-elements` opacity in/out (prior 660ms baseline; doubled = half playback speed). */
+export const LEADERBOARD_POSTGAME_FADE_MS = 1320;
+/** After `#leaderboard-elements` gets `--visible`; use ≈fade duration so “Copy Score” picks up as soon as the panel fade finishes. */
 export const LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS =
-  LEADERBOARD_POSTGAME_FADE_MS + POSTGAME_BEAT_MS;
+  LEADERBOARD_POSTGAME_FADE_MS;
 export const LEADERBOARD_OVERLAY_FADE_SETTLE_MS = 80;
 export const LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS =
   LEADERBOARD_POSTGAME_FADE_MS + LEADERBOARD_OVERLAY_FADE_SETTLE_MS;
 export const CURRENT_WORD_BRIEF_FADE_IN_MS = 650;
 export const ENDGAME_SOUND_FALLBACK_MS = 14000;
-export const ENDGAME_TILE_PAUSE_AFTER_GAMEOVER_MS = 500;
 export const GAME_OVER_FLASH_TIMES = 2;
 export const GAME_OVER_FLASH_HOLD_EXTRA_MS = 400;
+/** Brief beat after last “GAME OVER” flash before `#grid.grid--endgame-final-fade`. */
+export const ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS = 96;
 export const WORD_INVALID_SHAKE_MS = 320;
 export const WORD_LINE_FADE_MS = 520;
 export const WORD_PATH_COLOR_STEPS = 11;
 export const WORD_RELEASE_GREEN_MS = 255;
 export const WORD_LETTER_FLIP_MS = 416;
+/** Legacy tile flip exit duration (`tileEndgameFlipAway` — not used on main endgame path). */
+export const ENDGAME_FLIP_EXIT_MS = 1120;
+/** Stagger for flip exit delays (unused when flip exit is skipped). */
+export const ENDGAME_TILE_STAGGER_MS = 42;
+/** Whole-grid exit: `#grid` opacity to 0 (`gridEndgameBatchFade`). Same for regular and perfect hunt. */
+export const ENDGAME_GRID_BATCH_FADE_MS = 1000;
 export const WORD_REPLACE_FLIP_OVERLAP_MS = Math.floor(WORD_LETTER_FLIP_MS / 2);
 export const WORD_COMMIT_AFTER_PULSE_MS = 300;
 export const WORD_COMMIT_CHAIN_PULSE_MS = 48;
 export const WORD_REPLACE_TAIL_SLACK_MS = 160;
+
+export const WORD_SUCCESS_MESSAGE_FADE_EARLY_MS = 250;
 
 export function getWordReplaceAnimationHoldMs(tileCount) {
   const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
@@ -87,11 +98,29 @@ export function getWordReplaceAnimationHoldMs(tileCount) {
   return greenPhaseMs + afterGreenMs;
 }
 
-export const WORD_SUCCESS_MESSAGE_FADE_EARLY_MS = 250;
+/** Perfect hunt: wait after final flip so "WORD +score" can finish before GAME OVER flashes. */
+export const PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS = Math.max(
+  0,
+  CURRENT_WORD_BRIEF_FADE_IN_MS +
+    CURRENT_WORD_FADE_MS -
+    WORD_SUCCESS_MESSAGE_FADE_EARLY_MS
+);
+
+/** Through `showMessage` with word-drag `visibleHoldMs` (success line). */
+export function getWordSuccessShowMessageTotalMs(tileCount) {
+  const n = Math.max(1, Math.floor(Number(tileCount)) || 1);
+  const visibleHoldMs = Math.max(
+    0,
+    getWordReplaceAnimationHoldMs(n) - WORD_SUCCESS_MESSAGE_FADE_EARLY_MS
+  );
+  return visibleHoldMs + CURRENT_WORD_BRIEF_FADE_IN_MS + CURRENT_WORD_FADE_MS;
+}
 
 export const SCENARIO_MESSAGE_VARIANTS = Object.freeze({
   game_over: Object.freeze(["Game Over"]),
 });
+
+export const PERFECT_HUNT_GAME_OVER_MESSAGE = "GAME OVER";
 
 export const LETTER_WEIGHTS = Object.freeze({
   a: 1,

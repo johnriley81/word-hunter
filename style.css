@@ -17,6 +17,9 @@
   --grid-button-active-color: hwb(44 91% 2%);
   --grid-button-active-text-color: #1f3165;
   --grid-button-active-border-color: #000000;
+  /** Perfect-hunt on-pace word submit: bright tile fill (not the pale default active cell). */
+  --hunt-pace-highlight-bg: #f5e2a2;
+  --hunt-pace-highlight-text: #3d2800;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
@@ -61,13 +64,15 @@
   --z-dock: 2;
   --z-grid-stage: 3;
   --z-leaderboard-overlay: 4;
-  --leaderboard-postgame-fade-ms: 600ms;
-  --endgame-tile-exit-ms: 300ms;
+  --leaderboard-postgame-fade-ms: 1320ms;
+  --endgame-flip-exit-ms: 1120ms;
+  --endgame-grid-batch-fade-ms: 1000ms;
   --word-release-green-ms: 255ms;
   --word-tile-flip-ms: 416ms;
   --word-queue-pulse-ms: 300ms;
   --current-word-fade-ms: 220ms;
   --word-connector-valid-stroke: #478461;
+  --word-connector-valid-hunt-pace-stroke: #ffcc00;
   --word-connector-invalid-stroke: #c23a3a;
 }
 
@@ -762,10 +767,27 @@ html {
   max-width: 100%;
   height: 100%;
   align-self: auto;
+  opacity: 1;
 }
 
 #grid.grid--awaiting-retry-fade-in {
   opacity: 0;
+  pointer-events: none;
+}
+
+/* `#grid.grid--endgame-final-fade`: whole-grid opacity to 0; starts when `triggerEndgameTileExitAnimation` runs (after last game-over flash). */
+@keyframes gridEndgameBatchFade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+#grid.grid--endgame-final-fade {
+  animation: gridEndgameBatchFade var(--endgame-grid-batch-fade-ms, 720ms) linear
+    forwards;
   pointer-events: none;
 }
 
@@ -949,6 +971,11 @@ html {
   stroke: var(--word-connector-valid-stroke);
 }
 
+#line-container line.grid-line--result-valid.grid-line--result-hunt-pace {
+  stroke: var(--word-connector-valid-hunt-pace-stroke);
+  filter: drop-shadow(0 0 3px rgba(255, 221, 34, 0.75));
+}
+
 #line-container line.grid-line--result-invalid {
   stroke: var(--word-connector-invalid-stroke);
 }
@@ -991,6 +1018,25 @@ line.grid-line--fade-out {
     cubic-bezier(0.25, 0.9, 0.32, 1) forwards;
 }
 
+@keyframes tileWordReleaseHuntPace {
+  0% {
+    filter: brightness(1);
+    background-color: var(--selected-tile-color);
+    color: var(--selected-tile-text-color);
+  }
+  100% {
+    filter: brightness(1.04) saturate(1.03);
+    background-color: var(--hunt-pace-highlight-bg);
+    color: var(--hunt-pace-highlight-text);
+  }
+}
+
+/* Hunt-pace: same timing/easing as green release; bright yellow highlight */
+.grid-button.grid-button--word-release-hunt-pace {
+  animation: tileWordReleaseHuntPace var(--word-release-green-ms)
+    cubic-bezier(0.25, 0.9, 0.32, 1) forwards;
+}
+
 @keyframes tileLetterFlip {
   0% {
     transform: scaleY(1);
@@ -1024,23 +1070,137 @@ line.grid-line--fade-out {
   animation: tileLetterSwapIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
 }
 
-.grid-button.grid-button--endgame-blank-hidden {
+/* Peeled empty slot: keep standard active tile chrome until endgame (no per-tile opacity fade). */
+.grid-button.grid-button--slot-consumed,
+.grid-button.grid-button--slot-consumed-hunt-pace {
+  background-color: var(--grid-button-active-color);
+  color: var(--grid-button-active-text-color);
+  border-color: var(--grid-button-active-border-color);
+  filter: none;
+  pointer-events: none;
+}
+
+.grid-button.grid-button--slot-consumed-instant {
+  animation: none !important;
+  opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-.grid-button.grid-button--endgame-exit {
-  animation: tileEndgameFlashFade var(--endgame-tile-exit-ms) ease forwards;
+.grid-button.grid-button--endgame-flip-exit {
+  transform-origin: center center;
+  pointer-events: none;
+  animation-name: tileEndgameFlipAway;
+  animation-duration: var(--endgame-flip-exit-ms, 1120ms);
+  animation-timing-function: linear;
+  animation-delay: var(--endgame-flip-delay, 0ms);
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+  animation-direction: normal;
 }
 
-@keyframes tileEndgameFlashFade {
+/*
+ * Transform-only spins (legacy). Main endgame uses dark hold + `#grid.grid--endgame-final-fade` only.
+ */
+@keyframes tileEndgameFlipAway {
   0% {
-    filter: brightness(1);
-    opacity: 1;
+    transform: scaleY(1);
+  }
+  5% {
+    transform: scaleY(0.08);
+  }
+  10% {
+    transform: scaleY(1);
+  }
+  15% {
+    transform: scaleY(0.08);
+  }
+  20% {
+    transform: scaleY(1);
+  }
+  25% {
+    transform: scaleY(0.08);
+  }
+  30% {
+    transform: scaleY(1);
+  }
+  35% {
+    transform: scaleY(0.08);
+  }
+  40% {
+    transform: scaleY(1);
+  }
+  42.5% {
+    transform: scaleY(0.08);
+  }
+  45% {
+    transform: scaleY(1);
+  }
+  47.5% {
+    transform: scaleY(0.08);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+  52.5% {
+    transform: scaleY(0.08);
+  }
+  55% {
+    transform: scaleY(1);
+  }
+  57.5% {
+    transform: scaleY(0.08);
+  }
+  60% {
+    transform: scaleY(1);
+  }
+  62.5% {
+    transform: scaleY(0.08);
+  }
+  65% {
+    transform: scaleY(1);
+  }
+  67.5% {
+    transform: scaleY(0.08);
+  }
+  70% {
+    transform: scaleY(1);
+  }
+  72.5% {
+    transform: scaleY(0.08);
+  }
+  75% {
+    transform: scaleY(1);
+  }
+  77.5% {
+    transform: scaleY(0.08);
+  }
+  80% {
+    transform: scaleY(1);
+  }
+  82.5% {
+    transform: scaleY(0.08);
+  }
+  85% {
+    transform: scaleY(1);
+  }
+  87.5% {
+    transform: scaleY(0.08);
+  }
+  90% {
+    transform: scaleY(1);
+  }
+  92.5% {
+    transform: scaleY(0.08);
+  }
+  95% {
+    transform: scaleY(1);
+  }
+  97.5% {
+    transform: scaleY(0.08);
   }
   100% {
-    filter: brightness(1);
-    opacity: 0;
+    transform: scaleY(1);
   }
 }
 

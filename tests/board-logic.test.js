@@ -18,7 +18,13 @@ import {
   SHIFT_STRIDE_FIRST_FRAC,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
   PERFECT_HUNT_WORD_COUNT,
+  getWordSuccessShowMessageTotalMs,
 } from "../js/config.js";
+
+test("word success showMessage total duration is reasonable for tile counts", () => {
+  assert.ok(getWordSuccessShowMessageTotalMs(4) > 500);
+  assert.ok(getWordSuccessShowMessageTotalMs(7) > getWordSuccessShowMessageTotalMs(4));
+});
 
 test("normalizeTileText trims and maps q to qu", () => {
   assert.equal(normalizeTileText(" Q "), "qu");

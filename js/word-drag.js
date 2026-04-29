@@ -12,6 +12,7 @@ import {
   WORD_SUCCESS_MESSAGE_FADE_EARLY_MS,
   getWordReplaceAnimationHoldMs,
   greenTextColor,
+  huntPaceSuccessFlashColor,
   redTextColor,
 } from "./config.js";
 import { getTileButtonFromEvent, getTileText, setTileText } from "./grid-tiles.js";
@@ -67,6 +68,7 @@ export function createWordDragHandlers(ctx, host) {
         "grid-button--invalid-shake",
         "grid-button--word-success",
         "grid-button--word-release-green",
+        "grid-button--word-release-hunt-pace",
         "grid-button--letter-flip",
         "grid-button--letter-swap-in"
       );
@@ -138,14 +140,19 @@ export function createWordDragHandlers(ctx, host) {
     }
   }
 
-  function applyWordConnectorLineOutcome(isValid) {
+  function applyWordConnectorLineOutcome(isValid, options = {}) {
     const lines = host.gridLineContainer.querySelectorAll("line");
     const winClass = "grid-line--result-valid";
     const loseClass = "grid-line--result-invalid";
+    const huntPaceClass = "grid-line--result-hunt-pace";
+    const huntPaceSuccess = options.huntPaceSuccess === true;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      line.classList.remove(winClass, loseClass);
+      line.classList.remove(winClass, loseClass, huntPaceClass);
       line.classList.add(isValid ? winClass : loseClass);
+      if (isValid && huntPaceSuccess) {
+        line.classList.add(huntPaceClass);
+      }
     }
   }
 
@@ -168,7 +175,8 @@ export function createWordDragHandlers(ctx, host) {
 
   function runSuccessPopThenStaggeredFlip(
     tilesToReplace,
-    onWordCommitAnimationsComplete
+    onWordCommitAnimationsComplete,
+    huntPaceSuccess = false
   ) {
     const st = w();
     st.wordReplaceEpoch++;
@@ -202,11 +210,12 @@ export function createWordDragHandlers(ctx, host) {
           if (i === 0) {
             fadeOutWordConnectorLines();
           }
+          const midMs = Math.max(40, Math.floor(WORD_LETTER_FLIP_MS / 2));
+
           button.classList.remove("grid-button--letter-flip");
           void button.offsetWidth;
           button.classList.add("grid-button--letter-flip");
 
-          const midMs = Math.max(40, Math.floor(WORD_LETTER_FLIP_MS / 2));
           window.setTimeout(() => {
             if (epoch !== st.wordReplaceEpoch) return;
             setTileText(button, nextLetter);
@@ -215,28 +224,6 @@ export function createWordDragHandlers(ctx, host) {
             const c = idx % gridN;
             ctx.state.gameBoard[r][c] = nextLetter;
           }, midMs);
-
-          const onFlipEnd = (e) => {
-            if (e.target !== button) return;
-            button.removeEventListener("animationend", onFlipEnd);
-            button.classList.remove("grid-button--letter-flip");
-            button.classList.remove("grid-button--word-release-green");
-          };
-          button.addEventListener("animationend", onFlipEnd);
-
-          window.setTimeout(() => {
-            if (epoch !== st.wordReplaceEpoch) return;
-            button.classList.remove("grid-button--letter-flip");
-            button.classList.remove("grid-button--word-release-green");
-            button.removeEventListener("animationend", onFlipEnd);
-            if (i === n - 1) {
-              st.lastButton = null;
-              st.wordReplaceLockGen = 0;
-              if (typeof onWordCommitAnimationsComplete === "function") {
-                onWordCommitAnimationsComplete();
-              }
-            }
-          }, WORD_LETTER_FLIP_MS + WORD_REPLACE_TAIL_SLACK_MS);
         };
 
         let didShift = false;
@@ -256,6 +243,48 @@ export function createWordDragHandlers(ctx, host) {
       if (epoch !== st.wordReplaceEpoch || phaseBStarted) return;
       phaseBStarted = true;
       const gapBetweenFlipStarts = WORD_LETTER_FLIP_MS - WORD_REPLACE_FLIP_OVERLAP_MS;
+      const nl = host.getNextLetters();
+      const nextByIndex = Array.from({ length: n }, (_, j) =>
+        j < nl.length ? nl[j] ?? "" : ""
+      );
+      const hasPeel = nextByIndex.some((ch) => ch === "");
+      const tFlipEndLast =
+        WORD_COMMIT_AFTER_PULSE_MS +
+        (n - 1) * gapBetweenFlipStarts +
+        WORD_LETTER_FLIP_MS +
+        WORD_REPLACE_TAIL_SLACK_MS;
+
+      const finishWordCommitAnimations = () => {
+        if (epoch !== st.wordReplaceEpoch) return;
+        for (let j = 0; j < n; j++) {
+          const b = tilesToReplace[j];
+          b.classList.remove("grid-button--letter-flip");
+          b.classList.remove(
+            "grid-button--word-release-green",
+            "grid-button--word-release-hunt-pace"
+          );
+          if (nextByIndex[j] === "") {
+            b.classList.remove("grid-button--slot-consumed-instant");
+            void b.offsetWidth;
+            b.classList.add(
+              huntPaceSuccess
+                ? "grid-button--slot-consumed-hunt-pace"
+                : "grid-button--slot-consumed"
+            );
+          }
+        }
+        st.lastButton = null;
+        st.wordReplaceLockGen = 0;
+        window.setTimeout(() => {
+          if (epoch !== st.wordReplaceEpoch) return;
+          if (typeof onWordCommitAnimationsComplete === "function") {
+            onWordCommitAnimationsComplete();
+          }
+        }, 0);
+      };
+
+      window.setTimeout(finishWordCommitAnimations, tFlipEndLast);
+
       window.setTimeout(() => runTileStep(0), 0);
       for (let i = 1; i < n; i++) {
         const flipStartMs = WORD_COMMIT_AFTER_PULSE_MS + i * gapBetweenFlipStarts;
@@ -267,7 +296,15 @@ export function createWordDragHandlers(ctx, host) {
     for (let i = 0; i < n; i++) {
       const b = tilesToReplace[i];
       b.classList.remove("grid-button--word-success");
-      b.classList.add("grid-button--word-release-green");
+      b.classList.remove(
+        "grid-button--word-release-green",
+        "grid-button--word-release-hunt-pace"
+      );
+      b.classList.add(
+        huntPaceSuccess
+          ? "grid-button--word-release-hunt-pace"
+          : "grid-button--word-release-green"
+      );
     }
 
     for (let i = 0; i < n; i++) {
@@ -424,23 +461,29 @@ export function createWordDragHandlers(ctx, host) {
       const cw = w().currentWord;
       const wordScore = host.getWordScoreFromSelectedTiles(w().selectedButtons);
       const huntMeta = host.evaluatePerfectHuntSubmit(cw, wordScore);
-      if (huntMeta.inList && huntMeta.choirPlaybackRate != null) {
+      const keepingPace = host.isWordKeepingPerfectHuntPace(cw);
+      if (huntMeta.isPerfectCompletion) {
+        playSound("perfect", host.getMuted(), {
+          onEnded: host.onPerfectFanfareEnded,
+        });
+      } else if (keepingPace && huntMeta.choirPlaybackRate != null) {
         playSound("choir", host.getMuted(), {
           playbackRate: huntMeta.choirPlaybackRate,
         });
-      } else if (!huntMeta.isPerfectCompletion) {
+      } else {
         playSound("bing", host.getMuted(), {
           playbackRate: bingPlaybackRateForWordLength(len),
         });
       }
       const tilesToReplace = Array.from(w().selectedButtonSet);
       host.addToScore(wordScore);
+      host.recordPerfectHuntOrderPace(cw);
       host.commitPerfectHuntWordIfListed(cw);
       showMessage(
         ctx,
         `${cw.toUpperCase()} +${wordScore}`,
         1,
-        greenTextColor,
+        keepingPace ? huntPaceSuccessFlashColor : greenTextColor,
         Math.max(
           0,
           getWordReplaceAnimationHoldMs(tilesToReplace.length) -
@@ -452,7 +495,7 @@ export function createWordDragHandlers(ctx, host) {
       }
       host.updateScore();
 
-      applyWordConnectorLineOutcome(true);
+      applyWordConnectorLineOutcome(true, { huntPaceSuccess: keepingPace });
 
       w().selectedButtons.forEach((button) => {
         button.classList.remove("selected", "grid-button--selected-enter");
@@ -465,11 +508,15 @@ export function createWordDragHandlers(ctx, host) {
       host.updateScoreStrip();
       w().currentWord = "";
 
-      runSuccessPopThenStaggeredFlip(tilesToReplace, () => {
-        if (!huntMeta.isPerfectCompletion) return;
-        if (!host.getGameActive()) return;
-        host.endGameWithStinger?.({ endgameStinger: "perfect" });
-      });
+      runSuccessPopThenStaggeredFlip(
+        tilesToReplace,
+        () => {
+          if (!huntMeta.isPerfectCompletion) return;
+          if (!host.getGameActive()) return;
+          host.endGameWithStinger?.({ endgameStinger: "perfect" });
+        },
+        keepingPace
+      );
     } else {
       playSound("invalid", host.getMuted());
       showMessage(ctx, "INVALID", 1, redTextColor);
