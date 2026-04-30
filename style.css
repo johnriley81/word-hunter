@@ -20,6 +20,23 @@
   /** Perfect-hunt on-pace word submit: bright tile fill (not the pale default active cell). */
   --hunt-pace-highlight-bg: #f5e2a2;
   --hunt-pace-highlight-text: #3d2800;
+  --perfect-hunt-starter-hint-orange-solid: #fe9216;
+  --perfect-hunt-starter-hint-glow-min: color-mix(
+    in srgb,
+    var(--perfect-hunt-starter-hint-orange-solid) 31%,
+    transparent
+  );
+  --perfect-hunt-starter-hint-glow-peak: color-mix(
+    in srgb,
+    var(--perfect-hunt-starter-hint-orange-solid) 46%,
+    transparent
+  );
+  --perfect-hunt-starter-hint-glow-static: color-mix(
+    in srgb,
+    var(--perfect-hunt-starter-hint-orange-solid) 37%,
+    transparent
+  );
+  --perfect-hunt-starter-hint-pulse-duration: 1.75s;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
@@ -752,6 +769,58 @@ html {
 .shift-preview-tile {
   pointer-events: none;
   cursor: default;
+}
+
+@keyframes perfectHuntStarterGlowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 9px 0 var(--perfect-hunt-starter-hint-glow-min);
+  }
+
+  50% {
+    box-shadow: 0 0 15px 2px var(--perfect-hunt-starter-hint-glow-peak);
+  }
+}
+
+.grid-button.grid-button--perfect-hunt-hint {
+  z-index: 2;
+}
+
+.grid-button.shift-preview-tile.shift-preview-tile--hunt-hint {
+  z-index: 1;
+  color: var(--grid-button-active-text-color);
+  border-color: var(--grid-button-active-border-color);
+}
+
+.grid-button.grid-button--perfect-hunt-hint::before,
+.grid-button.shift-preview-tile.shift-preview-tile--hunt-hint::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  animation: perfectHuntStarterGlowPulse var(--perfect-hunt-starter-hint-pulse-duration)
+    ease-in-out infinite;
+}
+
+.grid-button.grid-button--perfect-hunt-hint .tile-glyph,
+.grid-button.shift-preview-tile.shift-preview-tile--hunt-hint .tile-glyph {
+  position: relative;
+  z-index: 2;
+}
+
+.grid-button.grid-button--perfect-hunt-hint .tile-weight-badge,
+.grid-button.shift-preview-tile.shift-preview-tile--hunt-hint .tile-weight-badge {
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-button.grid-button--perfect-hunt-hint::before,
+  .grid-button.shift-preview-tile.shift-preview-tile--hunt-hint::before {
+    animation: none;
+    box-shadow: 0 0 11px 1px var(--perfect-hunt-starter-hint-glow-static);
+  }
 }
 
 #grid {

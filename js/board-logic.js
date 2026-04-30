@@ -86,6 +86,47 @@ export function wordToTileLabelSequence(word) {
 }
 
 /**
+ * Row-major flat index for the Perfect Hunt pacing starter tile on `gameBoard`, or null.
+ * @param {string[][] | null | undefined} gameBoard
+ * @param {unknown} perfectHunt
+ * @param {number} orderIndex
+ * @param {boolean} onPace
+ * @param {number} gridSize
+ * @returns {number | null}
+ */
+export function computePerfectHuntStarterFlat(
+  gameBoard,
+  perfectHunt,
+  orderIndex,
+  onPace,
+  gridSize
+) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
+  if (
+    !onPace ||
+    !Array.isArray(perfectHunt) ||
+    perfectHunt.length === 0 ||
+    !Array.isArray(gameBoard)
+  ) {
+    return null;
+  }
+  if (orderIndex >= perfectHunt.length) return null;
+  const labels = wordToTileLabelSequence(String(perfectHunt[orderIndex] || ""));
+  if (!labels.length) return null;
+  const target = normalizeTileText(labels[0]);
+  for (let r = 0; r < n; r++) {
+    const row = gameBoard[r];
+    if (!Array.isArray(row)) continue;
+    for (let c = 0; c < n; c++) {
+      if (normalizeTileText(row[c]) === target) {
+        return r * n + c;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Whether the same physical tile can be revisited for the j-th use of a letter:
  * need two different tile-labels in the subword strictly between the two
  * same-label positions (i & j). One letter between = not reusable.

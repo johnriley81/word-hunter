@@ -191,6 +191,8 @@ export function createWordDragHandlers(ctx, host) {
     }
     st.wordReplaceLockGen = epoch;
 
+    host.clearPerfectHuntHintVisual?.();
+
     let phaseBStarted = false;
     let greenDoneCount = 0;
 
@@ -275,6 +277,7 @@ export function createWordDragHandlers(ctx, host) {
         }
         st.lastButton = null;
         st.wordReplaceLockGen = 0;
+        host.refreshPerfectHuntHint?.();
         window.setTimeout(() => {
           if (epoch !== st.wordReplaceEpoch) return;
           if (typeof onWordCommitAnimationsComplete === "function") {
