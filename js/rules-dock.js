@@ -4,6 +4,7 @@ export function setRulesOverlayVisible(refs, gridPan, onPausedChange, isVisible)
   const { rules, gameInfoContainer, bottomDock, grid } = refs;
   rules.classList.toggle("hidden", !isVisible);
   rules.classList.toggle("visible", isVisible);
+  document.body.classList.toggle("rules-overlay-open", isVisible);
   gameInfoContainer.classList.toggle("hiddenDisplay", isVisible);
   bottomDock.classList.toggle("hiddenDisplay", isVisible);
   grid.classList.toggle("hidden", isVisible);
