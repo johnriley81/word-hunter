@@ -1,19 +1,5 @@
-/**
- * Paste a published puzzle JSON (argv). Simulates hunt words in ascending wordTotal order.
- *
- * Matches gameplay: after each word, replacements use the queue; **before** each word you may
- * apply up to N whole-grid row/column shifts (same ops as shift-dom: applyRowShift /
- * applyColumnShift on the 4×4).
- *
- * Note: `verifyForwardPuzzle` in puzzle-export-sim.js still assumes **no** shifts — export
- * verification / CI does not model swipes unless extended.
- *
- * Usage: node scripts/analyze-puzzle-json.mjs '{"starting_grid":...}'
- *
- * Precheck: each hunt word uses exactly `minUniqueTilesForReuseRule` replacement cells per
- * play; PERFECT_HUNT_WORD_COUNT words must sum to NEXT_LETTERS_LEN to match `next_letters`. If not, the puzzle JSON cannot
- * represent a full perfect run (shifts do not change that accounting).
- */
+/** argv: puzzle JSON — ascending-score hunt replay, FIFO sack, optional shifts (see env vars below). */
+
 import {
   wordToTileLabelSequence,
   normalizeTileText,
@@ -25,23 +11,26 @@ import {
 import {
   verifyForwardPuzzle,
   canonicalNextLettersFromJsonArray,
+  tryApplyFifoLetterRefillsAfterWordSubmission,
+  replacementTilesFirstVisitFlatOrder,
 } from "../js/puzzle-export-sim.js";
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
 const N = 4;
 
-/** Max shift primitives chained between successive words (e.g. 2 = up to two swipes). */
-const MAX_SHIFT_OPS_BETWEEN_WORDS = Number(process.env.PUZZLE_SHIFT_DEPTH || 2);
+function envInt(key, fallback) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === "") return fallback;
+  const v = Number(raw);
+  return Number.isFinite(v) ? Math.trunc(v) : fallback;
+}
 
-/** Cap distinct paths tried per (word, shift-sequence) to keep search bounded. */
-const MAX_PATHS_PER_SHIFT_SEQ = Number(process.env.PUZZLE_MAX_PATHS || 40);
-
-/** Stop after exploring this many DFS nodes (fails with reason if exceeded). */
-const MAX_DFS_NODES = Number(process.env.PUZZLE_MAX_NODES || 2_000_000);
+const MAX_SHIFT_OPS_BETWEEN_WORDS = Math.max(0, envInt("PUZZLE_SHIFT_DEPTH", 2));
+const MAX_PATHS_PER_SHIFT_SEQ = Math.max(1, envInt("PUZZLE_MAX_PATHS", 40));
+const MAX_DFS_NODES = Math.max(1000, envInt("PUZZLE_MAX_NODES", 2_000_000));
 
 const USE_FAIL_MEMO = process.env.PUZZLE_NO_MEMO !== "1";
 
-/** col+1 first — matches common “swipe right” whole-grid column shift. */
 const SHIFT_PRIM = [
   { t: "col", s: 1 },
   { t: "col", s: -1 },
@@ -51,19 +40,28 @@ const SHIFT_PRIM = [
   { t: "row", s: 2 },
 ];
 
-function neighbors8(f, n = N) {
-  const r = Math.floor(f / n);
-  const c = f % n;
-  const out = [];
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const nr = r + dr;
-      const nc = c + dc;
-      if (nr >= 0 && nr < n && nc >= 0 && nc < n) out.push(nr * n + nc);
+const NEIGHBORS8_4 = (() => {
+  const nn = N;
+  const adj = [];
+  for (let f = 0; f < nn * nn; f++) {
+    const r = Math.floor(f / nn);
+    const c = f % nn;
+    const xs = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr >= 0 && nr < nn && nc >= 0 && nc < nn) xs.push(nr * nn + nc);
+      }
     }
+    adj[f] = xs;
   }
-  return out;
+  return adj;
+})();
+
+function neighbors8Flat(f) {
+  return NEIGHBORS8_4[f];
 }
 
 function cloneBoard(board) {
@@ -107,38 +105,40 @@ function findAllPathsOnBoard(board, word, limit) {
   const glyphs = wordToTileLabelSequence(word);
   const minTiles = minUniqueTilesForReuseRule(glyphs);
   const out = [];
+  const path = [];
+  const g0 = glyphs[0];
+  const firstStarts = [];
+  for (let f = 0; f < N * N; f++) {
+    if (cellLetter(board, f) === g0) firstStarts.push(f);
+  }
 
-  function dfs(i, path) {
+  function dfs(i) {
     if (out.length >= limit) return;
     if (i === glyphs.length) {
       if (new Set(path).size === minTiles) out.push(path.slice());
       return;
     }
-    const g = glyphs[i];
-    const candidates =
-      i === 0
-        ? Array.from({ length: 16 }, (_, f) => f).filter(
-            (f) => cellLetter(board, f) === g
-          )
-        : neighbors8(path[path.length - 1]).filter((f) => cellLetter(board, f) === g);
-    for (const f of candidates) {
-      dfs(i + 1, [...path, f]);
+    const need = glyphs[i];
+    const cand = i === 0 ? firstStarts : neighbors8Flat(path[path.length - 1]);
+    for (let j = 0; j < cand.length; j++) {
+      const f = cand[j];
+      if (cellLetter(board, f) !== need) continue;
+      path.push(f);
+      dfs(i + 1);
+      path.pop();
     }
   }
-  dfs(0, []);
+
+  dfs(0);
   return out;
 }
 
-function uniquesInPathOrder(pathFlat) {
-  const out = [];
-  const seen = new Set();
-  for (const f of pathFlat) {
-    if (!seen.has(f)) {
-      seen.add(f);
-      out.push(f);
-    }
-  }
-  return out;
+function applyCommit(board, queue, path, word) {
+  const b = cloneBoard(board);
+  const q = queue.slice();
+  if (!pathMatchesWord(b, path, word)) return null;
+  if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, N)) return null;
+  return { board: b, queue: q };
 }
 
 function pathMatchesWord(board, path, word) {
@@ -148,30 +148,12 @@ function pathMatchesWord(board, path, word) {
     const f = path[i];
     const r = Math.floor(f / N);
     const c = f % N;
-    if (normalizeTileText(board[r][c]) !== glyphs[i]) return false;
+    if (normalizeTileText(board[r][c]) !== normalizeTileText(glyphs[i])) return false;
   }
   return true;
 }
 
-function applyCommit(board, queue, path, word) {
-  const b = cloneBoard(board);
-  const q = queue.slice();
-  if (!pathMatchesWord(b, path, word)) return null;
-  const uniques = uniquesInPathOrder(path);
-  if (uniques.length > q.length) return null;
-  for (const f of uniques) {
-    const r = Math.floor(f / N);
-    const c = f % N;
-    b[r][c] = normalizeTileText((q.shift() || "").toLowerCase());
-  }
-  return { board: b, queue: q };
-}
-
-/**
- * DFS: before each word, try shift sequences (length 0..MAX), then paths, then commit.
- * Memoizes dead ends (board + queue + word index) to cut duplicate work.
- * @returns {{ ok: boolean, paths?: number[][], shiftsBefore?: object[][][], reason?: string }}
- */
+/** DFS: shift combos × paths × commits; caches dead memo states. */
 function shiftAwareSolve(board0, queue0, words) {
   const failMemo = new Set();
   let nodes = 0;
@@ -192,15 +174,22 @@ function shiftAwareSolve(board0, queue0, words) {
       if (queue.length === 0) {
         return { ok: true, paths: pathsAcc, shiftsBefore: shiftsAcc };
       }
-      return { ok: false, reason: "queue not empty after words, left " + queue.length };
+      return {
+        ok: false,
+        reason: "queue not empty after words, left " + queue.length,
+        failWi: wi,
+      };
     }
 
     const fk = failKey(board, queue, wi);
     if (USE_FAIL_MEMO && failMemo.has(fk)) {
-      return { ok: false, reason: "memo dead" };
+      return { ok: false, reason: "memo dead", failWi: wi };
     }
 
     const w = words[wi];
+    /** @type {{ ok: false; reason: string; failWi?: number } | null} */
+    let bestChildFail = null;
+
     for (const seq of genShiftSeqs(MAX_SHIFT_OPS_BETWEEN_WORDS)) {
       const bShifted = applySeqToBoard(board, seq);
       const paths = findAllPathsOnBoard(bShifted, w, MAX_PATHS_PER_SHIFT_SEQ);
@@ -219,11 +208,18 @@ function shiftAwareSolve(board0, queue0, words) {
         );
         if (sub.ok) return sub;
         if (sub.reason && sub.reason.startsWith("aborted:")) return sub;
+        if (!sub.ok) {
+          const subWi = typeof sub.failWi === "number" ? sub.failWi : wi + 1;
+          if (!bestChildFail || subWi > (bestChildFail.failWi ?? -1)) {
+            bestChildFail = { ok: false, reason: sub.reason, failWi: subWi };
+          }
+        }
       }
     }
 
     if (USE_FAIL_MEMO) failMemo.add(fk);
-    return {
+
+    const localFail = {
       ok: false,
       reason:
         "exhausted shifts/paths at word " +
@@ -231,7 +227,12 @@ function shiftAwareSolve(board0, queue0, words) {
         " (" +
         w +
         ") — no full completion from this state",
+      failWi: wi,
     };
+    if (bestChildFail != null && (bestChildFail.failWi ?? -1) > wi) {
+      return bestChildFail;
+    }
+    return localFail;
   }
 
   const out = dfs(cloneBoard(board0), queue0.slice(), 0, [], []);
@@ -252,7 +253,7 @@ const raw = process.argv[2] || "";
 if (!raw.trim()) {
   console.error("Usage: node scripts/analyze-puzzle-json.mjs '{...json...}'");
   console.error(
-    "Optional env: PUZZLE_SHIFT_DEPTH (default 3), PUZZLE_MAX_PATHS (default 80)"
+    "Env: PUZZLE_SHIFT_DEPTH, PUZZLE_MAX_PATHS, PUZZLE_MAX_NODES, PUZZLE_NO_MEMO, PUZZLE_DEBUG"
   );
   process.exit(1);
 }
@@ -282,7 +283,6 @@ const scored = hunt.map((w) => ({
 scored.sort((a, b) => a.wordTotal - b.wordTotal || a.w.localeCompare(b.w));
 const wordsAsc = scored.map((x) => x.w);
 
-/** Each valid play replaces exactly minUniqueTilesForReuseRule glyphs; hunt plays must sum to NEXT_LETTERS_LEN. */
 const sumMinRepl = wordsAsc.reduce(
   (s, w) => s + minUniqueTilesForReuseRule(wordToTileLabelSequence(w)),
   0
@@ -326,7 +326,7 @@ if (sol.ok) {
   for (let i = 0; i < wordsAsc.length; i++) {
     const sh = sol.shiftsBefore[i];
     const path = sol.paths[i];
-    const u = uniquesInPathOrder(path).length;
+    const u = replacementTilesFirstVisitFlatOrder(path).length;
     sumUniq += u;
     console.log(" ", i, wordsAsc[i], "| shifts:", shiftSeqLabel(sh), "| uniqRepl:", u);
   }
@@ -344,8 +344,6 @@ if (sol.ok) {
     const v = verifyForwardPuzzle(grid, next, wordsAsc, sol.paths);
     console.log("verifyForwardPuzzle:", v.ok ? "OK" : v.reason);
   } else {
-    console.log(
-      "verifyForwardPuzzle: skipped (no full solution — export sim assumes no shifts)"
-    );
+    console.log("verifyForwardPuzzle: skipped (no full path set)");
   }
 }

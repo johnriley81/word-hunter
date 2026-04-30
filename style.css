@@ -58,6 +58,7 @@
   --rules-accent-pink: #ff7eb9;
   --rules-accent-purple: #b388ff;
   --rules-perfect-hunt-total-color: #ff8500;
+  --rules-accent-hunt-hint: #f5be95;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-text-shadow-color: black;
@@ -94,21 +95,41 @@
 }
 
 @media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
-  body > * {
-    display: none;
-    visibility: hidden;
+  body > *:not(#landscape-message),
+  body > #rules.visible,
+  body > #grid-line-wrapper.grid-line-wrapper--shift-clipping {
+    display: none !important;
+    pointer-events: none !important;
   }
+
   body > #landscape-message {
     position: fixed;
     inset: 0;
-    display: flex;
+    z-index: 99999;
+    display: flex !important;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    padding: 24px;
     box-sizing: border-box;
-    visibility: visible;
-    color: var(--page-text-color);
+    width: 100%;
+    height: 100%;
+    width: 100dvw;
+    height: 100dvh;
+    margin: 0;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    min-height: -webkit-fill-available;
+    pointer-events: auto !important;
+    text-align: center;
+    font-family: "Press Start 2P", cursive;
+    font-size: clamp(0.65rem, 3.5vw, 0.85rem);
+    line-height: 1.6;
+    text-transform: uppercase;
+    color: var(--grid-button-active-text-color);
+    background-color: transparent;
+    text-shadow:
+      0 0 14px var(--body-background-fallback-color),
+      0 1px 2px rgba(255, 255, 255, 0.9);
   }
 }
 
@@ -365,6 +386,11 @@ html {
 .rules-shell h3 {
   margin-bottom: 0.45rem;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.rules-accent-hunt-hint {
+  color: var(--rules-accent-hunt-hint);
+  font-weight: 700;
 }
 
 .rules-accent-gold {
@@ -635,6 +661,10 @@ html {
   #queue-ribbon {
     width: 86%;
     max-width: 86%;
+  }
+
+  #rules.visible {
+    padding-bottom: clamp(1.75rem, 6dvh, 2.75rem);
   }
 }
 

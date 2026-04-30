@@ -21,7 +21,7 @@ import {
   computeShiftSnapPlan,
   computeShiftStageTransformString,
   gridInverseCompensateTranslateString,
-  computePerfectHuntStarterFlat,
+  computePerfectHuntStarterFlatWithRowHints,
 } from "./board-logic.js";
 import { getTileText, setTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
 import { unlockGameAudio, playSound } from "./audio.js";
@@ -125,12 +125,14 @@ export function attachShiftGestures(ctx, host) {
     const n = GRID_SIZE;
     const tiles = inner.querySelectorAll(".shift-preview-tile");
     const need = n * k;
-    const starterFlat = computePerfectHuntStarterFlat(
+    const starterFlat = computePerfectHuntStarterFlatWithRowHints(
       ctx.state.gameBoard,
       ctx.state.perfectHunt,
       ctx.state.perfectHuntOrderIndex,
       ctx.state.perfectHuntOnPace,
-      n
+      n,
+      ctx.state.perfectHuntStarterFlats,
+      ctx.state.perfectHuntStarterNeighborSigs
     );
     for (let i = 0; i < tiles.length; i++) {
       tiles[i].classList.remove(SHIFT_PREVIEW_HUNT_HINT_CLASS);

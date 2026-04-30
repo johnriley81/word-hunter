@@ -5,20 +5,17 @@ import {
   wordToTileLabelSequence,
   normalizeTileText,
   minUniqueTilesForReuseRule,
+  normalizedOrthoNeighborsAtFlat,
 } from "./board-logic.js";
 
-/**
- * Omit trailing sack padding from JSON — runtime still pads to NEXT_LETTERS_LEN.
- */
+/** Strip trailing sack padding before JSON round-trip / display. */
 export function stripTrailingEmptyNextLetters(tokens) {
   const out = Array.isArray(tokens) ? tokens.slice() : [];
   while (out.length > 0 && out[out.length - 1] === "") out.pop();
   return out;
 }
 
-/**
- * Drops every `""` — use for **counts / display**, not sack FIFO (positional blanks matter).
- */
+/** Drops every `""` — sack counting must use canonical/padded arrays instead. */
 export function omitEmptyNextLetterSlots(tokens) {
   return (Array.isArray(tokens) ? tokens : []).filter((t) => t !== "");
 }
@@ -31,13 +28,7 @@ export function padNextLettersToLen(tokens, len = NEXT_LETTERS_LEN) {
   return out;
 }
 
-/**
- * Same rules as puzzles.txt load: lowercase, strip **trailing** `""` only, pad to
- * `NEXT_LETTERS_LEN`. Internal `""` entries are **positional peel slots** and must be retained.
- *
- * @param {unknown[]} raw compact or full sack from JSON
- * @returns {string[]}
- */
+/** Compact JSON sack → lowercase, trim trailing blanks, pad to NEXT_LETTERS_LEN. */
 export function canonicalNextLettersFromJsonArray(raw) {
   if (!Array.isArray(raw)) throw new Error("next_letters must be an array");
   const mapped = /** @type {string[]} */ (
@@ -52,11 +43,8 @@ export function canonicalNextLettersFromJsonArray(raw) {
   return padNextLettersToLen(trimmed);
 }
 
-/**
- * @param {number[]} pathFlat
- * @returns {number[]} unique flat indices in path order
- */
-function uniquesInPathOrder(pathFlat) {
+/** Unique path flats in first-visit order (FIFO refill slots). */
+export function replacementTilesFirstVisitFlatOrder(pathFlat) {
   const out = [];
   const seen = new Set();
   for (const f of pathFlat) {
@@ -68,12 +56,27 @@ function uniquesInPathOrder(pathFlat) {
   return out;
 }
 
+/** Apply refills after a word (`shift()` per replacementTilesFirstVisitFlatOrder flat). Returns false if sack too short. */
+export function tryApplyFifoLetterRefillsAfterWordSubmission(
+  board,
+  fifoQueue,
+  pathFlat,
+  gridSize = 4
+) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 4);
+  const order = replacementTilesFirstVisitFlatOrder(pathFlat);
+  if (order.length > fifoQueue.length) return false;
+  for (const f of order) {
+    const rep = normalizeTileText(String(fifoQueue.shift() ?? "").toLowerCase());
+    const r = Math.floor(f / n);
+    const c = f % n;
+    board[r][c] = rep;
+  }
+  return true;
+}
+
 /**
- * @param {string[][]} grid0 Solved 4×4 after the full `perfect_hunt` is on the board.
- * @param {string[]} nextIn compact sack or full length; short JSON is padded with "" on load
- * @param {string[]} wordsAsc hunt words, ascending by score (length must match paths)
- * @param {number[][]} pathFlatByWordAsc for each word, path as flat 0-15 in drag order, same order as `wordsAsc`
- * @returns {{ ok: boolean, reason: string, queueLeft: string[]}}
+ * Replay ascending hunt paths on `grid0` with FIFO refills; board must solve with empty sack after.
  */
 export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
   const n = 4;
@@ -124,19 +127,12 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
         };
       }
     }
-    const uniques = uniquesInPathOrder(path);
-    if (uniques.length > q.length) {
+    if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) {
       return {
         ok: false,
         reason: "not enough next letters for word " + wi,
         queueLeft: q,
       };
-    }
-    for (const f of uniques) {
-      const rep = normalizeTileText((q.shift() || "").toLowerCase());
-      const r = Math.floor(f / n);
-      const c = f % n;
-      b[r][c] = rep;
     }
   }
   if (q.length !== 0) {
@@ -147,6 +143,59 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
     };
   }
   return { ok: true, reason: "ok", queueLeft: q };
+}
+
+/** Same replay as verifyForwardPuzzle — starter flats + orthogonal neighbor presets for exports. Null if invalid. */
+export function computePerfectHuntStarterHints(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc
+) {
+  const n = 4;
+  const b = grid0.map((row) => row.slice());
+  let q;
+  try {
+    q = canonicalNextLettersFromJsonArray(Array.isArray(nextIn) ? nextIn : []);
+  } catch {
+    return null;
+  }
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  if (nw === 0 || !pathFlatByWordAsc || pathFlatByWordAsc.length !== nw) {
+    return null;
+  }
+  /** @type {number[]} */
+  const flats = [];
+  /** @type {Array<{ n: string | null; s: string | null; w: string | null; e: string | null }>} */
+  const sigs = [];
+
+  for (let wi = 0; wi < nw; wi++) {
+    const w = (wordsAsc[wi] || "").toLowerCase();
+    const path = pathFlatByWordAsc[wi];
+    if (!w || !path || !path.length) return null;
+    const glyphs = wordToTileLabelSequence(w);
+    if (glyphs.length !== path.length) return null;
+    for (let i = 0; i < path.length; i++) {
+      const f = path[i];
+      if (f < 0 || f >= n * n) return null;
+      const r = Math.floor(f / n);
+      const c = f % n;
+      const g = normalizeTileText(b[r][c]);
+      const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
+      if (g !== need) return null;
+    }
+
+    flats.push(path[0]);
+    const ortho = normalizedOrthoNeighborsAtFlat(b, path[0], n);
+    sigs.push({ n: ortho.n, s: ortho.s, w: ortho.w, e: ortho.e });
+
+    if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) return null;
+  }
+  if (q.length !== 0) return null;
+  return {
+    perfect_hunt_starter_flats: flats,
+    perfect_hunt_starter_neighbor_sigs: sigs,
+  };
 }
 
 /**
@@ -219,7 +268,7 @@ export function reconstructForwardStartFromFinalAndLastPlay(finalGrid, lastPlay)
   if (!lastPlay) return null;
   const path = lastPlay.pathFlat || [];
   const cov = lastPlay.covered || [];
-  const uniques = uniquesInPathOrder(path);
+  const uniques = replacementTilesFirstVisitFlatOrder(path);
   if (uniques.length !== cov.length) return null;
   const g0 = finalGrid.map((r) => r.map((c) => c));
   const n = 4;
