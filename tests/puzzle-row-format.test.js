@@ -61,12 +61,28 @@ test("dictExport round-trip one JSON line", () => {
     ],
     next_letters: Array(NEXT_LETTERS_LEN).fill("x"),
     perfect_hunt: HUNT_PLACEHOLDERS.slice(),
+    perfect_hunt_starter_flats: [0, 1, 2, 3, 4, 5, 6],
+    perfect_hunt_starter_neighbor_sigs: Array.from(
+      { length: PERFECT_HUNT_WORD_COUNT },
+      () => ({
+        n: null,
+        s: "z",
+        e: "z",
+        w: "z",
+      })
+    ),
   };
   const line = serializePuzzleRow(dictExportToCanonicalRow(d));
   assert.ok(!line.includes("\n"), "single-line JSON");
   const again = parsePuzzlesFileText(line);
   assert.equal(again.length, 1);
   assert.deepEqual(again[0].perfect_hunt, d.perfect_hunt);
+  assert.deepEqual(again[0].perfect_hunt_starter_flats, d.perfect_hunt_starter_flats);
+  assert.equal(
+    again[0].perfect_hunt_starter_neighbor_sigs?.length,
+    PERFECT_HUNT_WORD_COUNT
+  );
+  assert.equal(again[0].perfect_hunt_starter_neighbor_sigs?.[0]?.n, null);
 });
 
 test("serializePuzzleRow round-trip preserves internal sack empty peel slots", () => {

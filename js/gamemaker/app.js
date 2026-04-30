@@ -19,6 +19,7 @@ import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js
 import {
   buildNextLettersFromCoveredInBuildOrder,
   stripTrailingEmptyNextLetters,
+  computePerfectHuntStarterHints,
 } from "../puzzle-export-sim.js";
 import { loadWordhunterTextAssets } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
@@ -667,10 +668,25 @@ function createGamemaker() {
     const nextLetters = buildNextLettersFromCoveredInBuildOrder(playsDescForSack, {
       fillEmpty: "",
     });
+    const playsAsc = order.map((x) => playsForExport[x.i]);
+    const nextLettersRaw = stripTrailingEmptyNextLetters(nextLetters.slice());
+    const starterHints = computePerfectHuntStarterHints(
+      gEndL,
+      nextLettersRaw,
+      wordsAsc,
+      playsAsc.map((p) => (Array.isArray(p.pathFlat) ? p.pathFlat : []).slice())
+    );
     return {
       starting_grids: [gEndL],
       next_letters: stripTrailingEmptyNextLetters(nextLetters),
       perfect_hunt: wordsAsc,
+      ...(starterHints
+        ? {
+            perfect_hunt_starter_flats: starterHints.perfect_hunt_starter_flats,
+            perfect_hunt_starter_neighbor_sigs:
+              starterHints.perfect_hunt_starter_neighbor_sigs,
+          }
+        : {}),
     };
   }
 

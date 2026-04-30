@@ -12,6 +12,8 @@ import {
   shiftCommitStepsFromAxisMag,
   computeShiftSnapPlan,
   buildPerfectHuntMetadata,
+  computePerfectHuntStarterFlat,
+  puzzleRowPerfectHuntStarterHints,
 } from "../js/board-logic.js";
 import {
   GRID_SIZE,
@@ -150,4 +152,43 @@ test("buildPerfectHuntMetadata: maps PERFECT_HUNT_WORD_COUNT words to choir rate
   const meta = buildPerfectHuntMetadata(hunt, CHOIR_PLAYBACK_RATES_FOR_RANK);
   assert.ok(meta);
   assert.equal(meta.choirRateByWord.size, PERFECT_HUNT_WORD_COUNT);
+});
+
+test("Perfect Hunt starter: row-major ambiguity resolved by exported flat then neighbor sig", () => {
+  const board = [
+    ["b", "x", "z", "z"],
+    ["x", "a", "z", "z"],
+    ["z", "z", "a", "z"],
+    ["z", "z", "z", "z"],
+  ].map((r) => r.map((c) => String(c)));
+  const hunt = ["ab"];
+  const base = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, null);
+  assert.equal(base, 5);
+  const byFlat = computePerfectHuntStarterFlat(
+    board,
+    hunt,
+    0,
+    true,
+    4,
+    puzzleRowPerfectHuntStarterHints([10], null)
+  );
+  assert.equal(byFlat, 10);
+  const sigOnly = puzzleRowPerfectHuntStarterHints(null, [
+    { n: "z", s: "z", w: "z", e: "z" },
+  ]);
+  const byOrtho = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, sigOnly);
+  assert.equal(byOrtho, 10);
+});
+
+test("Perfect Hunt starter: ignored flat hints when tile letter does not match", () => {
+  const board = [
+    ["b", "x", "z", "z"],
+    ["x", "a", "z", "z"],
+    ["z", "z", "x", "z"],
+    ["z", "z", "z", "z"],
+  ].map((r) => r.map((c) => String(c)));
+  const hunt = ["ab"];
+  const wrongFlat = puzzleRowPerfectHuntStarterHints([10], null);
+  const got = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, wrongFlat);
+  assert.equal(got, 5);
 });

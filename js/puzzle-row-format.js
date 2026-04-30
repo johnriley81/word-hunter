@@ -1,30 +1,65 @@
-/** puzzles.txt: JSON Lines — one compact `{...}` object per non-empty line.
- *  Rows saved before positional-`""` sacks (everything stripped via `omitEmptyNextLetterSlots`
- *  on load) cannot recover internal blanks — re-export or regenerate those puzzles/pool lines.
- */
+/** JSON Lines puzzles. Internal `""` sack slots matter; stripping them loses round-trip data. */
 
-import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "./config.js";
+import { PERFECT_HUNT_WORD_COUNT } from "./config.js";
 import {
   stripTrailingEmptyNextLetters,
   canonicalNextLettersFromJsonArray,
 } from "./puzzle-export-sim.js";
 
 const GRID = 4;
-const NEXT_LEN = NEXT_LETTERS_LEN;
 const HUNT_LEN = PERFECT_HUNT_WORD_COUNT;
 
-/**
- * @param {unknown[]} raw tokens from JSON (trailing `""` may be omitted; internal `""` preserved)
- * @returns {string[]} padded to `NEXT_LETTERS_LEN` for runtime
- */
 function coerceNextLettersForRow(raw) {
   return canonicalNextLettersFromJsonArray(raw);
 }
 
-/**
- * @param {unknown} raw
- * @returns {{ starting_grid: unknown; next_letters: unknown; perfect_hunt: unknown }}
- */
+function coerceStarterFlatValues(raw) {
+  return raw.map((x) => (typeof x === "number" && Number.isFinite(x) ? x : Number(x)));
+}
+
+const CARDINAL_KEYS = ["n", "s", "e", "w"];
+
+/** @returns {{ n?: string | null; s?: string | null; w?: string | null; e?: string | null }}} */
+export function coerceNeighborSigFromExport(raw, label) {
+  if (!raw || typeof raw !== "object")
+    throw new Error(label + ": neighbor sig must be an object");
+  /** @type {Record<string, string | null>} */
+  const out = {};
+  let any = false;
+  for (const dir of CARDINAL_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(raw, dir)) continue;
+    any = true;
+    const v = /** @type {Record<string, unknown>} */ (raw)[dir];
+    if (v === null) out[dir] = null;
+    else if (typeof v === "string") out[dir] = v.trim().toLowerCase();
+    else throw new Error(label + ": neighbor " + dir + " must be null or string");
+  }
+  if (!any) throw new Error(label + ": neighbor sig has no cardinal keys");
+  return out;
+}
+
+function validateStarterFlatsArray(flatsRaw, label) {
+  if (!Array.isArray(flatsRaw) || flatsRaw.length !== HUNT_LEN) {
+    throw new Error(label + " must be length " + HUNT_LEN);
+  }
+  for (let i = 0; i < HUNT_LEN; i++) {
+    const x = flatsRaw[i];
+    const fi = typeof x === "number" ? x : Number(x);
+    if (!Number.isFinite(fi) || fi !== Math.floor(fi) || fi < 0 || fi >= GRID * GRID) {
+      throw new Error(label + " index " + i + " invalid flat " + fi);
+    }
+  }
+}
+
+function validateNeighborSigArray(sigsRaw, label) {
+  if (!Array.isArray(sigsRaw) || sigsRaw.length !== HUNT_LEN) {
+    throw new Error(label + " must be length " + HUNT_LEN);
+  }
+  for (let wi = 0; wi < HUNT_LEN; wi++) {
+    coerceNeighborSigFromExport(sigsRaw[wi], label + "[" + wi + "]");
+  }
+}
+
 export function normalizePuzzleRow(raw) {
   if (!raw || typeof raw !== "object") throw new Error("puzzle row must be an object");
   const o = /** @type {Record<string, unknown>} */ (raw);
@@ -40,12 +75,11 @@ export function normalizePuzzleRow(raw) {
     starting_grid,
     next_letters: o.next_letters,
     perfect_hunt: o.perfect_hunt,
+    perfect_hunt_starter_flats: o.perfect_hunt_starter_flats,
+    perfect_hunt_starter_neighbor_sigs: o.perfect_hunt_starter_neighbor_sigs,
   };
 }
 
-/**
- * @param {{ starting_grid: unknown; next_letters: unknown; perfect_hunt: unknown }} row
- */
 export function validatePuzzleRow(row) {
   const { starting_grid, next_letters, perfect_hunt } = row;
   if (!Array.isArray(starting_grid) || starting_grid.length !== GRID) {
@@ -61,27 +95,44 @@ export function validatePuzzleRow(row) {
   if (!Array.isArray(perfect_hunt) || perfect_hunt.length !== HUNT_LEN) {
     throw new Error("perfect_hunt must have length " + HUNT_LEN);
   }
+  const hasFlats = row.perfect_hunt_starter_flats != null;
+  const hasSigs = row.perfect_hunt_starter_neighbor_sigs != null;
+  if (hasFlats)
+    validateStarterFlatsArray(
+      row.perfect_hunt_starter_flats,
+      "perfect_hunt_starter_flats"
+    );
+  if (hasSigs) {
+    validateNeighborSigArray(
+      row.perfect_hunt_starter_neighbor_sigs,
+      "perfect_hunt_starter_neighbor_sigs"
+    );
+  }
 }
 
 export function serializePuzzleRow(row) {
   validatePuzzleRow(row);
-  return JSON.stringify({
+  /** @type {Record<string, unknown>} */
+  const packed = {
     starting_grid: row.starting_grid,
-    /** Trailing-padding only — internal `""` peel slots retained for round-trip fidelity. */
     next_letters: stripTrailingEmptyNextLetters(
-      /** @type {string[]} */ (
-        Array.isArray(row.next_letters) ? row.next_letters.slice() : []
-      )
+      Array.isArray(row.next_letters) ? row.next_letters.slice() : []
     ),
     perfect_hunt: row.perfect_hunt,
-  });
+  };
+  const ext = /** @type {Record<string, unknown>} */ (row);
+  if (Array.isArray(ext.perfect_hunt_starter_flats)) {
+    packed.perfect_hunt_starter_flats = ext.perfect_hunt_starter_flats.slice();
+  }
+  if (Array.isArray(ext.perfect_hunt_starter_neighbor_sigs)) {
+    packed.perfect_hunt_starter_neighbor_sigs =
+      ext.perfect_hunt_starter_neighbor_sigs.map((sig) => ({
+        .../** @type {object} */ (sig),
+      }));
+  }
+  return JSON.stringify(packed);
 }
 
-/**
- * @param {string} text
- * @param {{ fileLabel?: string }} [opts]
- * @returns {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[] }>}
- */
 export function parsePuzzlesFileText(text, opts = {}) {
   const fileLabel = opts.fileLabel ?? "puzzles";
   const lines = text.split(/\r?\n/);
@@ -100,7 +151,8 @@ export function parsePuzzlesFileText(text, opts = {}) {
     }
     const norm = normalizePuzzleRow(j);
     validatePuzzleRow(norm);
-    puzzles.push({
+    /** @type {Record<string, unknown>} */
+    const entry = {
       starting_grid: norm.starting_grid.map((r) =>
         /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
       ),
@@ -108,7 +160,20 @@ export function parsePuzzlesFileText(text, opts = {}) {
       perfect_hunt: /** @type {unknown[]} */ (norm.perfect_hunt).map((w) =>
         String(w || "").toLowerCase()
       ),
-    });
+    };
+    if (norm.perfect_hunt_starter_flats != null) {
+      entry.perfect_hunt_starter_flats = coerceStarterFlatValues(
+        /** @type {unknown[]} */ (norm.perfect_hunt_starter_flats)
+      );
+    }
+    if (norm.perfect_hunt_starter_neighbor_sigs != null) {
+      entry.perfect_hunt_starter_neighbor_sigs = /** @type {unknown[]} */ (
+        norm.perfect_hunt_starter_neighbor_sigs
+      ).map((raw, wi) =>
+        coerceNeighborSigFromExport(raw, fileLabel + " line " + lineNo + "[" + wi + "]")
+      );
+    }
+    puzzles.push(entry);
   }
   return puzzles;
 }
@@ -116,13 +181,17 @@ export function parsePuzzlesFileText(text, opts = {}) {
 export function dictExportToCanonicalRow(d) {
   const g0 = d.starting_grids?.[0];
   if (!g0) throw new Error("starting_grids[0] missing");
+  const dr = /** @type {Record<string, unknown>} */ (d);
   const row = normalizePuzzleRow({
     starting_grid: g0,
     next_letters: d.next_letters,
     perfect_hunt: d.perfect_hunt,
+    perfect_hunt_starter_flats: dr.perfect_hunt_starter_flats,
+    perfect_hunt_starter_neighbor_sigs: dr.perfect_hunt_starter_neighbor_sigs,
   });
   validatePuzzleRow(row);
-  return {
+  /** @type {Record<string, unknown>} */
+  const out = {
     starting_grid: row.starting_grid.map((r) =>
       /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
     ),
@@ -131,4 +200,16 @@ export function dictExportToCanonicalRow(d) {
       String(w || "").toLowerCase()
     ),
   };
+  const rf = /** @type {Record<string, unknown>} */ (row);
+  if (Array.isArray(rf.perfect_hunt_starter_flats)) {
+    out.perfect_hunt_starter_flats = coerceStarterFlatValues(
+      /** @type {unknown[]} */ (rf.perfect_hunt_starter_flats)
+    );
+  }
+  if (Array.isArray(rf.perfect_hunt_starter_neighbor_sigs)) {
+    out.perfect_hunt_starter_neighbor_sigs = /** @type {unknown[]} */ (
+      rf.perfect_hunt_starter_neighbor_sigs
+    ).map((raw, wi) => coerceNeighborSigFromExport(raw, "dict_export sig " + wi));
+  }
+  return out;
 }

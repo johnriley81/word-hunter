@@ -30,7 +30,7 @@ import {
   buildPerfectHuntMetadata,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
-  computePerfectHuntStarterFlat,
+  computePerfectHuntStarterFlatWithRowHints,
 } from "./board-logic.js";
 import {
   sounds,
@@ -395,14 +395,15 @@ export function initGame(ctx) {
     ctx.state.perfectHuntHintFlat = null;
   }
 
-  /** @returns {number | null} row-major flat index, or null when no hint applies */
   function computePerfectHuntHintFlat() {
-    return computePerfectHuntStarterFlat(
+    return computePerfectHuntStarterFlatWithRowHints(
       ctx.state.gameBoard,
       ctx.state.perfectHunt,
       ctx.state.perfectHuntOrderIndex,
       ctx.state.perfectHuntOnPace,
-      GRID_SIZE
+      GRID_SIZE,
+      ctx.state.perfectHuntStarterFlats,
+      ctx.state.perfectHuntStarterNeighborSigs
     );
   }
 
@@ -629,6 +630,16 @@ export function initGame(ctx) {
       ctx.state.perfectHuntTargetSum = null;
       ctx.state.perfectHuntChoirRateByWord = null;
     }
+    ctx.state.perfectHuntStarterFlats = Array.isArray(p.perfect_hunt_starter_flats)
+      ? p.perfect_hunt_starter_flats.slice()
+      : null;
+    ctx.state.perfectHuntStarterNeighborSigs = Array.isArray(
+      p.perfect_hunt_starter_neighbor_sigs
+    )
+      ? p.perfect_hunt_starter_neighbor_sigs.map((ob) =>
+          ob && typeof ob === "object" ? { ...ob } : {}
+        )
+      : null;
     ctx.state.perfectHuntWordsSubmitted = new Set();
     ctx.state.perfectHuntOrderIndex = 0;
     ctx.state.perfectHuntHintFlat = null;

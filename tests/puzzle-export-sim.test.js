@@ -9,6 +9,9 @@ import {
   stripTrailingEmptyNextLetters,
   omitEmptyNextLetterSlots,
   canonicalNextLettersFromJsonArray,
+  computePerfectHuntStarterHints,
+  replacementTilesFirstVisitFlatOrder,
+  tryApplyFifoLetterRefillsAfterWordSubmission,
 } from "../js/puzzle-export-sim.js";
 import { NEXT_LETTERS_LEN } from "../js/config.js";
 
@@ -127,6 +130,25 @@ test("verifyForwardPuzzleIfCoveredChain skips per-word sim when chain length != 
   assert(r.reason.includes("need " + NEXT_LETTERS_LEN));
 });
 
+test("replacementTilesFirstVisitFlatOrder preserves first-visit sequence across revisits", () => {
+  assert.deepEqual(replacementTilesFirstVisitFlatOrder([14, 7, 14, 3]), [14, 7, 3]);
+});
+
+test("tryApplyFifoLetterRefillsAfterWordSubmission consumes sack FIFO matching refill-slot order", () => {
+  const board = Array.from({ length: 4 }, () =>
+    Array.from({ length: 4 }, () => "z")
+  ).map((row) => row.slice());
+  board[0][0] = "s";
+  board[0][1] = "t";
+  const fifo = ["a", "b"];
+  assert.equal(
+    tryApplyFifoLetterRefillsAfterWordSubmission(board, fifo, [0, 1], 4),
+    true
+  );
+  assert.deepEqual(board[0].slice(0, 2), ["a", "b"]);
+  assert.equal(fifo.length, 0);
+});
+
 test("recomputeCoveredChronFromHarness matches per-play first-visit letters", () => {
   const ed = [
     ["x", "x", "x", "x"],
@@ -139,4 +161,17 @@ test("recomputeCoveredChronFromHarness matches per-play first-visit letters", ()
   assert.equal(r[0].covered[0], "x");
   assert.equal(r[0].covered[1], "x");
   assert(r[0].min_tiles != null);
+});
+
+test("computePerfectHuntStarterHints returns null when sack is not fully drained", () => {
+  const grid0 = [
+    ["a", "b", "c", "d"],
+    ["e", "f", "g", "h"],
+    ["i", "j", "k", "l"],
+    ["m", "n", "o", "p"],
+  ].map((r) => r.map((c) => c.toLowerCase()));
+  assert.equal(
+    computePerfectHuntStarterHints(grid0, ["z", "y"], ["ab"], [[0, 1]]),
+    null
+  );
 });

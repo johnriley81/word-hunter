@@ -58,6 +58,7 @@
   --rules-accent-pink: #ff7eb9;
   --rules-accent-purple: #b388ff;
   --rules-perfect-hunt-total-color: #ff8500;
+  --rules-accent-hunt-hint: #f5be95;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-text-shadow-color: black;
@@ -367,6 +368,11 @@ html {
   color: rgba(255, 255, 255, 0.92);
 }
 
+.rules-accent-hunt-hint {
+  color: var(--rules-accent-hunt-hint);
+  font-weight: 700;
+}
+
 .rules-accent-gold {
   color: var(--rules-accent-gold);
   font-weight: 700;
@@ -635,6 +641,10 @@ html {
   #queue-ribbon {
     width: 86%;
     max-width: 86%;
+  }
+
+  #rules.visible {
+    padding-bottom: clamp(1.75rem, 6dvh, 2.75rem);
   }
 }
 

@@ -85,21 +85,71 @@ export function wordToTileLabelSequence(word) {
   return out;
 }
 
+/** Orthogonal neighbor letters for `flat`; off-board directions are JSON `null`. */
+export function normalizedOrthoNeighborsAtFlat(board, flat, gridSize) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 4);
+  const r = Math.floor(flat / n);
+  const c = flat % n;
+  const tileAt = (rr, cc) => {
+    if (rr < 0 || rr >= n || cc < 0 || cc >= n) return null;
+    return normalizeTileText(board[rr][cc]);
+  };
+  return {
+    n: tileAt(r - 1, c),
+    s: tileAt(r + 1, c),
+    w: tileAt(r, c - 1),
+    e: tileAt(r, c + 1),
+  };
+}
+
+/** Compare exported `{ n,s,e,w }` to live orthogonals (`null` = off-board). */
+export function exportedOrthoNeighborSigMatches(actual, sig) {
+  if (!sig || typeof sig !== "object") return false;
+  const dirs = ["n", "s", "e", "w"];
+  for (const dir of dirs) {
+    const expRaw = sig[dir];
+    if (expRaw === undefined) continue;
+    const actualVal = actual[dir];
+    if (expRaw === null) {
+      if (actualVal !== null) return false;
+    } else if (normalizeTileText(String(expRaw)) !== actualVal) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function flatFromNeighborSignatures(gameBoard, perfectHuntWord, gridSize, neighborSig) {
+  const labels = wordToTileLabelSequence(String(perfectHuntWord || ""));
+  if (!neighborSig || typeof neighborSig !== "object") return null;
+  if (!labels.length) return null;
+  const target = normalizeTileText(labels[0]);
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
+  const matches = [];
+  for (let r = 0; r < n; r++) {
+    const row = gameBoard[r];
+    if (!Array.isArray(row)) continue;
+    for (let c = 0; c < n; c++) {
+      if (normalizeTileText(row[c]) !== target) continue;
+      const flat = r * n + c;
+      const ortho = normalizedOrthoNeighborsAtFlat(gameBoard, flat, n);
+      if (exportedOrthoNeighborSigMatches(ortho, neighborSig)) matches.push(flat);
+    }
+  }
+  return matches.length === 1 ? matches[0] : null;
+}
+
 /**
- * Row-major flat index for the Perfect Hunt pacing starter tile on `gameBoard`, or null.
- * @param {string[][] | null | undefined} gameBoard
- * @param {unknown} perfectHunt
- * @param {number} orderIndex
- * @param {boolean} onPace
- * @param {number} gridSize
- * @returns {number | null}
+ * Starter flat for Perfect Hunt word `orderIndex`, or null.
+ * @param {{ starterFlats?: number[]; starterNeighborSignatures?: unknown[] } | null} [exportedHints]
  */
 export function computePerfectHuntStarterFlat(
   gameBoard,
   perfectHunt,
   orderIndex,
   onPace,
-  gridSize
+  gridSize,
+  exportedHints
 ) {
   const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
   if (
@@ -114,6 +164,30 @@ export function computePerfectHuntStarterFlat(
   const labels = wordToTileLabelSequence(String(perfectHunt[orderIndex] || ""));
   if (!labels.length) return null;
   const target = normalizeTileText(labels[0]);
+  const nSq = n * n;
+
+  if (exportedHints && Array.isArray(exportedHints.starterFlats)) {
+    const fh = exportedHints.starterFlats[orderIndex];
+    if (
+      typeof fh === "number" &&
+      fh >= 0 &&
+      fh < nSq &&
+      Number.isFinite(fh) &&
+      fh === Math.floor(fh)
+    ) {
+      const rr = Math.floor(fh / n);
+      const cc = fh % n;
+      const row = gameBoard[rr];
+      if (Array.isArray(row) && normalizeTileText(row[cc]) === target) return fh;
+    }
+  }
+
+  if (exportedHints && Array.isArray(exportedHints.starterNeighborSignatures)) {
+    const sg = exportedHints.starterNeighborSignatures[orderIndex];
+    const nb = flatFromNeighborSignatures(gameBoard, perfectHunt[orderIndex], n, sg);
+    if (nb != null) return nb;
+  }
+
   for (let r = 0; r < n; r++) {
     const row = gameBoard[r];
     if (!Array.isArray(row)) continue;
@@ -124,6 +198,38 @@ export function computePerfectHuntStarterFlat(
     }
   }
   return null;
+}
+
+/** Build hints object for computePerfectHuntStarterFlat from exported row fields. */
+export function puzzleRowPerfectHuntStarterHints(starterFlatsRow, neighborSigsRow) {
+  const hasFlats = Array.isArray(starterFlatsRow) && starterFlatsRow.length > 0;
+  const hasSigs = Array.isArray(neighborSigsRow) && neighborSigsRow.length > 0;
+  if (!hasFlats && !hasSigs) return null;
+  /** @type {{ starterFlats?: number[]; starterNeighborSignatures?: unknown[] }} */
+  const o = {};
+  if (hasFlats) o.starterFlats = /** @type {number[]} */ (starterFlatsRow);
+  if (hasSigs) o.starterNeighborSignatures = neighborSigsRow;
+  return o;
+}
+
+/** Same as passing puzzleRowPerfectHuntStarterHints(flats, sigs) into computePerfectHuntStarterFlat. */
+export function computePerfectHuntStarterFlatWithRowHints(
+  gameBoard,
+  perfectHunt,
+  orderIndex,
+  onPace,
+  gridSize,
+  starterFlatsRow,
+  neighborSigsRow
+) {
+  return computePerfectHuntStarterFlat(
+    gameBoard,
+    perfectHunt,
+    orderIndex,
+    onPace,
+    gridSize,
+    puzzleRowPerfectHuntStarterHints(starterFlatsRow, neighborSigsRow)
+  );
 }
 
 /**

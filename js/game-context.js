@@ -20,11 +20,12 @@ export function createGameContext() {
       perfectHuntOnPace: false,
       /** Index of next expected hunt word while on pace. */
       perfectHuntOrderIndex: 0,
-      /**
-       * Flat index of starter hint tile when set; skips redraw when unchanged (`refreshPerfectHuntHint`).
-       * @type {number | null}
-       */
+      /** @type {number | null} */
       perfectHuntHintFlat: null,
+      /** @type {number[] | null} */
+      perfectHuntStarterFlats: null,
+      /** @type {Array<Record<string, string | null>> | null} */
+      perfectHuntStarterNeighborSigs: null,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */
