@@ -22,6 +22,7 @@ import {
   PERFECT_HUNT_GAME_OVER_MESSAGE,
   PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
+  WORD_LETTER_FLIP_MS,
 } from "./config.js";
 import {
   pickRandomScenarioMessage,
@@ -29,6 +30,7 @@ import {
   buildPerfectHuntMetadata,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
+  computePerfectHuntStarterFlat,
 } from "./board-logic.js";
 import {
   sounds,
@@ -153,6 +155,8 @@ export function initGame(ctx) {
     leaderboardButton,
     leaderboardDemoAdd,
   } = ctx.refs;
+
+  const PERFECT_HUNT_HINT_CLASS = "grid-button--perfect-hunt-hint";
 
   if (rulesNextLettersCountElement) {
     rulesNextLettersCountElement.textContent = String(NEXT_LETTERS_UI_COUNT);
@@ -383,8 +387,60 @@ export function initGame(ctx) {
     applyRowShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
   }
 
+  function clearPerfectHuntHintVisual() {
+    const buttons = grid.getElementsByClassName("grid-button");
+    for (let i = 0; i < buttons.length; i++) {
+      buttons[i].classList.remove(PERFECT_HUNT_HINT_CLASS);
+    }
+    ctx.state.perfectHuntHintFlat = null;
+  }
+
+  /** @returns {number | null} row-major flat index, or null when no hint applies */
+  function computePerfectHuntHintFlat() {
+    return computePerfectHuntStarterFlat(
+      ctx.state.gameBoard,
+      ctx.state.perfectHunt,
+      ctx.state.perfectHuntOrderIndex,
+      ctx.state.perfectHuntOnPace,
+      GRID_SIZE
+    );
+  }
+
+  function refreshPerfectHuntHint() {
+    const nSq = GRID_SIZE * GRID_SIZE;
+
+    const nextFlat = computePerfectHuntHintFlat();
+    const prevFlat = ctx.state.perfectHuntHintFlat;
+
+    if (nextFlat == null) {
+      clearPerfectHuntHintVisual();
+      return;
+    }
+
+    for (let i = 0; i < nSq; i++) {
+      if (i !== nextFlat) {
+        grid.children[i]?.classList.remove(PERFECT_HUNT_HINT_CLASS);
+      }
+    }
+
+    const btn = grid.children[nextFlat];
+    if (!btn) {
+      ctx.state.perfectHuntHintFlat = null;
+      return;
+    }
+
+    if (prevFlat === nextFlat && btn.classList.contains(PERFECT_HUNT_HINT_CLASS)) {
+      ctx.state.perfectHuntHintFlat = nextFlat;
+      return;
+    }
+
+    btn.classList.add(PERFECT_HUNT_HINT_CLASS);
+    ctx.state.perfectHuntHintFlat = nextFlat;
+  }
+
   function syncDomFromBoard() {
     syncDomFromBoardTiles(grid, ctx.state.gameBoard, GRID_SIZE);
+    refreshPerfectHuntHint();
   }
 
   const shiftHost = {
@@ -551,6 +607,7 @@ export function initGame(ctx) {
     updateCurrentWord();
     updateNextLetters();
     scheduleDeferredGameAudioWarmup();
+    refreshPerfectHuntHint();
   }
 
   function generateGrid() {
@@ -574,6 +631,7 @@ export function initGame(ctx) {
     }
     ctx.state.perfectHuntWordsSubmitted = new Set();
     ctx.state.perfectHuntOrderIndex = 0;
+    ctx.state.perfectHuntHintFlat = null;
     ctx.state.perfectHuntOnPace =
       Array.isArray(p.perfect_hunt) && p.perfect_hunt.length > 0;
     if (rulesPerfectHuntTotalElement) {
@@ -607,6 +665,7 @@ export function initGame(ctx) {
 
     ensureShiftPreviewElements(ctx);
     syncLineOverlaySize();
+    refreshPerfectHuntHint();
     requestAnimationFrame(syncLineOverlaySize);
     requestAnimationFrame(lockGridSizeForSwipe);
   }
@@ -784,6 +843,8 @@ export function initGame(ctx) {
       const key = String(word || "").toLowerCase();
       return key === String(hunt[idx]).toLowerCase();
     },
+    refreshPerfectHuntHint,
+    clearPerfectHuntHintVisual,
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -950,7 +1011,8 @@ export function initGame(ctx) {
         "grid-button--letter-swap-in",
         "grid-button--slot-consumed",
         "grid-button--slot-consumed-hunt-pace",
-        "grid-button--slot-consumed-instant"
+        "grid-button--slot-consumed-instant",
+        PERFECT_HUNT_HINT_CLASS
       );
       buttons[i].removeAttribute("data-selection-visits");
       buttons[i].style.color = "";
@@ -964,6 +1026,7 @@ export function initGame(ctx) {
       buttons[i].style.removeProperty("--endgame-flip-delay");
       syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]));
     }
+    ctx.state.perfectHuntHintFlat = null;
     runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
       const tiles = grid.getElementsByClassName("grid-button");
       for (let i = 0; i < tiles.length; i++) {
@@ -1202,7 +1265,8 @@ export function initGame(ctx) {
         "grid-button--endgame-flip-exit",
         "grid-button--slot-consumed",
         "grid-button--slot-consumed-hunt-pace",
-        "grid-button--slot-consumed-instant"
+        "grid-button--slot-consumed-instant",
+        "grid-button--perfect-hunt-hint"
       );
     }
 

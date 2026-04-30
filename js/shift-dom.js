@@ -21,9 +21,12 @@ import {
   computeShiftSnapPlan,
   computeShiftStageTransformString,
   gridInverseCompensateTranslateString,
+  computePerfectHuntStarterFlat,
 } from "./board-logic.js";
 import { getTileText, setTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
 import { unlockGameAudio, playSound } from "./audio.js";
+
+const SHIFT_PREVIEW_HUNT_HINT_CLASS = "shift-preview-tile--hunt-hint";
 
 export function ensureShiftPreviewElements(ctx) {
   const { shiftPreviewStrip } = ctx.refs;
@@ -96,6 +99,9 @@ export function attachShiftGestures(ctx, host) {
         inner.style.gridTemplateRows = "";
         inner.style.width = "";
         inner.style.height = "";
+        inner.querySelectorAll(".shift-preview-tile").forEach((el) => {
+          el.classList.remove(SHIFT_PREVIEW_HUNT_HINT_CLASS);
+        });
       }
     }
   }
@@ -119,6 +125,16 @@ export function attachShiftGestures(ctx, host) {
     const n = GRID_SIZE;
     const tiles = inner.querySelectorAll(".shift-preview-tile");
     const need = n * k;
+    const starterFlat = computePerfectHuntStarterFlat(
+      ctx.state.gameBoard,
+      ctx.state.perfectHunt,
+      ctx.state.perfectHuntOrderIndex,
+      ctx.state.perfectHuntOnPace,
+      n
+    );
+    for (let i = 0; i < tiles.length; i++) {
+      tiles[i].classList.remove(SHIFT_PREVIEW_HUNT_HINT_CLASS);
+    }
     let t = 0;
     for (let row = 0; row < need; row++) {
       const mapped = mapCellToBoard(row, n, k);
@@ -126,6 +142,11 @@ export function attachShiftGestures(ctx, host) {
       const el = tiles[t++];
       if (getTileText(el) !== ch) setTileText(el, ch);
       syncConsumedEmptySlotVisual(el, ch);
+      const mappedFlat = mapped.r * n + mapped.c;
+      el.classList.toggle(
+        SHIFT_PREVIEW_HUNT_HINT_CLASS,
+        starterFlat != null && mappedFlat === starterFlat
+      );
     }
     showPreviewTiles(inner, need);
   }
