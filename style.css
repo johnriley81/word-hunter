@@ -20,10 +20,10 @@
   /** Perfect-hunt on-pace word submit: bright tile fill (not the pale default active cell). */
   --hunt-pace-highlight-bg: #f5e2a2;
   --hunt-pace-highlight-text: #3d2800;
-  --perfect-hunt-starter-hint-orange-solid: #fe9216;
+  --perfect-hunt-starter-hint-orange-solid: #fc8a09;
   --perfect-hunt-starter-hint-glow-min: color-mix(
     in srgb,
-    var(--perfect-hunt-starter-hint-orange-solid) 31%,
+    var(--perfect-hunt-starter-hint-orange-solid) 75%,
     transparent
   );
   --perfect-hunt-starter-hint-glow-peak: color-mix(

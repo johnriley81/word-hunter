@@ -49,6 +49,11 @@ const TILE_LABEL_MAX = Math.max(
   parseInt(process.env.TILE_LABEL_MAX || "16", 10) || 16
 );
 
+/** Puzzle-generator lexicon path relative to repo root (defaults to text/wordlist.txt). Env: PUZZLE_WORDLIST. */
+const PUZZLE_WORDLIST_REL = (
+  process.env.PUZZLE_WORDLIST || "text/wordlist.txt"
+).replace(/^\//, "");
+
 const TARGET_MIN_SUM = NEXT_LETTERS_LEN;
 
 /** Partitions of 66 into seven min_tile counts (6–12 each). */
@@ -130,7 +135,12 @@ function loadRecognizabilityMap() {
 
 /** @param {Record<string, number>} recMap */
 function loadCandidateWords(recMap) {
-  const raw = readFileSync(join(root, "text/wordlist.txt"), "utf8");
+  const wordlistPath = join(root, PUZZLE_WORDLIST_REL);
+  if (!existsSync(wordlistPath)) {
+    console.error(`PUZZLE_WORDLIST not found: ${PUZZLE_WORDLIST_REL}`);
+    process.exit(1);
+  }
+  const raw = readFileSync(wordlistPath, "utf8");
   const set = new Set();
   const out = [];
   for (const line of raw.split("\n")) {
@@ -233,6 +243,7 @@ function tryBuildPuzzle(rng, byMin, pattern, openingLabelLen) {
 }
 
 function main() {
+  console.error(`Puzzle candidate lexicon: ${PUZZLE_WORDLIST_REL}`);
   const recMap = loadRecognizabilityMap();
   const poolWords = loadCandidateWords(recMap);
   if (poolWords.length < 40) {

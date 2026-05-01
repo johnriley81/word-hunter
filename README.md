@@ -30,22 +30,22 @@ npm test
 
 Feature modules (each takes `ctx` and/or small host/runtime objects):
 
-| Module                     | Role                                                               |
-| -------------------------- | ------------------------------------------------------------------ |
-| `board-logic.js`           | Scoring, shifts, tile normalization (tested)                       |
-| `grid-tiles.js`            | Tile DOM helpers, `syncDomFromBoard`                               |
-| `shift-gestures.js`        | Shift gesture state factory                                        |
-| `shift-dom.js`             | Shift preview, commit, pointers, grid lock hooks                   |
-| `word-play.js`             | Adjacency + selection visit depth on the grid                      |
-| `word-drag.js`             | Word selection, connector SVG, success/invalid choreography        |
-| `word-path.js`             | Path gradient helpers (tested)                                     |
-| `ui-word-line.js`          | Current-word line, messages, intro crossfade                       |
-| `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                              |
-| `leaderboard-ui.js`        | Table, overlay, API refresh, postgame copy-score flow              |
-| `rules-dock.js`            | Rules overlay + mute wiring                                        |
-| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `puzzleListIndex`, `calculateDiffDays` |
-| `audio.js`                 | Sound pools and playback                                           |
-| `config.js`                | Constants and timings                                              |
+| Module                     | Role                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `board-logic.js`           | Scoring, shifts, tile normalization (tested)                                                               |
+| `grid-tiles.js`            | Tile DOM helpers, `syncDomFromBoard`                                                                       |
+| `shift-gestures.js`        | Shift gesture state factory                                                                                |
+| `shift-dom.js`             | Shift preview, commit, pointers, grid lock hooks                                                           |
+| `word-play.js`             | Adjacency + selection visit depth on the grid                                                              |
+| `word-drag.js`             | Word selection, connector SVG, success/invalid choreography                                                |
+| `word-path.js`             | Path gradient helpers (tested)                                                                             |
+| `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                               |
+| `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                      |
+| `leaderboard-ui.js`        | Table, overlay, API refresh, postgame copy-score flow                                                      |
+| `rules-dock.js`            | Rules overlay + mute wiring                                                                                |
+| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet` (gamemaker only), `puzzleListIndex`, `calculateDiffDays` |
+| `audio.js`                 | Sound pools and playback                                                                                   |
+| `config.js`                | Constants and timings                                                                                      |
 
 ## Content and assets
 
@@ -61,4 +61,7 @@ Puzzle-generation / cert Python helpers can live in `tools/` on your machine; th
 
 1. **Word metrics pickle** — Recognizability tiers come from `text/word_metrics_7_10.pkl` (**lengths 7–10 only**, external model) or, when present, **`text/word_metrics_extended.pkl`** which adds **8-letter-and-up** coverage and **11–16 letter** words via English Zipf proxies (`pip install wordfreq`, then `npm run gen:extend-metrics`). Prefer the original where it exists; extended omits 7-letter rows. Override path with **`WORD_METRICS_PKL`**. See `scripts/build-extended-word-metrics.py`.
 2. **`npm run gen:word-rec`** — requires **Python 3**. Python writes all wordlist ∩ pickle → recognizability tiers to a raw file; **Node** filters by **`wordToTileLabelSequence` length** (same as gameplay), default **8–16** tile labels (`TILE_LABEL_MIN` / `TILE_LABEL_MAX` env). Outputs `text/gamemaker/pregen/word-recognizability.json`. Re-run when wordlist or metrics change.
-3. **`npm run gen:puzzle-pool`** — Node only. Reads that JSON and builds `text/gamemaker/pregen/puzzle-pool.json` (seven-word lists, Σ `min_tiles` = **66**; default recognizability **≥ 7**; oversized tile-label vocab **8–16** by env). Oversamples then ranks by **highest Σ reuse** first (= Σ tile-label length − Σ `min_tiles`; repeat steps on spell paths; default `POOL_REUSE_RANK=max`), then **letter union** (alphabet spread), then **Σ wordTotal**. Use `POOL_REUSE_RANK=near` with `POOL_REUSE_SUM_TARGET` to prefer Σ reuse near a target instead. The lowest-`wordTotal` word must have exactly **`openingLabelLen` tile labels** (often **8**; **9** when high `RECOG_MIN` leaves only longer glyphs). Env knobs: `RECOG_MIN`, `TILE_LABEL_MIN` / `TILE_LABEL_MAX`, `POOL_REUSE_RANK` (`max` | `near` | `ignore`), `POOL_REUSE_SUM_TARGET` (for `near`), `POOL_OVERSAMPLE`, `POOL_RANK_BY_LETTER_UNION=0` to disable ranking, `POOL_WORD_TOTAL_RANK=max` (default) or `target` with `POOL_WORD_TOTAL_TARGET`, `POOL_SIZE`, `SEED`.
+3. **`npm run gen:puzzle-pool`** — Node only. Reads that JSON and builds `text/gamemaker/pregen/puzzle-pool.json` (seven-word lists, Σ `min_tiles` = **66**; default recognizability **≥ 7**; oversized tile-label vocab **8–16** by env). **Candidate words** come from **`text/wordlist.txt`** by default; set **`PUZZLE_WORDLIST`** (path relative to repo root, e.g. `text/gamemaker/puzzle-wordlist.txt`) to use a smaller puzzle-only lexicon without changing gameplay validation. Oversamples then ranks by **highest Σ reuse** first (= Σ tile-label length − Σ `min_tiles`; repeat steps on spell paths; default `POOL_REUSE_RANK=max`), then **letter union** (alphabet spread), then **Σ wordTotal**. Use `POOL_REUSE_RANK=near` with `POOL_REUSE_SUM_TARGET` to prefer Σ reuse near a target instead. The lowest-`wordTotal` word must have exactly **`openingLabelLen` tile labels** (often **8**; **9** when high `RECOG_MIN` leaves only longer glyphs). Env knobs: `RECOG_MIN`, `TILE_LABEL_MIN` / `TILE_LABEL_MAX`, `POOL_REUSE_RANK` (`max` | `near` | `ignore`), `POOL_REUSE_SUM_TARGET` (for `near`), `POOL_OVERSAMPLE`, `POOL_RANK_BY_LETTER_UNION=0` to disable ranking, `POOL_WORD_TOTAL_RANK=max` (default) or `target` with `POOL_WORD_TOTAL_TARGET`, `POOL_SIZE`, `SEED`.
+4. **`npm run gen:puzzle-wordlist`** — Node only. Reads `text/gamemaker/pregen/word-recognizability.json` and writes **`text/gamemaker/puzzle-wordlist.txt`** with every word whose **`rec >= EXPORT_RECOG_MIN`** (default **8**). Env: **`OUT_PATH`** (`-` for stdout), **`EXPORT_RECOG_MIN`**. Edit that file to drop unwanted words, then run **`PUZZLE_WORDLIST=text/gamemaker/puzzle-wordlist.txt npm run gen:puzzle-pool`**. New words added only to the puzzle list will not get `rec` scores until they appear in the pickle ∩ **`gen:word-rec`** wordlist path.
+
+**Gamemaker (`gamemaker.html`):** **WORD** swaps the active hunt word for another pool entry with the same **`min_tiles`**, **`reuse`**, and **`wordTotal`**. **`npm run gen:word-rec`** always intersects the **gameplay** `text/wordlist.txt` with metrics — keep that file complete so recognizability covers puzzle-only candidates.

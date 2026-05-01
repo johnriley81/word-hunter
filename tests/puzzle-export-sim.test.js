@@ -10,10 +10,37 @@ import {
   omitEmptyNextLetterSlots,
   canonicalNextLettersFromJsonArray,
   computePerfectHuntStarterHints,
+  isGridAllNormalizedEmpty,
   replacementTilesFirstVisitFlatOrder,
   tryApplyFifoLetterRefillsAfterWordSubmission,
 } from "../js/puzzle-export-sim.js";
 import { NEXT_LETTERS_LEN } from "../js/config.js";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("isGridAllNormalizedEmpty", () => {
+  assert.equal(
+    isGridAllNormalizedEmpty(
+      [
+        ["", " "],
+        [null, undefined],
+      ],
+      2
+    ),
+    true
+  );
+  assert.equal(
+    isGridAllNormalizedEmpty(
+      [
+        ["a", ""],
+        ["", ""],
+      ],
+      2
+    ),
+    false
+  );
+});
 
 test("omitEmptyNextLetterSlots drops all empty string entries", () => {
   assert.deepEqual(omitEmptyNextLetterSlots(["a", "", "b", ""]), ["a", "b"]);
@@ -174,4 +201,24 @@ test("computePerfectHuntStarterHints returns null when sack is not fully drained
     computePerfectHuntStarterHints(grid0, ["z", "y"], ["ab"], [[0, 1]]),
     null
   );
+});
+
+test("computePerfectHuntStarterHints fillEmptyPathCells allows empty template grid", () => {
+  const root = dirname(fileURLToPath(import.meta.url));
+  const j = JSON.parse(
+    readFileSync(join(root, "fixtures/gamemaker-export-trueness-sample.json"), "utf8")
+  );
+  const empty = /** @type {string[][]} */ (j.editorHarness).map((row) =>
+    row.map((c) => String(c || "").toLowerCase())
+  );
+  const wordsAsc = j.wordsAscending.map((x) => String(x.word || "").toLowerCase());
+  const paths = j.pathByWordIndexAsc;
+  const nextRaw = stripTrailingEmptyNextLetters(j.nextLetters.slice());
+  assert.equal(computePerfectHuntStarterHints(empty, nextRaw, wordsAsc, paths), null);
+  const hints = computePerfectHuntStarterHints(empty, nextRaw, wordsAsc, paths, {
+    fillEmptyPathCells: true,
+  });
+  assert.ok(hints);
+  assert.equal(hints.perfect_hunt_starter_flats.length, wordsAsc.length);
+  assert.equal(hints.perfect_hunt_starter_neighbor_sigs.length, wordsAsc.length);
 });

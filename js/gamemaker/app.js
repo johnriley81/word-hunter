@@ -8,6 +8,7 @@ import {
 import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
+  normalizedOrthoNeighborsAtFlat,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
 } from "../board-logic.js";
@@ -20,13 +21,57 @@ import {
   buildNextLettersFromCoveredInBuildOrder,
   stripTrailingEmptyNextLetters,
   computePerfectHuntStarterHints,
+  isGridAllNormalizedEmpty,
 } from "../puzzle-export-sim.js";
-import { loadWordhunterTextAssets } from "../game-lifecycle.js";
+import { loadWordlistWordSet } from "../game-lifecycle.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
 import { loadGamemakerPuzzlePool } from "./load-pool.js";
 
 const WORD_COUNT = PERFECT_HUNT_WORD_COUNT;
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** Same order as loadListAt — descending wordTotal, then word asc. */
+function comparePoolWordEntriesDesc(a, b) {
+  const da = Number(a.wordTotal) || 0;
+  const db = Number(b.wordTotal) || 0;
+  if (da !== db) return db - da;
+  return String(a.word || "").localeCompare(String(b.word || ""));
+}
+
+/** @param {unknown[]} lists */
+function buildSwapBucketsByStats(lists) {
+  /** @type {Map<string, Map<string, { word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
+  const outer = new Map();
+  for (const row of lists) {
+    const words = /** @type {{ words?: unknown[] }} */ (row).words;
+    if (!Array.isArray(words)) continue;
+    for (const raw of words) {
+      const e =
+        /** @type {{ word?: string, min_tiles?: number, reuse?: number, wordTotal?: number }} */ (
+          raw
+        );
+      const w = String(e.word || "").toLowerCase();
+      if (!/^[a-z]+$/.test(w)) continue;
+      const key = `${Number(e.min_tiles)}|${Number(e.reuse)}|${Number(e.wordTotal)}`;
+      if (!outer.has(key)) outer.set(key, new Map());
+      const inner = outer.get(key);
+      if (!inner.has(w)) {
+        inner.set(w, {
+          word: w,
+          min_tiles: Number(e.min_tiles),
+          reuse: Number(e.reuse),
+          wordTotal: Number(e.wordTotal),
+        });
+      }
+    }
+  }
+  /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
+  const out = new Map();
+  for (const [k, inner] of outer) {
+    out.set(k, [...inner.values()]);
+  }
+  return out;
+}
 
 function makeEl(tag, className, text) {
   const e = document.createElement(tag);
@@ -73,6 +118,7 @@ function createGamemaker() {
   const metaEl = el("gamemaker-meta");
   const btnList = el("gamemaker-btn-list");
   const btnExport = el("gamemaker-btn-export");
+  const btnWordSwap = el("gamemaker-btn-word-swap");
 
   Object.assign(ctx.refs, {
     grid,
@@ -97,7 +143,11 @@ function createGamemaker() {
   let buildPlaysChron =
     /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[] }>} */ ([]);
   let boardSnapshotPreDrag = /** @type {string[][] | null} */ (null);
+  /** Board before any hunt word is committed — required for forward replay / starter hints (not the post-solve grid). */
+  let openingGridForExport = /** @type {string[][] | null} */ (null);
   let puzzleBatch = [];
+  /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
+  let swapBuckets = new Map();
 
   function copyBoard4(/** @type {string[][]} */ src) {
     return src.map((row) => row.slice());
@@ -122,7 +172,7 @@ function createGamemaker() {
   }
 
   function queuedMetaPrefix() {
-    return puzzleBatch.length ? "Queued: " + puzzleBatch.length + " · " : "";
+    return puzzleBatch.length ? "Q:" + puzzleBatch.length + "·" : "";
   }
 
   function toolbarMetaText(entry, letterDone, letterTotal) {
@@ -131,17 +181,70 @@ function createGamemaker() {
     const sc = entry.wordTotal ?? "";
     return (
       queuedMetaPrefix() +
-      "T: " +
+      "T:" +
       listTotal +
-      " R: " +
+      " R:" +
       r +
-      " S: " +
+      " Σ:" +
       sc +
       " " +
       letterDone +
       "/" +
       letterTotal
     );
+  }
+
+  function swapAlternatesForCurrentStep() {
+    const entry = getTargetEntry();
+    if (!entry) return [];
+    const key =
+      `${Number(entry.min_tiles)}|` +
+      `${Number(entry.reuse)}|` +
+      `${Number(entry.wordTotal)}`;
+    const bucket = swapBuckets.get(key) || [];
+    const cur = String(entry.word || "").toLowerCase();
+    const blocked = new Set();
+    for (let i = 0; i < currentWords.length; i++) {
+      if (i === placementStep) continue;
+      blocked.add(String(currentWords[i]?.word || "").toLowerCase());
+    }
+    return bucket.filter((x) => x.word !== cur && !blocked.has(x.word));
+  }
+
+  function refreshWordSwapButton() {
+    if (!btnWordSwap) return;
+    btnWordSwap.disabled = swapAlternatesForCurrentStep().length === 0;
+  }
+
+  function swapCurrentWord() {
+    const alts = swapAlternatesForCurrentStep();
+    if (!getTargetEntry() || alts.length === 0) {
+      showExportMetaMessage("No swap", 1800);
+      return;
+    }
+    const picked = alts[Math.floor(Math.random() * alts.length)];
+    const start = placementStep;
+    const tail = currentWords.slice(start).map((e) => ({
+      word: String(e.word || "").toLowerCase(),
+      min_tiles: Number(e.min_tiles),
+      reuse: Number(e.reuse),
+      wordTotal: Number(e.wordTotal),
+    }));
+    tail[0] = {
+      word: picked.word,
+      min_tiles: picked.min_tiles,
+      reuse: picked.reuse,
+      wordTotal: picked.wordTotal,
+    };
+    tail.sort(comparePoolWordEntriesDesc);
+    const pickedLc = picked.word.toLowerCase();
+    const idxInTail = tail.findIndex(
+      (e) => String(e.word || "").toLowerCase() === pickedLc
+    );
+    currentWords = currentWords.slice(0, start).concat(tail);
+    placementStep = start + (idxInTail >= 0 ? idxInTail : 0);
+    resetSelection();
+    updateUi();
   }
 
   function isPuzzleCompleteForExport() {
@@ -170,6 +273,7 @@ function createGamemaker() {
   function updateUi() {
     setToolbarForEntry(getTargetEntry(), 0);
     refreshListButtonLabel();
+    refreshWordSwapButton();
   }
 
   function refreshToolbarLetterProgress() {
@@ -420,6 +524,9 @@ function createGamemaker() {
       }
     }
     const snap = boardSnapshotPreDrag;
+    if (buildPlaysChron.length === 0 && snap) {
+      openingGridForExport = snap.map((row) => row.slice());
+    }
     const covered = firstVisits.map((b) => {
       const f = buttonFlatIndex(grid, b);
       if (f < 0 || !snap) return "";
@@ -586,14 +693,11 @@ function createGamemaker() {
     const idx = ((ix % lists.length) + lists.length) % lists.length;
     const L = lists[idx];
     const wordsIn = (L.words || []).slice();
-    wordsIn.sort((a, b) =>
-      (a.wordTotal || 0) !== (b.wordTotal || 0)
-        ? (b.wordTotal || 0) - (a.wordTotal || 0)
-        : String(a.word || "").localeCompare(String(b.word || ""))
-    );
+    wordsIn.sort(comparePoolWordEntriesDesc);
     currentWords = wordsIn;
     placementStep = 0;
     buildPlaysChron = [];
+    openingGridForExport = null;
     emptyBoard();
     syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     resetSelection();
@@ -636,6 +740,14 @@ function createGamemaker() {
     const gEndL = ctx.state.gameBoard.map((r) =>
       r.map((c) => String(c || "").toLowerCase())
     );
+    const gridOpening =
+      openingGridForExport &&
+      openingGridForExport.length === GRID_SIZE &&
+      openingGridForExport[0]?.length === GRID_SIZE
+        ? openingGridForExport.map((row) =>
+            row.map((c) => String(c || "").toLowerCase())
+          )
+        : null;
     const playsForExport =
       buildPlaysChron && buildPlaysChron.length
         ? buildPlaysChron.map((p) => {
@@ -670,23 +782,35 @@ function createGamemaker() {
     });
     const playsAsc = order.map((x) => playsForExport[x.i]);
     const nextLettersRaw = stripTrailingEmptyNextLetters(nextLetters.slice());
+    const gridForReplay = gridOpening ?? gEndL;
+    const pathsAsc = playsAsc.map((p) =>
+      Array.isArray(p.pathFlat) ? p.pathFlat.slice() : []
+    );
+    const replayGridAllEmpty = isGridAllNormalizedEmpty(gridForReplay);
     const starterHints = computePerfectHuntStarterHints(
-      gEndL,
+      gridForReplay,
       nextLettersRaw,
       wordsAsc,
-      playsAsc.map((p) => (Array.isArray(p.pathFlat) ? p.pathFlat : []).slice())
+      pathsAsc,
+      { fillEmptyPathCells: replayGridAllEmpty }
     );
+    let starterPack = /** @type {Record<string, unknown>} */ ({});
+    if (starterHints) {
+      const flats = starterHints.perfect_hunt_starter_flats;
+      const sigsFromTerminalGrid = flats.map((flat) => ({
+        ...normalizedOrthoNeighborsAtFlat(gEndL, flat, GRID_SIZE),
+      }));
+      starterPack = {
+        perfect_hunt_starter_flats: flats,
+        perfect_hunt_starter_neighbor_sigs: sigsFromTerminalGrid,
+      };
+    }
+    /** Terminal board after placements. Starter flats come from forward replay; neighbor sigs from this terminal grid at those flats (runtime skips stale flat hints when the tile letter differs). */
     return {
       starting_grids: [gEndL],
       next_letters: stripTrailingEmptyNextLetters(nextLetters),
       perfect_hunt: wordsAsc,
-      ...(starterHints
-        ? {
-            perfect_hunt_starter_flats: starterHints.perfect_hunt_starter_flats,
-            perfect_hunt_starter_neighbor_sigs:
-              starterHints.perfect_hunt_starter_neighbor_sigs,
-          }
-        : {}),
+      ...starterPack,
     };
   }
 
@@ -742,21 +866,23 @@ function createGamemaker() {
   }
 
   async function init() {
-    const assets = await loadWordhunterTextAssets();
-    wordSet = assets.wordSet;
+    wordSet = await loadWordlistWordSet();
     listsData = await loadGamemakerPuzzlePool();
+    swapBuckets = buildSwapBucketsByStats(listsData.lists || []);
     buildEmptyGrid();
     emptyBoard();
     syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     if (listsData.lists.length) loadListAt(randomListIndex());
     else {
       currentWords = [];
+      swapBuckets = new Map();
       targetEl.textContent = "";
       metaEl.textContent =
         "Run npm run gen:puzzle-pool (text/gamemaker/pregen/puzzle-pool.json)";
     }
     updateUi();
     if (btnList) btnList.addEventListener("click", () => loadNextOrReset());
+    if (btnWordSwap) btnWordSwap.addEventListener("click", () => swapCurrentWord());
     if (btnExport)
       btnExport.addEventListener("click", () => {
         void exportPuzzle();

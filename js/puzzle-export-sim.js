@@ -1,12 +1,24 @@
 /** Forward simulation / export verification for published puzzles. */
 
-import { NEXT_LETTERS_LEN } from "./config.js";
+import { NEXT_LETTERS_LEN, GRID_SIZE, GRID_CELL_COUNT } from "./config.js";
 import {
   wordToTileLabelSequence,
   normalizeTileText,
   minUniqueTilesForReuseRule,
   normalizedOrthoNeighborsAtFlat,
 } from "./board-logic.js";
+
+/** True when every cell is blank after `normalizeTileText` (e.g. gamemaker empty template). */
+export function isGridAllNormalizedEmpty(grid, gridSize = GRID_SIZE) {
+  const n = gridSize;
+  if (!Array.isArray(grid) || grid.length !== n) return false;
+  return grid.every(
+    (row) =>
+      Array.isArray(row) &&
+      row.length === n &&
+      row.every((cell) => normalizeTileText(String(cell ?? "")) === "")
+  );
+}
 
 /** Strip trailing sack padding before JSON round-trip / display. */
 export function stripTrailingEmptyNextLetters(tokens) {
@@ -61,9 +73,9 @@ export function tryApplyFifoLetterRefillsAfterWordSubmission(
   board,
   fifoQueue,
   pathFlat,
-  gridSize = 4
+  gridSize = GRID_SIZE
 ) {
-  const n = Math.max(1, Math.floor(Number(gridSize)) || 4);
+  const n = Math.max(1, Math.floor(Number(gridSize)) || GRID_SIZE);
   const order = replacementTilesFirstVisitFlatOrder(pathFlat);
   if (order.length > fifoQueue.length) return false;
   for (const f of order) {
@@ -79,7 +91,7 @@ export function tryApplyFifoLetterRefillsAfterWordSubmission(
  * Replay ascending hunt paths on `grid0` with FIFO refills; board must solve with empty sack after.
  */
 export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
-  const n = 4;
+  const n = GRID_SIZE;
   const b = grid0.map((row) => row.slice());
   let q;
   try {
@@ -112,7 +124,7 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
     }
     for (let i = 0; i < path.length; i++) {
       const f = path[i];
-      if (f < 0 || f >= 16) {
+      if (f < 0 || f >= GRID_CELL_COUNT) {
         return { ok: false, reason: "path index oob " + f, queueLeft: q };
       }
       const r = Math.floor(f / n);
@@ -145,14 +157,18 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
   return { ok: true, reason: "ok", queueLeft: q };
 }
 
-/** Same replay as verifyForwardPuzzle — starter flats + orthogonal neighbor presets for exports. Null if invalid. */
+/** Same replay as verifyForwardPuzzle — starter flats + orthogonal neighbor presets for exports. Null if invalid.
+ * @param {{ fillEmptyPathCells?: boolean }} [options] — if `fillEmptyPathCells`, empty board cells along each word path are treated as matching (filled with glyph for replay only). Use for gamemaker “blank canvas” builds whose exported `starting_grid` is all empty.
+ */
 export function computePerfectHuntStarterHints(
   grid0,
   nextIn,
   wordsAsc,
-  pathFlatByWordAsc
+  pathFlatByWordAsc,
+  options = {}
 ) {
-  const n = 4;
+  const n = GRID_SIZE;
+  const fillEmptyPathCells = options.fillEmptyPathCells === true;
   const b = grid0.map((row) => row.slice());
   let q;
   try {
@@ -177,12 +193,18 @@ export function computePerfectHuntStarterHints(
     if (glyphs.length !== path.length) return null;
     for (let i = 0; i < path.length; i++) {
       const f = path[i];
-      if (f < 0 || f >= n * n) return null;
+      if (f < 0 || f >= GRID_CELL_COUNT) return null;
       const r = Math.floor(f / n);
       const c = f % n;
       const g = normalizeTileText(b[r][c]);
       const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
-      if (g !== need) return null;
+      if (g !== need) {
+        if (fillEmptyPathCells && g === "") {
+          b[r][c] = glyphs[i];
+        } else {
+          return null;
+        }
+      }
     }
 
     flats.push(path[0]);
@@ -271,7 +293,7 @@ export function reconstructForwardStartFromFinalAndLastPlay(finalGrid, lastPlay)
   const uniques = replacementTilesFirstVisitFlatOrder(path);
   if (uniques.length !== cov.length) return null;
   const g0 = finalGrid.map((r) => r.map((c) => c));
-  const n = 4;
+  const n = GRID_SIZE;
   for (let i = 0; i < uniques.length; i++) {
     const f = uniques[i];
     const r = Math.floor(f / n);
@@ -292,14 +314,14 @@ export function reconstructForwardStartFromFinalAndLastPlay(finalGrid, lastPlay)
  */
 export function simulateChronoToEndBoard(initial4, playsChron) {
   const b = initial4.map((r) => r.map((c) => String(c || "").toLowerCase()));
-  const n = 4;
+  const n = GRID_SIZE;
   for (const p of playsChron || []) {
     const w = (p.word || "").toLowerCase();
     const glyphs = wordToTileLabelSequence(w);
     const path = p.pathFlat || [];
     for (let i = 0; i < path.length; i++) {
       const f = path[i];
-      if (f < 0 || f >= 16) continue;
+      if (f < 0 || f >= GRID_CELL_COUNT) continue;
       const r = Math.floor(f / n);
       const c = f % n;
       if (i < glyphs.length) b[r][c] = glyphs[i];
@@ -307,8 +329,6 @@ export function simulateChronoToEndBoard(initial4, playsChron) {
   }
   return b;
 }
-
-const N4 = 4;
 
 /**
  * @param {string[][]} board
@@ -321,8 +341,8 @@ function coveredFirstVisitsFromBoard(board, pathFlat) {
   for (const f of pathFlat) {
     if (seen.has(f)) continue;
     seen.add(f);
-    const r = Math.floor(f / N4);
-    const c = f % N4;
+    const r = Math.floor(f / GRID_SIZE);
+    const c = f % GRID_SIZE;
     out.push((board[r] && board[r][c]) || "");
   }
   return out;
@@ -356,9 +376,9 @@ export function recomputeCoveredChronFromHarness(editorStart4, playsChron) {
     });
     for (let i = 0; i < path.length; i++) {
       const f = path[i];
-      if (f < 0 || f >= 16) continue;
-      const r = Math.floor(f / N4);
-      const c = f % N4;
+      if (f < 0 || f >= GRID_CELL_COUNT) continue;
+      const r = Math.floor(f / GRID_SIZE);
+      const c = f % GRID_SIZE;
       if (i < glyphs.length) b[r][c] = glyphs[i];
     }
   }
