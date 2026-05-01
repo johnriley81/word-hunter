@@ -21,20 +21,21 @@ function ensureGraph() {
   sfxBus.connect(masterGain);
   if (!didWireResume) {
     didWireResume = true;
-    document.addEventListener("visibilitychange", () => {
-      if (context && context.state === "suspended" && !document.hidden) {
-        void context.resume();
+    const tryResumeContext = () => {
+      if (context && context.state === "suspended") {
+        void context.resume().catch(() => {});
       }
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tryResumeContext();
     });
-    document.addEventListener(
-      "pointerdown",
-      () => {
-        if (context && context.state === "suspended") {
-          void context.resume();
-        }
-      },
-      { capture: true }
-    );
+    window.addEventListener("pageshow", () => tryResumeContext());
+    for (const evt of ["pointerdown", "touchstart"]) {
+      document.addEventListener(evt, tryResumeContext, {
+        capture: true,
+        passive: true,
+      });
+    }
   }
   return context;
 }
@@ -110,6 +111,9 @@ export function resetWebGameOver() {
 export function playWebSfx(name, muted, options = {}) {
   if (!useWebSfx || !context || !bufferById.size) {
     return false;
+  }
+  if (context.state !== "running") {
+    void context.resume().catch(() => {});
   }
   const buffer = bufferById.get(name);
   if (!buffer) {

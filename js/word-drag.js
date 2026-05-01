@@ -176,7 +176,8 @@ export function createWordDragHandlers(ctx, host) {
   function runSuccessPopThenStaggeredFlip(
     tilesToReplace,
     onWordCommitAnimationsComplete,
-    huntPaceSuccess = false
+    huntPaceSuccess = false,
+    collapseNextLetterBlanksAfterFlip = false
   ) {
     const st = w();
     st.wordReplaceEpoch++;
@@ -184,6 +185,9 @@ export function createWordDragHandlers(ctx, host) {
     const n = tilesToReplace.length;
     const gridN = gridSize;
     if (n === 0) {
+      if (collapseNextLetterBlanksAfterFlip) {
+        host.collapseNextLetterBlankSlots?.();
+      }
       if (typeof onWordCommitAnimationsComplete === "function") {
         onWordCommitAnimationsComplete();
       }
@@ -258,6 +262,9 @@ export function createWordDragHandlers(ctx, host) {
 
       const finishWordCommitAnimations = () => {
         if (epoch !== st.wordReplaceEpoch) return;
+        if (collapseNextLetterBlanksAfterFlip) {
+          host.collapseNextLetterBlankSlots?.();
+        }
         for (let j = 0; j < n; j++) {
           const b = tilesToReplace[j];
           b.classList.remove("grid-button--letter-flip");
@@ -480,7 +487,7 @@ export function createWordDragHandlers(ctx, host) {
       }
       const tilesToReplace = Array.from(w().selectedButtonSet);
       host.addToScore(wordScore);
-      host.recordPerfectHuntOrderPace(cw);
+      const paceOrderResult = host.recordPerfectHuntOrderPace(cw);
       host.commitPerfectHuntWordIfListed(cw);
       showMessage(
         ctx,
@@ -518,7 +525,8 @@ export function createWordDragHandlers(ctx, host) {
           if (!host.getGameActive()) return;
           host.endGameWithStinger?.({ endgameStinger: "perfect" });
         },
-        keepingPace
+        keepingPace,
+        paceOrderResult.brokePace === true
       );
     } else {
       playSound("invalid", host.getMuted());
