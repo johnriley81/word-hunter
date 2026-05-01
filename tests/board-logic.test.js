@@ -14,6 +14,8 @@ import {
   buildPerfectHuntMetadata,
   computePerfectHuntStarterFlat,
   puzzleRowPerfectHuntStarterHints,
+  exportedOrthoNeighborSigMatches,
+  normalizedOrthoNeighborsAtFlat,
 } from "../js/board-logic.js";
 import {
   GRID_SIZE,
@@ -154,6 +156,30 @@ test("buildPerfectHuntMetadata: maps PERFECT_HUNT_WORD_COUNT words to choir rate
   assert.equal(meta.choirRateByWord.size, PERFECT_HUNT_WORD_COUNT);
 });
 
+test("exportedOrthoNeighborSigMatches: one vertical + one horizontal sufficient", () => {
+  const actual = normalizedOrthoNeighborsAtFlat(
+    [
+      ["x", "y"],
+      ["a", "b"],
+    ].map((r) => r.map((c) => String(c))),
+    /* flat */ 1,
+    2
+  );
+  assert.equal(
+    exportedOrthoNeighborSigMatches(actual, {
+      n: "wrong",
+      s: "b",
+      w: "wrong",
+      e: null,
+    }),
+    true
+  );
+  assert.equal(
+    exportedOrthoNeighborSigMatches(actual, { n: null, s: "bogus", w: "y" }),
+    false
+  );
+});
+
 test("Perfect Hunt starter: row-major ambiguity resolved by exported flat then neighbor sig", () => {
   const board = [
     ["b", "x", "z", "z"],
@@ -173,14 +199,13 @@ test("Perfect Hunt starter: row-major ambiguity resolved by exported flat then n
     puzzleRowPerfectHuntStarterHints([10], null)
   );
   assert.equal(byFlat, 10);
-  const sigOnly = puzzleRowPerfectHuntStarterHints(null, [
-    { n: "z", s: "z", w: "z", e: "z" },
-  ]);
+  /* Full four-way sig would match both `a` tiles under relaxed ortho rules; one vertical + one horizontal pin the lower-right `a` only. */
+  const sigOnly = puzzleRowPerfectHuntStarterHints(null, [{ n: "z", e: "z" }]);
   const byOrtho = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, sigOnly);
   assert.equal(byOrtho, 10);
 });
 
-test("Perfect Hunt starter: ignored flat hints when tile letter does not match", () => {
+test("Perfect Hunt starter: invalid flat hint with no neighbor sig yields null (no legacy scan)", () => {
   const board = [
     ["b", "x", "z", "z"],
     ["x", "a", "z", "z"],
@@ -190,5 +215,5 @@ test("Perfect Hunt starter: ignored flat hints when tile letter does not match",
   const hunt = ["ab"];
   const wrongFlat = puzzleRowPerfectHuntStarterHints([10], null);
   const got = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, wrongFlat);
-  assert.equal(got, 5);
+  assert.equal(got, null);
 });

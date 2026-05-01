@@ -827,23 +827,28 @@ export function initGame(ctx) {
       ctx.state.perfectHuntWordsSubmitted.add(key);
     },
     recordPerfectHuntOrderPace(word) {
-      if (!ctx.state.perfectHuntOnPace) return;
+      if (!ctx.state.perfectHuntOnPace) return { brokePace: false };
       const hunt = ctx.state.perfectHunt;
       if (!hunt?.length) {
         ctx.state.perfectHuntOnPace = false;
-        return;
+        return { brokePace: false };
       }
       const idx = ctx.state.perfectHuntOrderIndex;
       if (idx >= hunt.length) {
-        return;
+        return { brokePace: false };
       }
       const key = String(word || "").toLowerCase();
       const expected = hunt[idx];
       if (key === String(expected).toLowerCase()) {
         ctx.state.perfectHuntOrderIndex = idx + 1;
-      } else {
-        ctx.state.perfectHuntOnPace = false;
+        return { brokePace: false };
       }
+      ctx.state.perfectHuntOnPace = false;
+      return { brokePace: true };
+    },
+    collapseNextLetterBlankSlots() {
+      nextLetters = omitEmptyNextLetterSlots(nextLetters);
+      updateNextLetters();
     },
     isWordKeepingPerfectHuntPace(word) {
       if (!ctx.state.perfectHuntOnPace) return false;

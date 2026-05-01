@@ -7,7 +7,8 @@
     "format": "prettier --write .",
     "gen:word-rec": "node scripts/export-word-recognizability.mjs",
     "gen:extend-metrics": "python3 scripts/build-extended-word-metrics.py",
-    "gen:puzzle-pool": "node scripts/generate-puzzle-pool.mjs"
+    "gen:puzzle-pool": "node scripts/generate-puzzle-pool.mjs",
+    "gen:puzzle-wordlist": "node scripts/export-puzzle-wordlist-seed.mjs"
   },
   "devDependencies": {
     "prettier": "3.1.0"

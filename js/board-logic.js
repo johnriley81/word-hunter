@@ -102,21 +102,41 @@ export function normalizedOrthoNeighborsAtFlat(board, flat, gridSize) {
   };
 }
 
-/** Compare exported `{ n,s,e,w }` to live orthogonals (`null` = off-board). */
+/** Directions included in exported starter neighbor hints (`null` = off-board edge). */
+const NEIGHBOR_SIG_VERTICAL = /** @type {const} */ (["n", "s"]);
+const NEIGHBOR_SIG_HORIZONTAL = /** @type {const} */ (["w", "e"]);
+
+/** Whether `expRaw` from JSON matches live ortho cell `actualVal` (`null` means off-board). */
+function orthoNeighborSigExpMatchesActual(actualVal, expRaw) {
+  return expRaw === null
+    ? actualVal === null
+    : normalizeTileText(String(expRaw)) === actualVal;
+}
+
+/**
+ * Compare exported `{ n,s,e,w }` to live orthogonals (`null` = off-board).
+ * A direction counts only if `sig` defines it (`!== undefined`). Match passes when
+ * at least one specified vertical (`n`/`s`) agrees with `actual` and at least one specified
+ * horizontal (`w`/`e`) agrees — strict four-way equality is not required.
+ */
 export function exportedOrthoNeighborSigMatches(actual, sig) {
   if (!sig || typeof sig !== "object") return false;
-  const dirs = ["n", "s", "e", "w"];
-  for (const dir of dirs) {
-    const expRaw = sig[dir];
-    if (expRaw === undefined) continue;
-    const actualVal = actual[dir];
-    if (expRaw === null) {
-      if (actualVal !== null) return false;
-    } else if (normalizeTileText(String(expRaw)) !== actualVal) {
-      return false;
+  /** @param {readonly ("n"|"s"|"e"|"w")[]} dirs */
+  const axisMatch = (dirs) => {
+    let anySpec = false;
+    let anyHit = false;
+    for (const dir of dirs) {
+      const expRaw = sig[dir];
+      if (expRaw === undefined) continue;
+      anySpec = true;
+      if (orthoNeighborSigExpMatchesActual(actual[dir], expRaw)) anyHit = true;
     }
-  }
-  return true;
+    return { anySpec, anyHit };
+  };
+  const v = axisMatch(NEIGHBOR_SIG_VERTICAL);
+  const h = axisMatch(NEIGHBOR_SIG_HORIZONTAL);
+  if (!v.anySpec || !h.anySpec) return false;
+  return v.anyHit && h.anyHit;
 }
 
 function flatFromNeighborSignatures(gameBoard, perfectHuntWord, gridSize, neighborSig) {
@@ -139,8 +159,24 @@ function flatFromNeighborSignatures(gameBoard, perfectHuntWord, gridSize, neighb
   return matches.length === 1 ? matches[0] : null;
 }
 
+/** First row-major cell whose tile matches `targetGlyph` — only for puzzles with no exported starter hints. */
+function legacyFirstFlatMatchingOpeningGlyph(gameBoard, targetGlyph, gridSize) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
+  for (let r = 0; r < n; r++) {
+    const row = gameBoard[r];
+    if (!Array.isArray(row)) continue;
+    for (let c = 0; c < n; c++) {
+      if (normalizeTileText(row[c]) === targetGlyph) return r * n + c;
+    }
+  }
+  return null;
+}
+
 /**
  * Starter flat for Perfect Hunt word `orderIndex`, or null.
+ * Uses exported `starterFlats` / `starterNeighborSignatures` when present; otherwise falls back to
+ * the first row-major cell matching the opening glyph (puzzles without published starter hints).
+ * When a hint bundle exists but neither flat nor neighbor rule resolves uniquely, returns null.
  * @param {{ starterFlats?: number[]; starterNeighborSignatures?: unknown[] } | null} [exportedHints]
  */
 export function computePerfectHuntStarterFlat(
@@ -188,14 +224,8 @@ export function computePerfectHuntStarterFlat(
     if (nb != null) return nb;
   }
 
-  for (let r = 0; r < n; r++) {
-    const row = gameBoard[r];
-    if (!Array.isArray(row)) continue;
-    for (let c = 0; c < n; c++) {
-      if (normalizeTileText(row[c]) === target) {
-        return r * n + c;
-      }
-    }
+  if (!exportedHints) {
+    return legacyFirstFlatMatchingOpeningGlyph(gameBoard, target, n);
   }
   return null;
 }

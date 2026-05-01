@@ -1,5 +1,6 @@
 node_modules
 text/wordlist.txt
+text/gamemaker/puzzle-wordlist.txt
 # Large generated gamemaker assets (avoid multi‑MB diffs from format)
 text/gamemaker/pregen/puzzle-pool.json
 text/gamemaker/pregen/word-recognizability.json
