@@ -1,105 +1,17 @@
 import { createGameContext } from "../game-context.js";
-import {
-  GRID_SIZE,
-  PERFECT_HUNT_WORD_COUNT,
-  WORD_PATH_COLOR_STEPS,
-  WORD_INVALID_SHAKE_MS,
-} from "../config.js";
-import {
-  wordToTileLabelSequence,
-  minUniqueTilesForReuseRule,
-  normalizedOrthoNeighborsAtFlat,
-  applyColumnShiftInPlace,
-  applyRowShiftInPlace,
-} from "../board-logic.js";
-import { getTileButtonFromEvent, setTileTextAllowEmpty } from "../grid-tiles.js";
-import { isAdjacentGridTiles, syncSelectionVisitDepthOnGrid } from "../word-play.js";
-import { wordPathDragStrokeColorAt } from "../word-path.js";
-import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
-import { ensureShiftPreviewElements, attachShiftGestures } from "../shift-dom.js";
-import {
-  buildNextLettersFromCoveredInBuildOrder,
-  stripTrailingEmptyNextLetters,
-  computePerfectHuntStarterHints,
-  isGridAllNormalizedEmpty,
-} from "../puzzle-export-sim.js";
+import { PERFECT_HUNT_WORD_COUNT } from "../config.js";
+import { wordToTileLabelSequence } from "../board-logic.js";
 import { loadWordlistWordSet } from "../game-lifecycle.js";
+import { attachShiftGestures } from "../shift-dom.js";
+import { comparePoolWordEntriesDesc } from "./pool-order.js";
+import { buildSwapBucketsByStats } from "./swap-buckets.js";
+import { buildGamemakerDictExportPayload } from "./build-export-payload.js";
+import { createGridPlacementApi } from "./grid-placement.js";
+import { createGamemakerShiftHost } from "./shift-host.js";
 import { stringifyGamemakerDictExport } from "./clipboard-export.js";
 import { loadGamemakerPuzzlePool } from "./load-pool.js";
 
 const WORD_COUNT = PERFECT_HUNT_WORD_COUNT;
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-/** Same order as loadListAt — descending wordTotal, then word asc. */
-function comparePoolWordEntriesDesc(a, b) {
-  const da = Number(a.wordTotal) || 0;
-  const db = Number(b.wordTotal) || 0;
-  if (da !== db) return db - da;
-  return String(a.word || "").localeCompare(String(b.word || ""));
-}
-
-/** @param {unknown[]} lists */
-function buildSwapBucketsByStats(lists) {
-  /** @type {Map<string, Map<string, { word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
-  const outer = new Map();
-  for (const row of lists) {
-    const words = /** @type {{ words?: unknown[] }} */ (row).words;
-    if (!Array.isArray(words)) continue;
-    for (const raw of words) {
-      const e =
-        /** @type {{ word?: string, min_tiles?: number, reuse?: number, wordTotal?: number }} */ (
-          raw
-        );
-      const w = String(e.word || "").toLowerCase();
-      if (!/^[a-z]+$/.test(w)) continue;
-      const key = `${Number(e.min_tiles)}|${Number(e.reuse)}|${Number(e.wordTotal)}`;
-      if (!outer.has(key)) outer.set(key, new Map());
-      const inner = outer.get(key);
-      if (!inner.has(w)) {
-        inner.set(w, {
-          word: w,
-          min_tiles: Number(e.min_tiles),
-          reuse: Number(e.reuse),
-          wordTotal: Number(e.wordTotal),
-        });
-      }
-    }
-  }
-  /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
-  const out = new Map();
-  for (const [k, inner] of outer) {
-    out.set(k, [...inner.values()]);
-  }
-  return out;
-}
-
-function makeEl(tag, className, text) {
-  const e = document.createElement(tag);
-  if (className) e.className = className;
-  if (text != null) e.textContent = text;
-  return e;
-}
-
-function clearLines(gridLineContainer) {
-  while (gridLineContainer.firstChild) {
-    gridLineContainer.firstChild.remove();
-  }
-}
-
-function buttonFlatIndex(grid, button) {
-  const i = Array.prototype.indexOf.call(grid.children, button);
-  return i < 0 ? -1 : i;
-}
-
-function syncBuildDomFromBoardFixed(grid, gameBoard) {
-  const n = GRID_SIZE;
-  const tiles = grid.children;
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      setTileTextAllowEmpty(tiles[r * n + c], gameBoard[r][c]);
-    }
-  }
-}
 
 function createGamemaker() {
   const ctx = createGameContext();
@@ -148,10 +60,6 @@ function createGamemaker() {
   let puzzleBatch = [];
   /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
   let swapBuckets = new Map();
-
-  function copyBoard4(/** @type {string[][]} */ src) {
-    return src.map((row) => row.slice());
-  }
 
   function getCurrentWordIndexAsc() {
     return placementStep >= WORD_COUNT ? -1 : placementStep;
@@ -216,37 +124,6 @@ function createGamemaker() {
     btnWordSwap.disabled = swapAlternatesForCurrentStep().length === 0;
   }
 
-  function swapCurrentWord() {
-    const alts = swapAlternatesForCurrentStep();
-    if (!getTargetEntry() || alts.length === 0) {
-      showExportMetaMessage("No swap", 1800);
-      return;
-    }
-    const picked = alts[Math.floor(Math.random() * alts.length)];
-    const start = placementStep;
-    const tail = currentWords.slice(start).map((e) => ({
-      word: String(e.word || "").toLowerCase(),
-      min_tiles: Number(e.min_tiles),
-      reuse: Number(e.reuse),
-      wordTotal: Number(e.wordTotal),
-    }));
-    tail[0] = {
-      word: picked.word,
-      min_tiles: picked.min_tiles,
-      reuse: picked.reuse,
-      wordTotal: picked.wordTotal,
-    };
-    tail.sort(comparePoolWordEntriesDesc);
-    const pickedLc = picked.word.toLowerCase();
-    const idxInTail = tail.findIndex(
-      (e) => String(e.word || "").toLowerCase() === pickedLc
-    );
-    currentWords = currentWords.slice(0, start).concat(tail);
-    placementStep = start + (idxInTail >= 0 ? idxInTail : 0);
-    resetSelection();
-    updateUi();
-  }
-
   function isPuzzleCompleteForExport() {
     return buildPlaysChron.length === WORD_COUNT && getCurrentWordIndexAsc() < 0;
   }
@@ -282,405 +159,96 @@ function createGamemaker() {
     setToolbarForEntry(entry, word.selectedButtons.length);
   }
 
-  function restyleAllWordConnectorLines() {
-    const lineEls = gridLineContainer.querySelectorAll("line");
-    let defs = gridLineContainer.querySelector("defs");
-    if (lineEls.length === 0) {
-      if (defs) defs.remove();
-      return;
-    }
-    const n = word.selectedButtons.length;
-    if (n < 2 || lineEls.length !== n - 1) return;
-    if (!defs) {
-      defs = document.createElementNS(SVG_NS, "defs");
-      gridLineContainer.insertBefore(defs, gridLineContainer.firstChild);
-    }
-    defs.replaceChildren();
-    const gridRect = grid.getBoundingClientRect();
-    const colorSpan = WORD_PATH_COLOR_STEPS;
-    const pathColorPhase = (k) => (((k / colorSpan) % 1) + 1) % 1;
-    for (let i = 0; i < lineEls.length; i++) {
-      const line = lineEls[i];
-      const btnA = word.selectedButtons[i];
-      const btnB = word.selectedButtons[i + 1];
-      const lastRect = btnA.getBoundingClientRect();
-      const currRect = btnB.getBoundingClientRect();
-      const x1 = lastRect.left + lastRect.width / 2 - gridRect.left;
-      const y1 = lastRect.top + lastRect.height / 2 - gridRect.top;
-      const x2 = currRect.left + currRect.width / 2 - gridRect.left;
-      const y2 = currRect.top + currRect.height / 2 - gridRect.top;
-      line.setAttribute("x1", String(x1));
-      line.setAttribute("y1", String(y1));
-      line.setAttribute("x2", String(x2));
-      line.setAttribute("y2", String(y2));
-      const p0 = pathColorPhase(i);
-      const p1 = pathColorPhase(i + 1);
-      const gradId = "gm-conn-grad-" + i;
-      const grad = document.createElementNS(SVG_NS, "linearGradient");
-      grad.setAttribute("id", gradId);
-      grad.setAttribute("gradientUnits", "userSpaceOnUse");
-      grad.setAttribute("x1", String(x1));
-      grad.setAttribute("y1", String(y1));
-      grad.setAttribute("x2", String(x2));
-      grad.setAttribute("y2", String(y2));
-      const stop0 = document.createElementNS(SVG_NS, "stop");
-      stop0.setAttribute("offset", "0%");
-      stop0.setAttribute("stop-color", wordPathDragStrokeColorAt(p0));
-      const stop1 = document.createElementNS(SVG_NS, "stop");
-      stop1.setAttribute("offset", "100%");
-      stop1.setAttribute("stop-color", wordPathDragStrokeColorAt(p1));
-      grad.appendChild(stop0);
-      grad.appendChild(stop1);
-      defs.appendChild(grad);
-      line.setAttribute("stroke", "url(#" + gradId + ")");
-    }
-  }
+  let exportCopyFeedbackTimer = 0;
 
-  function syncLineOverlaySize() {
-    if (!gridLineWrapper) return;
-    const wrap = gridLineWrapper.getBoundingClientRect();
-    const gridR = grid.getBoundingClientRect();
-    const offsetLeft = Math.round(gridR.left - wrap.left);
-    const offsetTop = Math.round(gridR.top - wrap.top);
-    gridLineContainer.style.left = offsetLeft + "px";
-    gridLineContainer.style.top = offsetTop + "px";
-    gridLineContainer.style.width = grid.offsetWidth + "px";
-    gridLineContainer.style.height = grid.offsetHeight + "px";
-  }
-
-  function lockGridSizeForSwipe() {
-    if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0)
-      return;
-    const br = grid.getBoundingClientRect();
-    if (br.width < 1 || br.height < 1) return;
-    ctx.state.shift.lockedGridWidthPx = br.width;
-    ctx.state.shift.lockedGridHeightPx = br.height;
-    grid.style.width = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.maxWidth = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.height = ctx.state.shift.lockedGridHeightPx + "px";
-  }
-
-  function unlockGridSizeAfterSwipe() {
-    ctx.state.shift.lockedGridWidthPx = 0;
-    ctx.state.shift.lockedGridHeightPx = 0;
-  }
-
-  function clearSelectionVisual() {
-    for (const b of word.selectedButtons) {
-      b.classList.remove(
-        "selected",
-        "grid-button--selected-enter",
-        "grid-button--invalid-shake"
-      );
-      b.removeAttribute("data-selection-visits");
-    }
-    clearLines(gridLineContainer);
-  }
-
-  function resetSelection() {
-    clearWordSubmitFeedbackTimer(ctx);
-    word.currentWord = "";
-    clearSelectionVisual();
-    word.selectedButtons = [];
-    word.selectedButtonSet = new Set();
-    word.lastButton = null;
-    boardSnapshotPreDrag = null;
-  }
-
-  function revertBoardToPreDragSnapshot() {
-    if (!boardSnapshotPreDrag) return;
-    const n = GRID_SIZE;
-    const snap = boardSnapshotPreDrag;
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        ctx.state.gameBoard[r][c] = snap[r][c];
-      }
-    }
-    syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
-  }
-
-  function updateSelectionVisits() {
-    syncSelectionVisitDepthOnGrid(grid, word.selectedButtons);
-  }
-
-  function refreshPathIntoBoardAndDom() {
-    const entry = getTargetEntry();
-    if (!boardSnapshotPreDrag || !entry) return;
-    const glyphs = wordToTileLabelSequence((entry.word || "").toLowerCase());
-    const n = GRID_SIZE;
-    const snap = boardSnapshotPreDrag;
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        ctx.state.gameBoard[r][c] = snap[r][c];
-      }
-    }
-    for (let i = 0; i < word.selectedButtons.length; i++) {
-      const f = buttonFlatIndex(grid, word.selectedButtons[i]);
-      if (f < 0) continue;
-      const rr = Math.floor(f / n);
-      const cc = f % n;
-      const g = glyphs[i];
-      if (g) ctx.state.gameBoard[rr][cc] = g;
-    }
-    syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
-  }
-
-  function beginOnButton(targetButton) {
-    if (!targetButton) return;
-    if (word.wordReplaceLockGen !== 0) return;
-    if (!isGameActive) return;
-    if (!targetButton.classList.contains("grid-button")) return;
-    const entry = getTargetEntry();
-    if (!entry) return;
-    const glyphs = wordToTileLabelSequence((entry.word || "").toLowerCase());
-    if (glyphs.length === 0) return;
-    if (word.selectedButtons.length === 0) {
-      boardSnapshotPreDrag = copyBoard4(ctx.state.gameBoard);
-    }
-    isMouseDown = true;
-    word.selectedButtons.push(targetButton);
-    word.selectedButtonSet.add(targetButton);
-    targetButton.classList.add("selected");
-    word.lastButton = targetButton;
-    updateSelectionVisits();
-    refreshPathIntoBoardAndDom();
-    refreshToolbarLetterProgress();
-  }
-
-  function extendToButton(targetButton) {
-    if (!targetButton) return;
-    if (!isMouseDown) return;
-    if (!isGameActive) return;
-    if (!getTargetEntry()) return;
-    if (
-      isAdjacentGridTiles(grid, word.lastButton, targetButton, GRID_SIZE) &&
-      targetButton.classList.contains("grid-button")
-    ) {
-      if (targetButton === word.selectedButtons[word.selectedButtons.length - 2]) {
-        const removed = word.selectedButtons.pop();
-        const linesOnly = gridLineContainer.querySelectorAll("line");
-        if (linesOnly.length) linesOnly[linesOnly.length - 1].remove();
-        restyleAllWordConnectorLines();
-        if (!word.selectedButtons.includes(removed)) {
-          removed.classList.remove("selected", "grid-button--selected-enter");
-          word.selectedButtonSet.delete(removed);
-        }
-        word.lastButton = targetButton;
-        updateSelectionVisits();
-        refreshPathIntoBoardAndDom();
-      } else {
-        word.selectedButtons.push(targetButton);
-        word.selectedButtonSet.add(targetButton);
-        targetButton.classList.add("selected");
-        if (word.lastButton) {
-          const line = document.createElementNS(SVG_NS, "line");
-          line.setAttribute("stroke-width", "3");
-          gridLineContainer.appendChild(line);
-          restyleAllWordConnectorLines();
-        }
-        word.lastButton = targetButton;
-        updateSelectionVisits();
-        const n = targetButton.getAttribute("data-selection-visits");
-        if (n === "1") {
-          targetButton.classList.add("grid-button--selected-enter");
-        }
-        refreshPathIntoBoardAndDom();
-      }
-      refreshToolbarLetterProgress();
-    }
-  }
-
-  function validatePathAgainstTarget() {
-    const entry = getTargetEntry();
-    if (!entry) return { ok: false, reason: "no target" };
-    const w = (entry.word || "").toLowerCase();
-    const glyphs = wordToTileLabelSequence(w);
-    const minTiles = minUniqueTilesForReuseRule(glyphs);
-    if (word.selectedButtons.length !== glyphs.length) {
-      return { ok: false, reason: "path length" };
-    }
-    if (new Set(word.selectedButtons).size !== minTiles) {
-      return { ok: false, reason: "min_tiles" };
-    }
-    if (!wordSet.has(w)) {
-      return { ok: false, reason: "dict" };
-    }
-    return { ok: true, reason: "ok" };
-  }
-
-  function applyCommitToBoard() {
-    const entry = getTargetEntry();
-    if (!entry) return;
-    const w = (entry.word || "").toLowerCase();
-    const glyphs = wordToTileLabelSequence(w);
-    const minTiles = minUniqueTilesForReuseRule(glyphs);
-    const pathFlat = word.selectedButtons.map((b) => buttonFlatIndex(grid, b));
-    const firstVisits = [];
-    const firstSeen = new Set();
-    for (const b of word.selectedButtons) {
-      if (!firstSeen.has(b)) {
-        firstSeen.add(b);
-        firstVisits.push(b);
-      }
-    }
-    const snap = boardSnapshotPreDrag;
-    if (buildPlaysChron.length === 0 && snap) {
-      openingGridForExport = snap.map((row) => row.slice());
-    }
-    const covered = firstVisits.map((b) => {
-      const f = buttonFlatIndex(grid, b);
-      if (f < 0 || !snap) return "";
-      const r = Math.floor(f / GRID_SIZE);
-      const c = f % GRID_SIZE;
-      return (snap[r] && snap[r][c]) || "";
-    });
-    for (let i = 0; i < word.selectedButtons.length; i++) {
-      const b = word.selectedButtons[i];
-      const g = glyphs[i];
-      const f = pathFlat[i];
-      const r = Math.floor(f / GRID_SIZE);
-      const c = f % GRID_SIZE;
-      ctx.state.gameBoard[r][c] = g;
-      setTileTextAllowEmpty(b, g);
-    }
-    boardSnapshotPreDrag = null;
-    const wiAsc = getCurrentWordIndexAsc();
-    if (wiAsc >= 0) {
-      buildPlaysChron.push({
-        word: w,
-        min_tiles: minTiles,
-        pathFlat,
-        covered,
-      });
-    }
-  }
-
-  function onPointerUp() {
-    if (!isMouseDown) return;
-    isMouseDown = false;
-    const val = validatePathAgainstTarget();
-    if (val.ok) {
-      applyCommitToBoard();
-      placementStep++;
-      resetSelection();
+  function showExportMetaMessage(msg, ms) {
+    if (exportCopyFeedbackTimer) window.clearTimeout(exportCopyFeedbackTimer);
+    metaEl.textContent = msg;
+    exportCopyFeedbackTimer = window.setTimeout(() => {
+      exportCopyFeedbackTimer = 0;
       updateUi();
-    } else {
-      revertBoardToPreDragSnapshot();
-      for (let i = 0; i < word.selectedButtons.length; i++) {
-        word.selectedButtons[i].classList.add("grid-button--invalid-shake");
-      }
-      window.setTimeout(() => {
-        resetSelection();
-        updateUi();
-      }, WORD_INVALID_SHAKE_MS);
-    }
+    }, ms);
   }
 
-  function emptyBoard() {
-    const n = GRID_SIZE;
-    ctx.state.gameBoard = [];
-    for (let r = 0; r < n; r++) {
-      ctx.state.gameBoard[r] = [];
-      for (let c = 0; c < n; c++) {
-        ctx.state.gameBoard[r][c] = "";
+  const placement = createGridPlacementApi({
+    ctx,
+    grid,
+    gridLineContainer,
+    gridLineWrapper,
+    getTargetEntry,
+    getCurrentWordIndexAsc,
+    getWordSet: () => wordSet,
+    getGameActive: () => isGameActive,
+    setMouseDown: (v) => {
+      isMouseDown = v;
+    },
+    getMouseDown: () => isMouseDown,
+    getBoardSnapshotPreDrag: () => boardSnapshotPreDrag,
+    setBoardSnapshotPreDrag: (v) => {
+      boardSnapshotPreDrag = v;
+    },
+    captureOpeningGridIfFirstCommit(snap) {
+      if (buildPlaysChron.length === 0 && snap) {
+        openingGridForExport = snap.map((row) => row.slice());
       }
-    }
-  }
-
-  function buildEmptyGrid() {
-    while (grid.firstChild) grid.removeChild(grid.firstChild);
-    const n = GRID_SIZE;
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        const button = makeEl("button", "grid-button grid-button--active");
-        button.type = "button";
-        setTileTextAllowEmpty(button, "");
-        button.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-          if (!isGameActive) return;
-          beginOnButton(getTileButtonFromEvent(grid, e));
-        });
-        button.addEventListener("mouseover", (e) => {
-          if (!isGameActive) return;
-          extendToButton(getTileButtonFromEvent(grid, e));
-        });
-        button.addEventListener(
-          "touchstart",
-          (e) => {
-            e.preventDefault();
-            if (!isGameActive) return;
-            beginOnButton(getTileButtonFromEvent(grid, e));
-          },
-          { passive: false }
-        );
-        button.addEventListener("touchmove", (e) => {
-          e.preventDefault();
-          const t = e.touches[0];
-          const el2 = document.elementFromPoint(t.clientX, t.clientY);
-          const b = el2 && el2 instanceof Element ? el2.closest(".grid-button") : null;
-          if (b && grid.contains(b)) extendToButton(b);
-        });
-        grid.appendChild(button);
-      }
-    }
-    ensureShiftPreviewElements(ctx);
-    syncLineOverlaySize();
-    requestAnimationFrame(() => {
-      lockGridSizeForSwipe();
-    });
-  }
-
-  function endGame() {}
-
-  const uiState = {
-    get gameActive() {
-      return isGameActive;
     },
-    get paused() {
-      return false;
+    onToolbarLetterProgress: refreshToolbarLetterProgress,
+    appendBuildPlay(play) {
+      buildPlaysChron.push(play);
     },
-  };
-  const shiftState = {
-    get pointerId() {
-      return ctx.state.shift.pointerId;
+    bumpPlacementStep() {
+      placementStep++;
     },
-    get animating() {
-      return ctx.state.shift.animating;
-    },
-  };
+    updateUi,
+  });
 
-  const shiftHost = {
-    shiftState,
-    uiState,
+  const { shiftHost } = createGamemakerShiftHost({
+    ctx,
+    getGameBoard: () => ctx.state.gameBoard,
+    syncDomFromBoard: () =>
+      placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard),
+    syncLineOverlaySize: () => placement.syncLineOverlaySize(),
+    lockGridSizeForSwipe: () => placement.lockGridSizeForSwipe(),
+    unlockGridSizeAfterSwipe: () => placement.unlockGridSizeAfterSwipe(),
     getIsGameActive: () => isGameActive,
-    getIsPaused: () => false,
     getIsMouseDown: () => isMouseDown,
-    getShiftsAllowed: () => !isMouseDown,
-    getIsMuted: () => true,
-    endGame,
-    syncDomFromBoard: () => syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard),
-    applyColumnShift: (s) => {
-      applyColumnShiftInPlace(ctx.state.gameBoard, s, GRID_SIZE);
-      shiftHost.syncDomFromBoard();
-    },
-    applyRowShift: (s) => {
-      applyRowShiftInPlace(ctx.state.gameBoard, s, GRID_SIZE);
-      shiftHost.syncDomFromBoard();
-    },
-    syncLineOverlaySize: () => {
-      syncLineOverlaySize();
-    },
-    clearTapStreak: () => {
-      ctx.state.shift.doubleTapPrevAt = 0;
-    },
-    lockGridSizeForSwipe,
-    unlockGridSizeAfterSwipe,
-  };
+  });
 
   attachShiftGestures(ctx, shiftHost);
 
-  document.addEventListener("mouseup", () => onPointerUp());
-  document.addEventListener("touchend", () => onPointerUp());
+  document.addEventListener("mouseup", () => placement.onPointerUp());
+  document.addEventListener("touchend", () => placement.onPointerUp());
+
+  function swapCurrentWord() {
+    const alts = swapAlternatesForCurrentStep();
+    if (!getTargetEntry() || alts.length === 0) {
+      showExportMetaMessage("No swap", 1800);
+      return;
+    }
+    const picked = alts[Math.floor(Math.random() * alts.length)];
+    const start = placementStep;
+    const tail = currentWords.slice(start).map((e) => ({
+      word: String(e.word || "").toLowerCase(),
+      min_tiles: Number(e.min_tiles),
+      reuse: Number(e.reuse),
+      wordTotal: Number(e.wordTotal),
+    }));
+    tail[0] = {
+      word: picked.word,
+      min_tiles: picked.min_tiles,
+      reuse: picked.reuse,
+      wordTotal: picked.wordTotal,
+    };
+    tail.sort(comparePoolWordEntriesDesc);
+    const pickedLc = picked.word.toLowerCase();
+    const idxInTail = tail.findIndex(
+      (e) => String(e.word || "").toLowerCase() === pickedLc
+    );
+    currentWords = currentWords.slice(0, start).concat(tail);
+    placementStep = start + (idxInTail >= 0 ? idxInTail : 0);
+    placement.resetSelection();
+    updateUi();
+  }
 
   function randomListIndex() {
     const n = (listsData.lists || []).length;
@@ -698,21 +266,10 @@ function createGamemaker() {
     placementStep = 0;
     buildPlaysChron = [];
     openingGridForExport = null;
-    emptyBoard();
-    syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
-    resetSelection();
+    placement.emptyBoard();
+    placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
+    placement.resetSelection();
     updateUi();
-  }
-
-  let exportCopyFeedbackTimer = 0;
-
-  function showExportMetaMessage(msg, ms) {
-    if (exportCopyFeedbackTimer) window.clearTimeout(exportCopyFeedbackTimer);
-    metaEl.textContent = msg;
-    exportCopyFeedbackTimer = window.setTimeout(() => {
-      exportCopyFeedbackTimer = 0;
-      updateUi();
-    }, ms);
   }
 
   async function copyTextToClipboard(text) {
@@ -731,87 +288,15 @@ function createGamemaker() {
     ta.remove();
   }
 
-  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null}
-   *  Stacks `covered` with `buildNextLettersFromCoveredInBuildOrder` — **descending** score
-   *  so the **lowest-score** (first forward) play is iterated last and its refills sit at the
-   *  sack head (see `puzzle-export-sim.js`).
-   */
+  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null} */
   function buildDictExportFromState() {
-    const gEndL = ctx.state.gameBoard.map((r) =>
-      r.map((c) => String(c || "").toLowerCase())
-    );
-    const gridOpening =
-      openingGridForExport &&
-      openingGridForExport.length === GRID_SIZE &&
-      openingGridForExport[0]?.length === GRID_SIZE
-        ? openingGridForExport.map((row) =>
-            row.map((c) => String(c || "").toLowerCase())
-          )
-        : null;
-    const playsForExport =
-      buildPlaysChron && buildPlaysChron.length
-        ? buildPlaysChron.map((p) => {
-            const w = String(p.word || "").toLowerCase();
-            const glyphs = wordToTileLabelSequence(w);
-            return {
-              word: w,
-              pathFlat: p.pathFlat ? p.pathFlat.slice() : [],
-              min_tiles:
-                typeof p.min_tiles === "number"
-                  ? p.min_tiles
-                  : minUniqueTilesForReuseRule(glyphs),
-              covered: (p.covered || []).map((ch) => String(ch || "").toLowerCase()),
-            };
-          })
-        : [];
-    if (playsForExport.length !== WORD_COUNT) return null;
-    const order = currentWords
-      .map((w, i) => ({ w, i }))
-      .sort((a, b) => (a.w.wordTotal || 0) - (b.w.wordTotal || 0));
-    const wordsAsc = order.map((x) => (x.w.word || "").toLowerCase());
-    const orderDescForSack = currentWords
-      .map((w, i) => ({ w, i }))
-      .sort((a, b) => {
-        const d = (b.w.wordTotal || 0) - (a.w.wordTotal || 0);
-        if (d !== 0) return d;
-        return String(b.w.word || "").localeCompare(String(a.w.word || ""));
-      });
-    const playsDescForSack = orderDescForSack.map((x) => playsForExport[x.i]);
-    const nextLetters = buildNextLettersFromCoveredInBuildOrder(playsDescForSack, {
-      fillEmpty: "",
+    return buildGamemakerDictExportPayload({
+      gameBoard: ctx.state.gameBoard,
+      openingGridForExport,
+      buildPlaysChron,
+      currentWords,
+      wordCount: WORD_COUNT,
     });
-    const playsAsc = order.map((x) => playsForExport[x.i]);
-    const nextLettersRaw = stripTrailingEmptyNextLetters(nextLetters.slice());
-    const gridForReplay = gridOpening ?? gEndL;
-    const pathsAsc = playsAsc.map((p) =>
-      Array.isArray(p.pathFlat) ? p.pathFlat.slice() : []
-    );
-    const replayGridAllEmpty = isGridAllNormalizedEmpty(gridForReplay);
-    const starterHints = computePerfectHuntStarterHints(
-      gridForReplay,
-      nextLettersRaw,
-      wordsAsc,
-      pathsAsc,
-      { fillEmptyPathCells: replayGridAllEmpty }
-    );
-    let starterPack = /** @type {Record<string, unknown>} */ ({});
-    if (starterHints) {
-      const flats = starterHints.perfect_hunt_starter_flats;
-      const sigsFromTerminalGrid = flats.map((flat) => ({
-        ...normalizedOrthoNeighborsAtFlat(gEndL, flat, GRID_SIZE),
-      }));
-      starterPack = {
-        perfect_hunt_starter_flats: flats,
-        perfect_hunt_starter_neighbor_sigs: sigsFromTerminalGrid,
-      };
-    }
-    /** Terminal board after placements. Starter flats come from forward replay; neighbor sigs from this terminal grid at those flats (runtime skips stale flat hints when the tile letter differs). */
-    return {
-      starting_grids: [gEndL],
-      next_letters: stripTrailingEmptyNextLetters(nextLetters),
-      perfect_hunt: wordsAsc,
-      ...starterPack,
-    };
   }
 
   function appendCompletedPuzzleToBatch() {
@@ -869,9 +354,9 @@ function createGamemaker() {
     wordSet = await loadWordlistWordSet();
     listsData = await loadGamemakerPuzzlePool();
     swapBuckets = buildSwapBucketsByStats(listsData.lists || []);
-    buildEmptyGrid();
-    emptyBoard();
-    syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
+    placement.buildEmptyGrid();
+    placement.emptyBoard();
+    placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     if (listsData.lists.length) loadListAt(randomListIndex());
     else {
       currentWords = [];
