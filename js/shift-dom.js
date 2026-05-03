@@ -74,8 +74,30 @@ export function attachShiftGestures(ctx, host) {
     gridLineWrapper,
     boardShiftZone,
     boardShiftHints,
-    boardShiftDismissButton,
   } = ctx.refs;
+
+  let hideBoardShiftHints = () => {};
+
+  let hintDismissDeferredTimer = null;
+
+  function clearHintDismissTimer() {
+    if (hintDismissDeferredTimer != null) {
+      window.clearTimeout(hintDismissDeferredTimer);
+      hintDismissDeferredTimer = null;
+    }
+  }
+
+  function deferHintDismiss(gapMs) {
+    clearHintDismissTimer();
+    hintDismissDeferredTimer = window.setTimeout(() => {
+      hintDismissDeferredTimer = null;
+      if (!boardShiftHints || boardShiftHints.classList.contains("hiddenDisplay")) {
+        return;
+      }
+      hideBoardShiftHints();
+      host.clearTapStreak();
+    }, gapMs);
+  }
 
   function scheduleLineOverlayFromShiftHost() {
     if (typeof host.scheduleSyncLineOverlaySize === "function") {
@@ -393,12 +415,14 @@ export function attachShiftGestures(ctx, host) {
     },
     { passive: false }
   );
-  if (boardShiftDismissButton && boardShiftHints) {
+  if (boardShiftHints && boardShiftZone) {
     let boardShiftHintsHideInProgress = false;
     const BOARD_SHIFT_HINTS_FADE_MS = 320;
-    const hideBoardShiftHints = (event) => {
-      if (event.cancelable) event.preventDefault();
-      event.stopPropagation();
+    hideBoardShiftHints = (event) => {
+      if (event?.cancelable) event.preventDefault();
+      if (typeof event?.stopPropagation === "function") {
+        event.stopPropagation();
+      }
       if (
         boardShiftHintsHideInProgress ||
         boardShiftHints.classList.contains("hiddenDisplay")
@@ -414,7 +438,6 @@ export function attachShiftGestures(ctx, host) {
         boardShiftHints.removeEventListener("transitionend", onTransitionEnd);
         window.clearTimeout(fallbackTimer);
         boardShiftHints.classList.add("hiddenDisplay");
-        boardShiftDismissButton.classList.add("hiddenDisplay");
         boardShiftZone.classList.remove("board-shift-zone--instructions-fading");
         boardShiftHintsHideInProgress = false;
       };
@@ -427,17 +450,6 @@ export function attachShiftGestures(ctx, host) {
       boardShiftHints.addEventListener("transitionend", onTransitionEnd);
       const fallbackTimer = window.setTimeout(finalize, BOARD_SHIFT_HINTS_FADE_MS + 80);
     };
-    boardShiftDismissButton.addEventListener("pointerdown", (event) => {
-      if (event.cancelable) event.preventDefault();
-      event.stopPropagation();
-    });
-    boardShiftDismissButton.addEventListener("pointerup", hideBoardShiftHints, {
-      passive: false,
-    });
-    boardShiftDismissButton.addEventListener("touchend", hideBoardShiftHints, {
-      passive: false,
-    });
-    boardShiftDismissButton.addEventListener("click", hideBoardShiftHints);
   }
 
   function resetShiftDragVisualHard() {
@@ -1002,6 +1014,7 @@ export function attachShiftGestures(ctx, host) {
         const sady = Math.abs(sdy);
         if (Math.max(sadx, sady) >= SHIFT_AXIS_LOCK_PX) {
           ctx.state.shift.dragLockedHorizontal = sadx >= sady;
+          clearHintDismissTimer();
           break;
         }
       }
@@ -1095,16 +1108,25 @@ export function attachShiftGestures(ctx, host) {
         ctx.state.shift.doubleTapPrevAt > 0 &&
         now - ctx.state.shift.doubleTapPrevAt < doubleEndGapMs
       ) {
+        clearHintDismissTimer();
         host.clearTapStreak();
         resetShiftDragVisualHard();
         host.endGame();
         return;
       }
+
       ctx.state.shift.doubleTapPrevAt = now;
+
+      const hintsShown =
+        boardShiftHints && !boardShiftHints.classList.contains("hiddenDisplay");
+
+      if (hintsShown) {
+        deferHintDismiss(doubleEndGapMs);
+      }
       return;
-    } else {
-      host.clearTapStreak();
     }
+    clearHintDismissTimer();
+    host.clearTapStreak();
 
     tryApplyBoardShift(dx, dy, lockedHorizontal);
   }

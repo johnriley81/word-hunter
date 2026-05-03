@@ -28,7 +28,6 @@ function createGamemaker() {
   const shiftPreviewStrip = el("shift-preview-strip");
   const boardShiftZone = el("board-shift-zone");
   const boardShiftHints = el("board-shift-hints");
-  const boardShiftDismissButton = el("board-shift-dismiss");
   const targetEl = el("gamemaker-target");
   const metaEl = el("gamemaker-meta");
   const btnList = el("gamemaker-btn-list");
@@ -42,7 +41,6 @@ function createGamemaker() {
     shiftPreviewStrip,
     boardShiftZone,
     boardShiftHints,
-    boardShiftDismissButton,
     gridLineContainer,
     gridLineWrapper,
     gridViewport,

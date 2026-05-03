@@ -124,25 +124,28 @@
       <div
         id="board-shift-zone"
         class="hiddenDisplay"
-        aria-label="Swipe or click and drag here to rearrange the grid. Double-tap or double click to end the game."
+        aria-label="Swipe or click and drag here to rearrange the grid. Double-tap or double click to end the game. Tap once here to hide these instructions."
       >
-        <button
-          type="button"
-          id="board-shift-dismiss"
-          aria-label="Hide rearrange instructions"
-        >
-          (x)
-        </button>
         <div id="board-shift-hints">
           <span id="board-shift-hint">
-            <span class="board-shift-hint--coarse">Swipe here to rearrange grid</span>
+            <span class="board-shift-hint--coarse"
+              ><span class="board-shift-hint-accent--drag">Swipe here</span> to
+              rearrange grid</span
+            >
             <span class="board-shift-hint--fine"
-              >Click & drag here to rearrange grid</span
+              ><span class="board-shift-hint-accent--drag">Click & drag here</span> to
+              rearrange grid</span
             >
           </span>
           <span id="board-shift-end-hint">
-            <span class="board-shift-hint--coarse">Double tap to end game</span>
-            <span class="board-shift-hint--fine">Double click to end game</span>
+            <span class="board-shift-hint--coarse"
+              >Double tap to
+              <span class="board-shift-hint-accent--endgame">end game</span></span
+            >
+            <span class="board-shift-hint--fine"
+              >Double click to
+              <span class="board-shift-hint-accent--endgame">end game</span></span
+            >
           </span>
         </div>
       </div>

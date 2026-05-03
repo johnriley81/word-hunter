@@ -68,7 +68,8 @@
   --rules-accent-hunt-hint: #f5be95;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
-  --board-shift-hint-text-shadow-color: black;
+  --board-shift-hint-accent-drag: #2266ee;
+  --board-shift-hint-accent-endgame: #dd3333;
   --board-shift-zone-border-color: rgba(255, 255, 255, 0.2);
   --grid-size: 4;
   --grid-gap: 13px;
@@ -1662,7 +1663,7 @@ body.rules-overlay-open #leaderboard-elements {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: auto;
   padding: 2px 8px 4px;
-  font-size: 0.45rem;
+  font-size: 0.5rem;
   font-family: "Press Start 2P", cursive;
   border-top: 1px dashed var(--board-shift-zone-border-color);
 }
@@ -1682,30 +1683,6 @@ body.rules-overlay-open #leaderboard-elements {
   }
 }
 
-#board-shift-dismiss {
-  position: absolute;
-  top: 3px;
-  right: 8px;
-  border: none;
-  background: transparent;
-  padding: 2px 4px;
-  margin: 0;
-  color: rgba(0, 0, 0, 0.6);
-  font-family: inherit;
-  font-size: 0.45rem;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 1;
-  touch-action: manipulation;
-  opacity: 1;
-  transition: opacity 320ms ease;
-}
-
-#board-shift-dismiss:focus-visible {
-  outline: 1px solid rgba(0, 0, 0, 0.4);
-  border-radius: 4px;
-}
-
 #board-shift-hints {
   display: flex;
   flex-direction: column;
@@ -1714,13 +1691,13 @@ body.rules-overlay-open #leaderboard-elements {
   gap: 6px;
   text-align: center;
   line-height: 1.5;
+  font-size: clamp(0.52rem, 2.8vw, 0.62rem);
   pointer-events: none;
   opacity: 1;
   transition: opacity 320ms ease;
 }
 
-#board-shift-zone.board-shift-zone--instructions-fading #board-shift-hints,
-#board-shift-zone.board-shift-zone--instructions-fading #board-shift-dismiss {
+#board-shift-zone.board-shift-zone--instructions-fading #board-shift-hints {
   opacity: 0;
 }
 
@@ -1728,14 +1705,26 @@ body.rules-overlay-open #leaderboard-elements {
   display: none !important;
 }
 
-#board-shift-hint {
-  color: #000000;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.55);
+#board-shift-hint,
+#board-shift-end-hint {
+  color: var(--board-shift-hint-color);
 }
 
 #board-shift-end-hint {
-  color: #cc0000;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 100%;
+}
+
+.board-shift-hint-accent--drag {
+  color: var(--board-shift-hint-accent-drag);
+}
+
+.board-shift-hint-accent--endgame {
+  color: var(--board-shift-hint-accent-endgame);
 }
 
 .board-shift-hint--fine,
