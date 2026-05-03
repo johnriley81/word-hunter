@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  calculateDiffDays,
+  calculatePuzzleDayIndex,
   puzzleDayIndexAt,
   puzzleListIndex,
 } from "../js/puzzle-calendar.js";
 
-test("calculateDiffDays returns positive integer", () => {
-  const d = calculateDiffDays();
+test("calculatePuzzleDayIndex returns non-negative integer", () => {
+  const d = calculatePuzzleDayIndex();
   assert.equal(Number.isInteger(d), true);
-  assert.ok(d > 0);
+  assert.ok(d >= 0);
 });
 
 test("puzzleDayIndexAt: epoch day and day after", () => {

@@ -1,5 +1,6 @@
-export { calculateDiffDays, puzzleListIndex } from "./puzzle-calendar.js";
 import { parsePuzzlesFileText } from "./puzzle-row-format.js";
+
+export { calculatePuzzleDayIndex, puzzleListIndex } from "./puzzle-calendar.js";
 
 /** Lowercase gameplay dictionary only — for gamemaker path validation without loading puzzles. */
 export async function loadWordlistWordSet() {

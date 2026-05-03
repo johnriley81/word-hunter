@@ -55,7 +55,12 @@ export const TILE_PALETTE_TRANSITION_SETTLE_MS = 120;
 export const CURRENT_WORD_FADE_MS = 220;
 export const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 export const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
-export const LEADERBOARD_USE_DEMO_DATA = true;
+export const LEADERBOARD_USE_DEMO_DATA = false;
+/** Trailing slash required; requests are `${LEADERBOARD_API_BASE}{puzzleId}`. */
+export const LEADERBOARD_API_BASE =
+  "https://johnriley81.pythonanywhere.com/leaderboard/";
+/** When true, POST includes `scoreValidation` (server `WORDHUNTER_VALIDATE_SCORE`). */
+export const LEADERBOARD_SUBMIT_SCORE_VALIDATION = false;
 export const LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW = true;
 export const LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW = true;
 export const LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA = 777;

@@ -1,5 +1,6 @@
 import {
   LEADERBOARD_USE_DEMO_DATA,
+  LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW,
   LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW,
   LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA,
@@ -21,6 +22,61 @@ import {
 } from "./leaderboard-lifecycle.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
+
+function normalizeLeaderboardRow(row) {
+  if (!Array.isArray(row)) return ["", 0, "", ""];
+  if (row.length >= 4) {
+    return [
+      String(row[0] ?? ""),
+      Number(row[1]) === 1 ? 1 : 0,
+      row[2],
+      String(row[3] ?? ""),
+    ];
+  }
+  if (row.length >= 3) {
+    return [String(row[0] ?? ""), 0, row[1], String(row[2] ?? "")];
+  }
+  return ["", 0, "", ""];
+}
+
+function normalizeLeaderboardRows(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeLeaderboardRow);
+}
+
+function parsedFetchPayload(raw) {
+  if (raw == null || typeof raw !== "object" || !("body" in raw)) return raw;
+  const b = raw.body;
+  if (typeof b === "string") {
+    try {
+      return JSON.parse(b);
+    } catch {
+      return {};
+    }
+  }
+  return b ?? {};
+}
+
+function leaderboardRowsFromResponse(response, payload, didSubmit) {
+  if (!response.ok) {
+    if (
+      didSubmit &&
+      payload &&
+      typeof payload === "object" &&
+      Array.isArray(payload.top_10)
+    ) {
+      return payload.top_10;
+    }
+    console.error("Leaderboard request failed", response.status, payload);
+    return [];
+  }
+  if (didSubmit) {
+    return payload && typeof payload === "object" && Array.isArray(payload.top_10)
+      ? payload.top_10
+      : [];
+  }
+  return Array.isArray(payload) ? payload : [];
+}
 
 function leaderboardNumericScore(row) {
   const raw = row[2];
@@ -225,7 +281,9 @@ export function createLeaderboardController(rt) {
     leaderboardTable.innerHTML = "";
     const tbody = document.createElement("tbody");
 
-    const rows = mergeDemoLeaderboardPreviewRows(leaderboard);
+    const rows = mergeDemoLeaderboardPreviewRows(
+      normalizeLeaderboardRows(Array.isArray(leaderboard) ? leaderboard : [])
+    );
     const headerRow = document.createElement("tr");
     ["", "👤", "🏹", "🏆"].forEach((headerText) => {
       const th = document.createElement("th");
@@ -438,38 +496,50 @@ export function createLeaderboardController(rt) {
       leaderboardButton.style.backgroundColor = "gray";
     }
 
-    const requestURL = `${rt.leaderboardLink}${rt.getDiffDays()}`;
-    const requestOptions = {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
+    try {
+      const requestURL = `${rt.leaderboardLink}${rt.getLeaderboardPuzzleId()}`;
+      const requestOptions = {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      };
 
-    const willSubmit =
-      rt.getScore() > SCORE_SUBMIT_THRESHOLD && playerName.value !== "";
-    if (willSubmit) {
-      requestOptions.method = "POST";
-      requestOptions.body = JSON.stringify({
-        player: playerName.value,
-        hard: false,
-        score: rt.getScore(),
-        trophy: rt.getLongestWord(),
-      });
+      const willSubmit =
+        rt.getScore() > SCORE_SUBMIT_THRESHOLD && playerName.value !== "";
+      if (willSubmit) {
+        const postBody = {
+          player: playerName.value,
+          score: rt.getScore(),
+          trophy: rt.getLongestWord(),
+        };
+        if (LEADERBOARD_SUBMIT_SCORE_VALIDATION) {
+          postBody.scoreValidation = rt.getScoreValidationTurns();
+        }
+        requestOptions.method = "POST";
+        requestOptions.body = JSON.stringify(postBody);
+      }
+
+      const response = await fetch(requestURL, requestOptions);
+      let raw = {};
+      try {
+        raw = await response.json();
+      } catch {}
+      const payload = parsedFetchPayload(raw);
+      const leaderboard = leaderboardRowsFromResponse(response, payload, willSubmit);
+
+      if (willSubmit && response.ok) {
+        rt.playSound("submit", rt.getIsMuted());
+      }
+
+      renderLeaderboardTable(leaderboard);
+    } finally {
+      if (clicked) {
+        playerName.disabled = false;
+        leaderboardButton.disabled = false;
+        leaderboardButton.style.backgroundColor = "";
+      }
     }
-
-    const response = await fetch(requestURL, requestOptions);
-    if (willSubmit && response.ok) {
-      rt.playSound("submit", rt.getIsMuted());
-    }
-    const data = await response.json();
-    const parsedBody = JSON.parse(data["body"]);
-    const leaderboard =
-      rt.getScore() > SCORE_SUBMIT_THRESHOLD && playerName.value !== ""
-        ? parsedBody.top_10
-        : parsedBody;
-
-    renderLeaderboardTable(leaderboard);
   }
 
   function maybeShowPostGameUi() {

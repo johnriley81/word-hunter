@@ -14,6 +14,8 @@ import {
   TILE_PALETTE_TRANSITION_SETTLE_MS,
   ENDGAME_GRID_BATCH_FADE_MS,
   LEADERBOARD_USE_DEMO_DATA,
+  LEADERBOARD_API_BASE,
+  LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   ENDGAME_SOUND_FALLBACK_MS,
   GAME_OVER_FLASH_TIMES,
@@ -44,7 +46,7 @@ import {
   unlockGameAudio,
 } from "./audio.js";
 import {
-  calculateDiffDays,
+  calculatePuzzleDayIndex,
   loadWordhunterTextAssets,
   puzzleListIndex,
 } from "./game-lifecycle.js";
@@ -79,11 +81,15 @@ import {
   unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
 } from "./grid-layout.js";
 
+function cloneBoardSnapshotForLeaderboard(board) {
+  return board.map((row) => row.map((cell) => String(cell || "").toLowerCase()));
+}
+
 let isMouseDown = false;
 let isGameActive = false;
 let longestWord = "";
 let websiteLink = "https://wordhunter.io/";
-let leaderboardLink = "https://johnriley81.pythonanywhere.com/leaderboard/";
+const leaderboardLink = LEADERBOARD_API_BASE;
 let playerPosition;
 
 export function initGame(ctx) {
@@ -186,7 +192,8 @@ export function initGame(ctx) {
   let wordSet = new Set();
   /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[] }>} */
   let puzzles = [];
-  let diffDays = 0;
+  let leaderboardPuzzleId = 0;
+  let scoreValidationTurns = [];
   let isPaused = false;
   let isMuted = false;
 
@@ -563,6 +570,7 @@ export function initGame(ctx) {
     lockGridSizeForSwipe();
 
     score = 0;
+    scoreValidationTurns = [];
     wordState.currentWord = "";
     ctx.state.perfectHuntWordsSubmitted?.clear();
     ctx.state.perfectHuntOrderIndex = 0;
@@ -618,7 +626,8 @@ export function initGame(ctx) {
     while (grid.firstChild) {
       grid.removeChild(grid.firstChild);
     }
-    diffDays = calculateDiffDays();
+    leaderboardPuzzleId = calculatePuzzleDayIndex();
+    scoreValidationTurns = [];
     const p = puzzles[puzzleListIndex(puzzles.length)];
     const gridLetters = p.starting_grid;
     ctx.state.perfectHunt = p.perfect_hunt;
@@ -686,7 +695,7 @@ export function initGame(ctx) {
   }
 
   function generateNextLetters() {
-    diffDays = calculateDiffDays();
+    leaderboardPuzzleId = calculatePuzzleDayIndex();
     const p = puzzles[puzzleListIndex(puzzles.length)];
     nextLetters = p.next_letters.slice();
     return nextLetters;
@@ -868,6 +877,15 @@ export function initGame(ctx) {
     },
     refreshPerfectHuntHint,
     clearPerfectHuntHintVisual,
+    recordLeaderboardScoreTurn(word, replacementCount) {
+      if (!LEADERBOARD_SUBMIT_SCORE_VALIDATION) return;
+      const letters = cloneBoardSnapshotForLeaderboard(ctx.state.gameBoard);
+      scoreValidationTurns.push([
+        String(word || "").toLowerCase(),
+        letters,
+        replacementCount,
+      ]);
+    },
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -879,7 +897,8 @@ export function initGame(ctx) {
     leaderboardLink,
     getScore: () => score,
     getLongestWord: () => longestWord,
-    getDiffDays: () => diffDays,
+    getLeaderboardPuzzleId: () => leaderboardPuzzleId,
+    getScoreValidationTurns: () => scoreValidationTurns,
     getIsMuted: () => isMuted,
     getIsGameActive: () => isGameActive,
     getEndgamePostUiReady: () => endgamePostUiReady,
@@ -1305,7 +1324,7 @@ export function initGame(ctx) {
     if (playerPosition) {
       leaderboardText = `#${playerPosition} on `;
     }
-    return `${leaderboardText}wordhunter #${diffDays} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`;
+    return `${leaderboardText}wordhunter #${leaderboardPuzzleId} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`;
   }
 
   function writeScoreToClipboardPromise() {
