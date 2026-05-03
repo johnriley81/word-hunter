@@ -1,7 +1,9 @@
+import { wordToTileLabelSequence } from "../board-logic.js";
+
 /** Lowercase a–z pool tokens only. */
 const POOL_SWAP_WORD_RE = /^[a-z]+$/;
 
-/** @param {unknown[]} lists */
+/** @typedef {{ word: string; min_tiles: number; reuse: number; wordTotal: number }} SwapBucketEntry */
 export function buildSwapBucketsByStats(lists) {
   /** @type {Map<string, Map<string, { word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
   const outer = new Map();
@@ -36,8 +38,6 @@ export function buildSwapBucketsByStats(lists) {
   return out;
 }
 
-/** @typedef {{ word: string; min_tiles: number; reuse: number; wordTotal: number }} SwapBucketEntry */
-
 /**
  * Alternate pool words at `placementIndex`: not used on other toolbar slots;
  * Σ in [neighborBelow, neighborAbove] for list sorted by `comparePoolWordEntriesDesc`.
@@ -50,12 +50,13 @@ export function collectSwapAlternatesBetweenNeighborScores(
   if (!(buckets instanceof Map) || buckets.size === 0) return [];
   const list = Array.isArray(currentWordsDesc) ? currentWordsDesc : [];
   const idx = placementIndex;
-  const at = /** @type {{ word?: unknown; wordTotal?: unknown } | undefined} */ (
-    list[idx]
-  );
+  const at = /** @type {SwapBucketEntry | undefined} */ (list[idx]);
   if (!at || idx < 0 || idx >= list.length) return [];
 
   const curLc = String(at.word || "").toLowerCase();
+  const glyphsAtLen = wordToTileLabelSequence(curLc).length;
+  const minTilesAt = Number(at.min_tiles);
+  const reuseAt = Number(at.reuse);
   /** @type {Set<string>} */
   const blocked = new Set();
   for (let i = 0; i < list.length; i++) {
@@ -89,6 +90,9 @@ export function collectSwapAlternatesBetweenNeighborScores(
       if (w === curLc || blocked.has(w)) continue;
       const s = Number(x.wordTotal);
       if (!Number.isFinite(s)) continue;
+      if (Number(x.min_tiles) !== minTilesAt) continue;
+      if (Number(x.reuse) !== reuseAt) continue;
+      if (wordToTileLabelSequence(w).length !== glyphsAtLen) continue;
       if (lowInclusive != null && s < lowInclusive) continue;
       if (highInclusive != null && s > highInclusive) continue;
       if (!uniq.has(w)) uniq.set(w, x);

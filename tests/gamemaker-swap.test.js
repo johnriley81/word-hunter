@@ -17,10 +17,10 @@ const listDesc = [
 ];
 
 const poolExtras = [
-  { word: "oktwoce", wordTotal: 280, min_tiles: 7, reuse: 0 },
-  { word: "oktwoba", wordTotal: 220, min_tiles: 5, reuse: 1 },
-  { word: "oktwoaa", wordTotal: 200, min_tiles: 8, reuse: 0 },
-  { word: "okthree", wordTotal: 300, min_tiles: 9, reuse: 0 },
+  { word: "oktwoce", wordTotal: 280, min_tiles: 5, reuse: 0 },
+  { word: "oktwoba", wordTotal: 220, min_tiles: 5, reuse: 0 },
+  { word: "oktwoaa", wordTotal: 200, min_tiles: 5, reuse: 0 },
+  { word: "okthree", wordTotal: 300, min_tiles: 5, reuse: 0 },
   { word: "badhigh", wordTotal: 310, min_tiles: 3, reuse: 0 },
   { word: "badlowz", wordTotal: 140, min_tiles: 3, reuse: 0 },
 ];
@@ -44,7 +44,7 @@ test("swap score window includes any pool Σ between neighbor scores inclusive",
 test("top slot: no upper bound — picks pool words at least downward neighbor Σ", () => {
   const pool = [
     ...poolExtras,
-    { word: "ultraxx", wordTotal: 1200, min_tiles: 4, reuse: 0 },
+    { word: "ultraxx", wordTotal: 1200, min_tiles: 6, reuse: 0 },
   ];
   const buckets = buildSwapBucketsByStats([{ words: pool }]);
   const alts = collectSwapAlternatesBetweenNeighborScores(buckets, listDesc, 0);
