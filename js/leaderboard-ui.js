@@ -1,5 +1,8 @@
 import {
   LEADERBOARD_USE_DEMO_DATA,
+  LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW,
+  LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW,
+  LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA,
   DEMO_LEADERBOARD_NAME_MAX,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS as DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS,
@@ -7,6 +10,7 @@ import {
   CURRENT_WORD_BRIEF_FADE_IN_MS,
   happyHuntingColor,
   goldTextColor,
+  leaderboardSubPerfectRowColor,
   redTextColorLeaderboard,
 } from "./config.js";
 import {
@@ -18,15 +22,54 @@ import {
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
 
+function leaderboardNumericScore(row) {
+  const raw = row[2];
+  if (raw === "" || raw === null || raw === undefined || Number.isNaN(Number(raw))) {
+    return null;
+  }
+  return Number(raw);
+}
+
+function setLeaderboardCellFlash(td, text, kind) {
+  const cls =
+    kind === "perfect"
+      ? "leaderboard-perfect-hunt-flash"
+      : kind === "over"
+        ? "leaderboard-over-perfect-glow"
+        : null;
+  if (cls) {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    td.appendChild(span);
+    return;
+  }
+  td.textContent = text;
+}
+
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
+
+  function isRunSubmittingSubPerfect() {
+    const cap = rt.getPerfectHuntTargetSum?.() ?? null;
+    const run = Number(rt.getScore());
+    return cap != null && Number.isFinite(cap) && Number.isFinite(run) && run < cap;
+  }
+
+  function syncDemoSelfPseudoSelectSubPerfect(td, subPerfect) {
+    td.classList.toggle(
+      "leaderboard-name-cell--you-pseudo-select--sub-perfect",
+      subPerfect
+    );
+  }
 
   function findDemoSelfRowIndex() {
     const rows = rt.getDemoRows();
     if (!LEADERBOARD_USE_DEMO_DATA || !rows) return -1;
     const trophy = String(rt.getLongestWord() || "").trim();
+    const want = rt.getScore();
     return rows.findIndex(
-      (r) => Number(r[2]) === rt.getScore() && String(r[3] || "").trim() === trophy
+      (r) => leaderboardNumericScore(r) === want && String(r[3] || "").trim() === trophy
     );
   }
 
@@ -37,7 +80,10 @@ export function createLeaderboardController(rt) {
     const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
     td.textContent = "";
     td.removeAttribute("data-demo-self-name");
-    td.classList.remove("leaderboard-name-cell--you-pseudo-select");
+    td.classList.remove(
+      "leaderboard-name-cell--you-pseudo-select",
+      "leaderboard-name-cell--you-pseudo-select--sub-perfect"
+    );
     const input = document.createElement("input");
     input.type = "text";
     input.className = "leaderboard-inline-name-input";
@@ -70,6 +116,7 @@ export function createLeaderboardController(rt) {
       td.textContent = stored.toLowerCase() === "doughack" ? "doug" : stored;
       td.dataset.demoSelfName = "1";
       td.classList.add("leaderboard-name-cell--you-pseudo-select");
+      syncDemoSelfPseudoSelectSubPerfect(td, isRunSubmittingSubPerfect());
     });
   }
 
@@ -85,15 +132,8 @@ export function createLeaderboardController(rt) {
       const playerHasScore = Number(rt.getScore()) > 0;
       qualifies = playerHasScore;
       if (qualifies && rows && rows.length >= 10) {
-        const raw = rows[9][2];
-        const tenthNum = Number(raw);
-        const tenthSlotOccupied =
-          raw !== "" &&
-          raw !== null &&
-          raw !== undefined &&
-          !Number.isNaN(tenthNum) &&
-          tenthNum > 0;
-        if (tenthSlotOccupied) {
+        const tenthNum = leaderboardNumericScore(rows[9]);
+        if (tenthNum != null && tenthNum > 0) {
           qualifies = rt.getScore() > tenthNum;
         }
       }
@@ -139,12 +179,53 @@ export function createLeaderboardController(rt) {
     leaderboardButton.classList.toggle("leaderboard-action--concealed", !qualifies);
   }
 
+  function mergeDemoLeaderboardPreviewRows(leaderboard) {
+    if (!LEADERBOARD_USE_DEMO_DATA) return leaderboard;
+    const target = rt.getPerfectHuntTargetSum?.() ?? null;
+    if (target == null || !Number.isFinite(target)) return leaderboard;
+    let rows = leaderboard;
+    if (LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW) {
+      const hasPerfect = rows.some(
+        (r) =>
+          String(r[0] || "")
+            .trim()
+            .toUpperCase() === "PERFECT" &&
+          Number(r[2]) === target &&
+          String(r[3] || "")
+            .trim()
+            .toUpperCase() === "PERFECT HUNT"
+      );
+      if (!hasPerfect) {
+        rows = mergeDemoRunIntoTop10(rows, "PERFECT", target, "PERFECT HUNT");
+      }
+    }
+    if (LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW) {
+      const extra = Math.max(1, Number(LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA) || 1);
+      const overScore = target + extra;
+      const hasOver = rows.some((r) => {
+        const n = leaderboardNumericScore(r);
+        return (
+          n != null &&
+          n > target &&
+          String(r[0] || "")
+            .trim()
+            .toUpperCase() === "TOOHIGH"
+        );
+      });
+      if (!hasOver) {
+        rows = mergeDemoRunIntoTop10(rows, "TOOHIGH", overScore, "HOW??");
+      }
+    }
+    return rows;
+  }
+
   function renderLeaderboardTable(leaderboard) {
     const { leaderboardTable, playerName } = refs();
     rt.setPlayerPosition(undefined);
     leaderboardTable.innerHTML = "";
     const tbody = document.createElement("tbody");
 
+    const rows = mergeDemoLeaderboardPreviewRows(leaderboard);
     const headerRow = document.createElement("tr");
     ["", "👤", "🏹", "🏆"].forEach((headerText) => {
       const th = document.createElement("th");
@@ -155,26 +236,39 @@ export function createLeaderboardController(rt) {
     headerRow.style.color = "white";
     tbody.appendChild(headerRow);
 
-    leaderboard.forEach((row, index) => {
-      let [playerRaw, rowHardFlag, rowScore, rowTrophy] = row;
+    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
+    const runScoreNum = Number(rt.getScore());
+    const submittingSubPerfect =
+      perfectTarget != null &&
+      Number.isFinite(perfectTarget) &&
+      Number.isFinite(runScoreNum) &&
+      runScoreNum < perfectTarget;
+    const typedPlayerName = String(playerName.value || "").trim();
+
+    rows.forEach((row, index) => {
+      let [playerRaw, rowHardFlag, , rowTrophy] = row;
       const tr = document.createElement("tr");
       let color = "white";
       const hardFlag = Number(rowHardFlag) === 1 ? 1 : 0;
 
       const playerStr = String(playerRaw || "").trim();
-      const hasScore =
-        rowScore !== "" &&
-        rowScore !== null &&
-        rowScore !== undefined &&
-        !Number.isNaN(Number(rowScore));
-      const scoreNum = hasScore ? Number(rowScore) : null;
+      const scoreNum = leaderboardNumericScore(row);
+      const hasScore = scoreNum !== null;
       const trophyStr = String(rowTrophy || "").trim();
       const trophyMatches = trophyStr === String(rt.getLongestWord() || "").trim();
       const isDemoSelfRow =
         LEADERBOARD_USE_DEMO_DATA &&
         hasScore &&
-        scoreNum === rt.getScore() &&
+        Number.isFinite(runScoreNum) &&
+        scoreNum === runScoreNum &&
         trophyMatches;
+      const nameMatches = Boolean(playerStr) && playerStr === typedPlayerName;
+      const scoreMatches =
+        scoreNum !== null && Number.isFinite(runScoreNum) && scoreNum === runScoreNum;
+      const isPerfectHuntScore =
+        perfectTarget != null && hasScore && scoreNum === perfectTarget;
+      const isAbovePerfectHunt =
+        perfectTarget != null && hasScore && scoreNum > perfectTarget;
 
       let displayPlayer = playerStr;
       if (playerStr.toLowerCase() === "doughack") {
@@ -185,24 +279,27 @@ export function createLeaderboardController(rt) {
         color = redTextColorLeaderboard;
       } else if (isDemoSelfRow) {
         rt.setPlayerPosition(index + 1);
-        color = goldTextColor;
+        color = submittingSubPerfect ? "white" : goldTextColor;
       } else if (playerStr.toLowerCase() === "doughack") {
         color = "magenta";
-      } else {
-        const nameMatches =
-          playerStr && playerStr === String(playerName.value || "").trim();
-        const scoreMatches = scoreNum !== null && scoreNum === rt.getScore();
-        if (nameMatches && scoreMatches && trophyMatches) {
-          rt.setPlayerPosition(index + 1);
-          color = goldTextColor;
-        }
+      } else if (nameMatches && scoreMatches && trophyMatches) {
+        rt.setPlayerPosition(index + 1);
+        color = submittingSubPerfect ? "white" : goldTextColor;
       }
 
       tr.style.color = color;
 
       const displayNameCell = displayPlayer || "";
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
-      const displayTrophyCell = trophyStr || "";
+      const displayTrophyCell = isPerfectHuntScore ? "PERFECT HUNT" : trophyStr || "";
+      const nameTrophyFlash = isPerfectHuntScore
+        ? "perfect"
+        : isAbovePerfectHunt
+          ? "over"
+          : null;
+      const submitRowBeigeNameTrophy =
+        submittingSubPerfect &&
+        (isDemoSelfRow || (nameMatches && scoreMatches && trophyMatches));
 
       const positionDisplay = `${index + 1}.`;
 
@@ -210,10 +307,17 @@ export function createLeaderboardController(rt) {
         (cellText, cellIndex) => {
           const td = document.createElement("td");
           if (cellIndex === 1 && isDemoSelfRow && !rt.getDemoSubmitUsed()) {
-            td.textContent = displayNameCell;
             td.dataset.demoSelfName = "1";
             td.classList.add("leaderboard-name-cell--you-pseudo-select");
+            syncDemoSelfPseudoSelectSubPerfect(td, submittingSubPerfect);
             td.style.cursor = "pointer";
+            if (submitRowBeigeNameTrophy)
+              td.style.color = leaderboardSubPerfectRowColor;
+            setLeaderboardCellFlash(td, displayNameCell, nameTrophyFlash);
+          } else if (cellIndex === 1 || cellIndex === 3) {
+            if (submitRowBeigeNameTrophy)
+              td.style.color = leaderboardSubPerfectRowColor;
+            setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
           } else {
             td.textContent = cellText;
           }
@@ -225,7 +329,7 @@ export function createLeaderboardController(rt) {
     });
 
     leaderboardTable.appendChild(tbody);
-    applyLeaderboardSubmitButtonVisibility(leaderboard);
+    applyLeaderboardSubmitButtonVisibility(rows);
   }
 
   function finalizeDemoLeaderboardSubmit() {

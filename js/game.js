@@ -914,6 +914,7 @@ export function initGame(ctx) {
     setPlayerPosition: (v) => {
       playerPosition = v;
     },
+    getPerfectHuntTargetSum: () => ctx.state.perfectHuntTargetSum,
     playSound,
     updateNextLetters,
     revealPostgameRetryAfterCopyScoreVisible: () => {
