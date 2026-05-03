@@ -1,12 +1,19 @@
+/** Client-only row tag for the current-run preview (never from the API). */
+export const LEADERBOARD_META_LIVE_PREVIEW = "live-preview";
+
 export function normalizeLeaderboardRow(row) {
   if (!Array.isArray(row)) return ["", 0, "", ""];
   if (row.length >= 4) {
-    return [
+    const out = [
       String(row[0] ?? ""),
       Number(row[1]) === 1 ? 1 : 0,
       row[2],
       String(row[3] ?? ""),
     ];
+    if (row[4] === LEADERBOARD_META_LIVE_PREVIEW) {
+      out.push(LEADERBOARD_META_LIVE_PREVIEW);
+    }
+    return out;
   }
   if (row.length >= 3) {
     return [String(row[0] ?? ""), 0, row[1], String(row[2] ?? "")];
