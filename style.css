@@ -1493,15 +1493,6 @@ body.rules-overlay-open #leaderboard-elements {
   outline-offset: 0;
 }
 
-#leaderboard-table .leaderboard-inline-name-input.leaderboard-perfect-hunt-flash {
-  color: var(--rules-accent-gold);
-  animation: leaderboardSharedPulse 0.42s ease-in-out infinite;
-}
-
-#leaderboard-table .leaderboard-inline-name-input.leaderboard-over-perfect-glow {
-  animation: leaderboardOverPerfectPulse 0.42s ease-in-out infinite;
-}
-
 #leaderboard-table
   .leaderboard-inline-name-input.leaderboard-inline-name-input--player-gold {
   color: var(--rules-accent-gold);
