@@ -120,14 +120,34 @@ function createGamemaker() {
   }
 
   function refreshListButtonLabel() {
+    if (!btnList) return;
     btnList.textContent = isPuzzleCompleteForExport() ? "next" : "reset";
   }
 
   function setToolbarForEntry(entry, letterDone) {
     if (!entry) {
-      targetEl.textContent = "Done — next";
-      const sum = sumWordTotalsForCurrentList();
-      metaEl.textContent = queuedMetaPrefix() + (sum ? "Total: " + sum : "");
+      if (isPuzzleCompleteForExport()) {
+        targetEl.textContent = "Done — next";
+        const sum = sumWordTotalsForCurrentList();
+        metaEl.textContent = queuedMetaPrefix() + (sum ? "Total: " + sum : "");
+        return;
+      }
+      if (currentWords.length === 0) {
+        targetEl.textContent = "";
+        metaEl.textContent =
+          queuedMetaPrefix() +
+          (!(listsData.lists || []).length
+            ? "Run npm run gen:puzzle-pool (text/gamemaker/pregen/puzzle-pool.json)"
+            : `No puzzle lists with exactly ${WORD_COUNT} words in pool.`);
+        return;
+      }
+      const listExhausted = placementStep >= currentWords.length;
+      targetEl.textContent = "—";
+      metaEl.textContent =
+        queuedMetaPrefix() +
+        (listExhausted
+          ? `List has ${currentWords.length} hunt words (${WORD_COUNT} required). Placed ${buildPlaysChron.length}/${WORD_COUNT}.`
+          : "Pick a hunt word");
       return;
     }
     const w = (entry.word || "").toLowerCase();
@@ -242,14 +262,28 @@ function createGamemaker() {
     return n ? Math.floor(Math.random() * n) : 0;
   }
 
+  function resolveValidListIndex(startIx) {
+    const lists = listsData.lists || [];
+    const n = lists.length;
+    if (!n) return -1;
+    const normalized = ((startIx % n) + n) % n;
+    for (let o = 0; o < n; o++) {
+      const idx = (normalized + o) % n;
+      if ((lists[idx].words || []).length === WORD_COUNT) return idx;
+    }
+    return -1;
+  }
+
   function loadListAt(ix) {
     const lists = listsData.lists || [];
     if (!lists.length) return;
-    const idx = ((ix % lists.length) + lists.length) % lists.length;
-    const L = lists[idx];
-    const wordsIn = (L.words || []).slice();
-    wordsIn.sort(comparePoolWordEntriesDesc);
-    currentWords = wordsIn;
+    const resolved = resolveValidListIndex(ix);
+    if (resolved < 0) currentWords = [];
+    else {
+      const wordsIn = (lists[resolved].words || []).slice();
+      wordsIn.sort(comparePoolWordEntriesDesc);
+      currentWords = wordsIn;
+    }
     placementStep = 0;
     buildPlaysChron = [];
     placement.emptyBoard();
@@ -342,13 +376,11 @@ function createGamemaker() {
     placement.buildEmptyGrid();
     placement.emptyBoard();
     placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
-    if (listsData.lists.length) loadListAt(randomListIndex());
-    else {
+    if (listsData.lists.length) {
+      loadListAt(randomListIndex());
+    } else {
       currentWords = [];
       swapBuckets = new Map();
-      targetEl.textContent = "";
-      metaEl.textContent =
-        "Run npm run gen:puzzle-pool (text/gamemaker/pregen/puzzle-pool.json)";
     }
     updateUi();
     if (btnList) btnList.addEventListener("click", () => loadNextOrReset());
