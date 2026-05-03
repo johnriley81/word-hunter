@@ -16,8 +16,6 @@ import {
   buildPerfectHuntMetadata,
   computePerfectHuntStarterFlat,
   puzzleRowPerfectHuntStarterHints,
-  exportedOrthoNeighborSigMatches,
-  normalizedOrthoNeighborsAtFlat,
   normalizedTorusOrthoNsweQuad,
   torNeighborQuadExportTokensFromBoard,
   PERFECT_HUNT_TOR_NEIGHBOR_LEN,
@@ -208,31 +206,7 @@ test("buildPerfectHuntMetadata: maps PERFECT_HUNT_WORD_COUNT words to choir rate
   assert.equal(meta.choirRateByWord.size, PERFECT_HUNT_WORD_COUNT);
 });
 
-test("exportedOrthoNeighborSigMatches: one vertical + one horizontal sufficient", () => {
-  const actual = normalizedOrthoNeighborsAtFlat(
-    [
-      ["x", "y"],
-      ["a", "b"],
-    ].map((r) => r.map((c) => String(c))),
-    /* flat */ 1,
-    2
-  );
-  assert.equal(
-    exportedOrthoNeighborSigMatches(actual, {
-      n: "wrong",
-      s: "b",
-      w: "wrong",
-      e: null,
-    }),
-    true
-  );
-  assert.equal(
-    exportedOrthoNeighborSigMatches(actual, { n: null, s: "bogus", w: "y" }),
-    false
-  );
-});
-
-test("Perfect Hunt starter: row-major ambiguity resolved by exported flat then neighbor sig", () => {
+test("Perfect Hunt starter: validated starter flat overrides row-major ambiguity", () => {
   const board = [
     ["b", "x", "z", "z"],
     ["x", "a", "z", "z"],
@@ -248,20 +222,12 @@ test("Perfect Hunt starter: row-major ambiguity resolved by exported flat then n
     0,
     true,
     4,
-    puzzleRowPerfectHuntStarterHints([10], null, undefined)
+    puzzleRowPerfectHuntStarterHints([10], undefined)
   );
   assert.equal(byFlat, 10);
-  /* Full four-way sig would match both `a` tiles under relaxed ortho rules; one vertical + one horizontal pin the lower-right `a` only. */
-  const sigOnly = puzzleRowPerfectHuntStarterHints(
-    null,
-    [{ n: "z", e: "z" }],
-    undefined
-  );
-  const byOrtho = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, sigOnly);
-  assert.equal(byOrtho, 10);
 });
 
-test("Perfect Hunt starter: invalid flat hint with no neighbor sig yields null (no legacy scan)", () => {
+test("Perfect Hunt starter: invalid flat hint with no tor yields null when hints bundle exists", () => {
   const board = [
     ["b", "x", "z", "z"],
     ["x", "a", "z", "z"],
@@ -269,7 +235,7 @@ test("Perfect Hunt starter: invalid flat hint with no neighbor sig yields null (
     ["z", "z", "z", "z"],
   ].map((r) => r.map((c) => String(c)));
   const hunt = ["ab"];
-  const wrongFlat = puzzleRowPerfectHuntStarterHints([10], null, undefined);
+  const wrongFlat = puzzleRowPerfectHuntStarterHints([10], undefined);
   const got = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, wrongFlat);
   assert.equal(got, null);
 });
@@ -311,7 +277,7 @@ test("Perfect Hunt starter: toroidal ring picks matching w among two via exporte
     t === "" ? "0" : t
   );
   for (let i = 0; i < 4; i++) base[i] = ring9[i];
-  const hints = puzzleRowPerfectHuntStarterHints(null, null, base);
+  const hints = puzzleRowPerfectHuntStarterHints(undefined, base);
   const flat = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, hints);
   assert.equal(flat, 9);
 });
@@ -326,7 +292,7 @@ test("Perfect Hunt starter: validated starter flat beats tor hints", () => {
   const hunt = ["wzzz"];
   const torZeros = [];
   while (torZeros.length < PERFECT_HUNT_TOR_NEIGHBOR_LEN) torZeros.push("0");
-  const hints = puzzleRowPerfectHuntStarterHints([9], null, torZeros);
+  const hints = puzzleRowPerfectHuntStarterHints([9], torZeros);
   const flat = computePerfectHuntStarterFlat(board, hunt, 0, true, 4, hints);
   assert.equal(flat, 9);
 });

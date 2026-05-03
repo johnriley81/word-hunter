@@ -38,27 +38,6 @@ export function coerceStarterTorNeighborsForRow(
   return out;
 }
 
-const CARDINAL_KEYS = ["n", "s", "e", "w"];
-
-/** @returns {{ n?: string | null; s?: string | null; w?: string | null; e?: string | null }}} */
-export function coerceNeighborSigFromExport(raw, label) {
-  if (!raw || typeof raw !== "object")
-    throw new Error(label + ": neighbor sig must be an object");
-  /** @type {Record<string, string | null>} */
-  const out = {};
-  let any = false;
-  for (const dir of CARDINAL_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(raw, dir)) continue;
-    any = true;
-    const v = /** @type {Record<string, unknown>} */ (raw)[dir];
-    if (v === null) out[dir] = null;
-    else if (typeof v === "string") out[dir] = v.trim().toLowerCase();
-    else throw new Error(label + ": neighbor " + dir + " must be null or string");
-  }
-  if (!any) throw new Error(label + ": neighbor sig has no cardinal keys");
-  return out;
-}
-
 function validateStarterFlatsArray(flatsRaw, label) {
   if (!Array.isArray(flatsRaw) || flatsRaw.length !== HUNT_LEN) {
     throw new Error(label + " must be length " + HUNT_LEN);
@@ -69,15 +48,6 @@ function validateStarterFlatsArray(flatsRaw, label) {
     if (!Number.isFinite(fi) || fi !== Math.floor(fi) || fi < 0 || fi >= GRID * GRID) {
       throw new Error(label + " index " + i + " invalid flat " + fi);
     }
-  }
-}
-
-function validateNeighborSigArray(sigsRaw, label) {
-  if (!Array.isArray(sigsRaw) || sigsRaw.length !== HUNT_LEN) {
-    throw new Error(label + " must be length " + HUNT_LEN);
-  }
-  for (let wi = 0; wi < HUNT_LEN; wi++) {
-    coerceNeighborSigFromExport(sigsRaw[wi], label + "[" + wi + "]");
   }
 }
 
@@ -97,9 +67,7 @@ export function normalizePuzzleRow(raw) {
     next_letters: o.next_letters,
     perfect_hunt: o.perfect_hunt,
     perfect_hunt_starter_flats: o.perfect_hunt_starter_flats,
-    perfect_hunt_starter_neighbor_sigs: o.perfect_hunt_starter_neighbor_sigs,
     perfect_hunt_starter_tor_neighbors: o.perfect_hunt_starter_tor_neighbors,
-    perfect_hunt_starter_hints_diag: o.perfect_hunt_starter_hints_diag,
   };
 }
 
@@ -116,30 +84,17 @@ export function validatePuzzleRow(row) {
   }
   coerceNextLettersForRow(next_letters);
   if (!Array.isArray(perfect_hunt) || perfect_hunt.length !== HUNT_LEN) {
-    throw new Error("perfect_hunt must have length " + HUNT_LEN);
+    throw new Error("perfect_hunt must be length " + HUNT_LEN);
   }
   const hasFlats = row.perfect_hunt_starter_flats != null;
-  const hasSigs = row.perfect_hunt_starter_neighbor_sigs != null;
   const hasTorNeighbors = row.perfect_hunt_starter_tor_neighbors != null;
   if (hasFlats)
     validateStarterFlatsArray(
       row.perfect_hunt_starter_flats,
       "perfect_hunt_starter_flats"
     );
-  if (hasSigs) {
-    validateNeighborSigArray(
-      row.perfect_hunt_starter_neighbor_sigs,
-      "perfect_hunt_starter_neighbor_sigs"
-    );
-  }
   if (hasTorNeighbors) {
     coerceStarterTorNeighborsForRow(row.perfect_hunt_starter_tor_neighbors);
-  }
-  const diag = row.perfect_hunt_starter_hints_diag;
-  if (diag != null && (typeof diag !== "object" || Array.isArray(diag))) {
-    throw new Error(
-      "perfect_hunt_starter_hints_diag must be a plain object when present"
-    );
   }
 }
 
@@ -157,25 +112,10 @@ export function serializePuzzleRow(row) {
   if (Array.isArray(ext.perfect_hunt_starter_flats)) {
     packed.perfect_hunt_starter_flats = ext.perfect_hunt_starter_flats.slice();
   }
-  if (Array.isArray(ext.perfect_hunt_starter_neighbor_sigs)) {
-    packed.perfect_hunt_starter_neighbor_sigs =
-      ext.perfect_hunt_starter_neighbor_sigs.map((sig) => ({
-        .../** @type {object} */ (sig),
-      }));
-  }
   if (Array.isArray(ext.perfect_hunt_starter_tor_neighbors)) {
     packed.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
       ext.perfect_hunt_starter_tor_neighbors,
       "serialize perfect_hunt_starter_tor_neighbors"
-    );
-  }
-  if (
-    ext.perfect_hunt_starter_hints_diag != null &&
-    typeof ext.perfect_hunt_starter_hints_diag === "object" &&
-    !Array.isArray(ext.perfect_hunt_starter_hints_diag)
-  ) {
-    packed.perfect_hunt_starter_hints_diag = JSON.parse(
-      JSON.stringify(ext.perfect_hunt_starter_hints_diag)
     );
   }
   return JSON.stringify(packed);
@@ -214,26 +154,10 @@ export function parsePuzzlesFileText(text, opts = {}) {
         /** @type {unknown[]} */ (norm.perfect_hunt_starter_flats)
       );
     }
-    if (norm.perfect_hunt_starter_neighbor_sigs != null) {
-      entry.perfect_hunt_starter_neighbor_sigs = /** @type {unknown[]} */ (
-        norm.perfect_hunt_starter_neighbor_sigs
-      ).map((raw, wi) =>
-        coerceNeighborSigFromExport(raw, fileLabel + " line " + lineNo + "[" + wi + "]")
-      );
-    }
     if (norm.perfect_hunt_starter_tor_neighbors != null) {
       entry.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
         /** @type {unknown[]} */ (norm.perfect_hunt_starter_tor_neighbors),
         fileLabel + " line " + lineNo + ": perfect_hunt_starter_tor_neighbors"
-      );
-    }
-    if (
-      norm.perfect_hunt_starter_hints_diag != null &&
-      typeof norm.perfect_hunt_starter_hints_diag === "object" &&
-      !Array.isArray(norm.perfect_hunt_starter_hints_diag)
-    ) {
-      entry.perfect_hunt_starter_hints_diag = /** @type {Record<string, unknown>} */ (
-        JSON.parse(JSON.stringify(norm.perfect_hunt_starter_hints_diag))
       );
     }
     puzzles.push(entry);
@@ -250,9 +174,7 @@ export function dictExportToCanonicalRow(d) {
     next_letters: d.next_letters,
     perfect_hunt: d.perfect_hunt,
     perfect_hunt_starter_flats: dr.perfect_hunt_starter_flats,
-    perfect_hunt_starter_neighbor_sigs: dr.perfect_hunt_starter_neighbor_sigs,
     perfect_hunt_starter_tor_neighbors: dr.perfect_hunt_starter_tor_neighbors,
-    perfect_hunt_starter_hints_diag: dr.perfect_hunt_starter_hints_diag,
   });
   validatePuzzleRow(row);
   /** @type {Record<string, unknown>} */
@@ -271,24 +193,10 @@ export function dictExportToCanonicalRow(d) {
       /** @type {unknown[]} */ (rf.perfect_hunt_starter_flats)
     );
   }
-  if (Array.isArray(rf.perfect_hunt_starter_neighbor_sigs)) {
-    out.perfect_hunt_starter_neighbor_sigs = /** @type {unknown[]} */ (
-      rf.perfect_hunt_starter_neighbor_sigs
-    ).map((raw, wi) => coerceNeighborSigFromExport(raw, "dict_export sig " + wi));
-  }
   if (Array.isArray(rf.perfect_hunt_starter_tor_neighbors)) {
     out.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
       rf.perfect_hunt_starter_tor_neighbors,
       "dict_export perfect_hunt_starter_tor_neighbors"
-    );
-  }
-  if (
-    rf.perfect_hunt_starter_hints_diag != null &&
-    typeof rf.perfect_hunt_starter_hints_diag === "object" &&
-    !Array.isArray(rf.perfect_hunt_starter_hints_diag)
-  ) {
-    out.perfect_hunt_starter_hints_diag = JSON.parse(
-      JSON.stringify(rf.perfect_hunt_starter_hints_diag)
     );
   }
   return out;

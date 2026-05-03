@@ -2,6 +2,7 @@ import {
   GRID_SIZE,
   SHIFT_AXIS_LOCK_PX,
   SHIFT_SLIDE_SENSITIVITY,
+  SHIFT_MAX_STEPS_PER_GESTURE,
   SHIFT_SETTLE_MS,
   SHIFT_SETTLE_EASE,
   SHIFT_COMMIT_SNAP_MS,
@@ -28,6 +29,17 @@ import { unlockGameAudio } from "./audio.js";
 
 const SHIFT_PREVIEW_HUNT_HINT_CLASS = "shift-preview-tile--hunt-hint";
 
+function indexMod(i, n) {
+  return ((i % n) + n) % n;
+}
+
+/** Two rAF hops so styles flush before assigning `transition` (snap/rejoin). */
+function deferTwoAnimationFrames(fn) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(fn);
+  });
+}
+
 export function ensureShiftPreviewElements(ctx) {
   const { shiftPreviewStrip } = ctx.refs;
   if (!shiftPreviewStrip) return;
@@ -37,13 +49,16 @@ export function ensureShiftPreviewElements(ctx) {
     inner.className = "shift-preview-inner";
     shiftPreviewStrip.appendChild(inner);
   }
-  const cap = GRID_SIZE * GRID_SIZE;
-  while (inner.querySelectorAll(".shift-preview-tile").length < cap) {
+  const cap = GRID_SIZE * SHIFT_MAX_STEPS_PER_GESTURE;
+  const tiles = inner.querySelectorAll(".shift-preview-tile");
+  const frag = document.createDocumentFragment();
+  for (let i = tiles.length; i < cap; i++) {
     const d = document.createElement("div");
     d.className = "grid-button grid-button--active shift-preview-tile";
     d.setAttribute("aria-hidden", "true");
-    inner.appendChild(d);
+    frag.appendChild(d);
   }
+  inner.appendChild(frag);
   inner.querySelectorAll(".shift-preview-tile").forEach((el) => {
     el.classList.add("grid-button--active");
     el.classList.remove("grid-button--inactive");
@@ -61,6 +76,14 @@ export function attachShiftGestures(ctx, host) {
     boardShiftHints,
     boardShiftDismissButton,
   } = ctx.refs;
+
+  function scheduleLineOverlayFromShiftHost() {
+    if (typeof host.scheduleSyncLineOverlaySize === "function") {
+      host.scheduleSyncLineOverlaySize();
+    } else {
+      host.syncLineOverlaySize();
+    }
+  }
 
   function resetShiftVisualState() {
     ctx.state.shift.visualTx = 0;
@@ -135,7 +158,6 @@ export function attachShiftGestures(ctx, host) {
             ctx.state.perfectHuntOnPace,
             n,
             ctx.state.perfectHuntStarterFlats,
-            ctx.state.perfectHuntStarterNeighborSigs,
             ctx.state.perfectHuntStarterTorNeighbors
           );
     for (let i = 0; i < tiles.length; i++) {
@@ -160,16 +182,16 @@ export function attachShiftGestures(ctx, host) {
   function fillPreviewStripHorizontalLeft(inner, k) {
     fillPreviewStripWithBoard(inner, k, (idx, n, cols) => {
       const r = Math.floor(idx / cols);
-      const cInStrip = idx % cols;
-      return { r, c: n - cols + cInStrip };
+      const j = idx % cols;
+      return { r, c: indexMod(n - cols + j, n) };
     });
   }
 
   function fillPreviewStripHorizontalRight(inner, k) {
-    fillPreviewStripWithBoard(inner, k, (idx, _n, cols) => {
+    fillPreviewStripWithBoard(inner, k, (idx, n, cols) => {
       const r = Math.floor(idx / cols);
-      const c = idx % cols;
-      return { r, c };
+      const j = idx % cols;
+      return { r, c: j % n };
     });
   }
 
@@ -177,15 +199,15 @@ export function attachShiftGestures(ctx, host) {
     fillPreviewStripWithBoard(inner, k, (idx, n, rows) => {
       const rInStrip = Math.floor(idx / n);
       const c = idx % n;
-      return { r: n - rows + rInStrip, c };
+      return { r: indexMod(n - rows + rInStrip, n), c };
     });
   }
 
   function fillPreviewStripVerticalBottom(inner, k) {
     fillPreviewStripWithBoard(inner, k, (idx, n) => {
-      const r = Math.floor(idx / n);
+      const rStrip = Math.floor(idx / n);
       const c = idx % n;
-      return { r, c };
+      return { r: rStrip % n, c };
     });
   }
 
@@ -437,7 +459,7 @@ export function attachShiftGestures(ctx, host) {
     if (gridLineWrapper) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
   }
 
   function finishShiftSwipeAnimation() {
@@ -457,12 +479,10 @@ export function attachShiftGestures(ctx, host) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
     ctx.state.shift.animating = false;
-    host.syncLineOverlaySize();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        host.unlockGridSizeAfterSwipe();
-        host.syncLineOverlaySize();
-      });
+    scheduleLineOverlayFromShiftHost();
+    deferTwoAnimationFrames(() => {
+      host.unlockGridSizeAfterSwipe();
+      scheduleLineOverlayFromShiftHost();
     });
   }
 
@@ -542,7 +562,7 @@ export function attachShiftGestures(ctx, host) {
       }
       grid.style.transition = "";
       grid.style.transform = "";
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       return;
     }
 
@@ -568,7 +588,7 @@ export function attachShiftGestures(ctx, host) {
     const dx = before.left - after.left;
     const dy = before.top - after.top;
 
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
     animateGridSettleFromTo(dx, dy, () => {
       finishShiftSwipeAnimation();
     });
@@ -608,7 +628,7 @@ export function attachShiftGestures(ctx, host) {
       const after = grid.getBoundingClientRect();
       const dx = before.left - after.left;
       const dy = before.top - after.top;
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       animateGridSettleFromTo(dx, dy, () => {
         finishShiftSwipeAnimation();
       });
@@ -656,7 +676,7 @@ export function attachShiftGestures(ctx, host) {
       commitDone = true;
       applyShift();
       host.syncDomFromBoard();
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
     };
 
     const afterSnapTeardown = () => {
@@ -820,21 +840,19 @@ export function attachShiftGestures(ctx, host) {
 
         gridStage.style.transition = "none";
         void gridStage.offsetHeight;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (gridStage) {
-              gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
-              gridStage.addEventListener("transitionend", onRejoinTransitionEnd);
-            }
-            grid.removeEventListener("transitionend", onRejoinTransitionEnd);
-            grid.addEventListener("transitionend", onRejoinTransitionEnd);
-            gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-            grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-            void grid.offsetHeight;
-            void gridStage.offsetHeight;
-            gridStage.style.transform = "translate(0px, 0px)";
-            grid.style.transform = "translate(0px, 0px)";
-          });
+        deferTwoAnimationFrames(() => {
+          if (gridStage) {
+            gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
+            gridStage.addEventListener("transitionend", onRejoinTransitionEnd);
+          }
+          grid.removeEventListener("transitionend", onRejoinTransitionEnd);
+          grid.addEventListener("transitionend", onRejoinTransitionEnd);
+          gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+          grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+          void grid.offsetHeight;
+          void gridStage.offsetHeight;
+          gridStage.style.transform = "translate(0px, 0px)";
+          grid.style.transform = "translate(0px, 0px)";
         });
       }
     };
@@ -843,7 +861,7 @@ export function attachShiftGestures(ctx, host) {
       afterSnapTeardown();
     }, SHIFT_GESTURE_FALLBACK_MS);
 
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
 
     if (skipSnapAnimate) {
       gridStage.style.transition = "none";
@@ -899,20 +917,30 @@ export function attachShiftGestures(ctx, host) {
       gridStage.style.transition = "none";
       gridStage.style.transform = stageTransformFromDrag;
       void gridStage.offsetHeight;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (gridStage && snapStageTransitionEndHandler) {
-            gridStage.removeEventListener(
-              "transitionend",
-              snapStageTransitionEndHandler
-            );
-          }
-          gridStage.addEventListener("transitionend", snapStageTransitionEndHandler);
-          gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-          gridStage.style.transform = targetTransform;
-        });
+      deferTwoAnimationFrames(() => {
+        if (gridStage && snapStageTransitionEndHandler) {
+          gridStage.removeEventListener("transitionend", snapStageTransitionEndHandler);
+        }
+        gridStage.addEventListener("transitionend", snapStageTransitionEndHandler);
+        gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+        gridStage.style.transform = targetTransform;
       });
     }
+  }
+
+  function shiftsAllowedNow() {
+    return typeof host.getShiftsAllowed !== "function" || host.getShiftsAllowed();
+  }
+
+  function abortShiftGestureIfDisallowed(e) {
+    if (shiftsAllowedNow()) return false;
+    try {
+      boardShiftZone.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    ctx.state.shift.pointerId = null;
+    ctx.state.shift.dragLockedHorizontal = null;
+    resetShiftDragVisualHard();
+    return true;
   }
 
   function onShiftPointerDown(e) {
@@ -946,7 +974,7 @@ export function attachShiftGestures(ctx, host) {
     if (gridLineWrapper) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
     try {
       boardShiftZone.setPointerCapture(e.pointerId);
     } catch (_) {}
@@ -954,6 +982,7 @@ export function attachShiftGestures(ctx, host) {
 
   function onShiftPointerMove(e) {
     if (host.shiftState.pointerId !== e.pointerId || host.shiftState.animating) return;
+    if (abortShiftGestureIfDisallowed(e)) return;
     if (e.cancelable) e.preventDefault();
 
     const samples =
@@ -991,7 +1020,7 @@ export function attachShiftGestures(ctx, host) {
       grid.style.transform = "translate(0, 0)";
       clearShiftPreview();
       resetShiftVisualState();
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       return;
     }
 
@@ -1029,7 +1058,7 @@ export function attachShiftGestures(ctx, host) {
     );
     ctx.state.shift.visualTx = q.tx;
     ctx.state.shift.visualTy = q.ty;
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
   }
 
   function onShiftPointerUp(e) {

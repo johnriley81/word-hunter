@@ -261,7 +261,7 @@ if (!raw.trim()) {
     "Env: PUZZLE_SHIFT_DEPTH, PUZZLE_MAX_PATHS, PUZZLE_MAX_NODES, PUZZLE_NO_MEMO, PUZZLE_DEBUG"
   );
   console.error(
-    '  --hints-json  prints {"perfect_hunt_starter_flats":[...],"perfect_hunt_starter_neighbor_sigs":[...]}'
+    "  --hints-json  prints shift-aware replay object (flats + perfect_hunt_starter_tor_neighbors replay data; solver may include perfect_hunt_starter_neighbor_sigs in-memory / in JSON tooling output)"
   );
   console.error(
     "    from the shift-aware solver replay (omit if using static export-only replay)."

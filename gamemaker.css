@@ -166,8 +166,7 @@ body.gamemaker-page > #bottom-dock {
 }
 
 body.gamemaker-page > #bottom-dock {
-  margin-top: auto;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   width: 100%;
   min-height: var(--dock-min-height);
   padding-bottom: 0;

@@ -7,6 +7,7 @@ import { applyColumnShiftInPlace, applyRowShiftInPlace } from "../board-logic.js
  *   getGameBoard: () => string[][];
  *   syncDomFromBoard: () => void;
  *   syncLineOverlaySize: () => void;
+ *   scheduleSyncLineOverlaySize: () => void;
  *   lockGridSizeForSwipe: () => void;
  *   unlockGridSizeAfterSwipe: () => void;
  *   getIsGameActive: () => boolean;
@@ -19,6 +20,7 @@ export function createGamemakerShiftHost(deps) {
     getGameBoard,
     syncDomFromBoard,
     syncLineOverlaySize,
+    scheduleSyncLineOverlaySize,
     lockGridSizeForSwipe,
     unlockGridSizeAfterSwipe,
     getIsGameActive,
@@ -51,7 +53,8 @@ export function createGamemakerShiftHost(deps) {
     getIsGameActive,
     getIsPaused: () => false,
     getIsMouseDown,
-    getShiftsAllowed: () => !getIsMouseDown(),
+    getShiftsAllowed: () =>
+      ctx.state.word.wordReplaceLockGen === 0 && !getIsMouseDown(),
     getIsMuted: () => true,
     endGame,
     syncDomFromBoard,
@@ -64,6 +67,7 @@ export function createGamemakerShiftHost(deps) {
       shiftHost.syncDomFromBoard();
     },
     syncLineOverlaySize,
+    scheduleSyncLineOverlaySize,
     clearTapStreak: () => {
       ctx.state.shift.doubleTapPrevAt = 0;
     },
