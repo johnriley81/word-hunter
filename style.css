@@ -45,7 +45,7 @@
   --perfect-hunt-starter-hint-glow-blur-static: 11px;
   --perfect-hunt-starter-hint-glow-spread-static: 1px;
   --grid-button-text-color: white;
-  --leaderboard-button-background-color: #000000;
+  --leaderboard-button-background-color: #8e8e93;
   --leaderboard-button-text-color: white;
   --button-background-color: #ffffff;
   --button-text-color: hwb(275 16% 5%);
@@ -1624,10 +1624,10 @@ body.rules-overlay-open #leaderboard-elements {
   font-family: "Press Start 2P", cursive;
   font-size: clamp(0.36rem, 2.5vw, 0.56rem);
   line-height: 1.2;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.22);
   border-radius: 8px;
-  background: transparent;
-  color: #fff;
+  background-color: var(--leaderboard-button-background-color);
+  color: var(--leaderboard-button-text-color);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
