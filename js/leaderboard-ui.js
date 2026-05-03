@@ -456,7 +456,6 @@ export function createLeaderboardController(rt) {
   async function refreshLeaderboardFromApi(clicked) {
     const { playerName, leaderboardButton } = refs();
     if (clicked) {
-      rt.playSound("click", rt.getIsMuted());
       playerName.disabled = true;
       leaderboardButton.disabled = true;
       leaderboardButton.style.backgroundColor = "gray";
@@ -524,6 +523,8 @@ export function createLeaderboardController(rt) {
         rt.playSound("submit", rt.getIsMuted());
         rt.setLiveLeaderboardSubmitUsed(true);
         playerName.value = nameTrim;
+      } else if (clicked) {
+        rt.playSound("click", rt.getIsMuted());
       }
 
       if (
