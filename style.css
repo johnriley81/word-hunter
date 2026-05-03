@@ -1360,7 +1360,7 @@ body.rules-overlay-open #leaderboard-elements {
 }
 
 #leaderboard-table td:nth-child(2) {
-  text-align: left;
+  text-align: center;
 }
 
 #leaderboard-table td:nth-child(1),
@@ -1483,7 +1483,7 @@ body.rules-overlay-open #leaderboard-elements {
   line-height: inherit;
   color: inherit;
   text-shadow: inherit;
-  text-align: left;
+  text-align: center;
   border: none;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.4);
@@ -1594,6 +1594,7 @@ body.rules-overlay-open #leaderboard-elements {
   padding: 4px 6px;
   font-size: 0.5rem;
   box-sizing: border-box;
+  text-align: center;
 }
 
 #leaderboard-button {
