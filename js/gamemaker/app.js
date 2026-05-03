@@ -4,7 +4,10 @@ import { wordToTileLabelSequence } from "../board-logic.js";
 import { loadWordlistWordSet } from "../game-lifecycle.js";
 import { attachShiftGestures } from "../shift-dom.js";
 import { comparePoolWordEntriesDesc } from "./pool-order.js";
-import { buildSwapBucketsByStats } from "./swap-buckets.js";
+import {
+  buildSwapBucketsByStats,
+  collectSwapAlternatesBetweenNeighborScores,
+} from "./swap-buckets.js";
 import { buildGamemakerDictExportPayload } from "./build-export-payload.js";
 import { createGridPlacementApi } from "./grid-placement.js";
 import { createGamemakerShiftHost } from "./shift-host.js";
@@ -53,10 +56,8 @@ function createGamemaker() {
   let currentWords = /** @type {any[]} */ ([]);
   let placementStep = 0;
   let buildPlaysChron =
-    /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[] }>} */ ([]);
+    /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[], starter_tor_neighbor_quad: string[] }>} */ ([]);
   let boardSnapshotPreDrag = /** @type {string[][] | null} */ (null);
-  /** Board before any hunt word is committed — required for forward replay / starter hints (not the post-solve grid). */
-  let openingGridForExport = /** @type {string[][] | null} */ (null);
   let puzzleBatch = [];
   /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
   let swapBuckets = new Map();
@@ -103,20 +104,12 @@ function createGamemaker() {
   }
 
   function swapAlternatesForCurrentStep() {
-    const entry = getTargetEntry();
-    if (!entry) return [];
-    const key =
-      `${Number(entry.min_tiles)}|` +
-      `${Number(entry.reuse)}|` +
-      `${Number(entry.wordTotal)}`;
-    const bucket = swapBuckets.get(key) || [];
-    const cur = String(entry.word || "").toLowerCase();
-    const blocked = new Set();
-    for (let i = 0; i < currentWords.length; i++) {
-      if (i === placementStep) continue;
-      blocked.add(String(currentWords[i]?.word || "").toLowerCase());
-    }
-    return bucket.filter((x) => x.word !== cur && !blocked.has(x.word));
+    if (swapBuckets.size === 0 || getCurrentWordIndexAsc() < 0) return [];
+    return collectSwapAlternatesBetweenNeighborScores(
+      swapBuckets,
+      currentWords,
+      placementStep
+    );
   }
 
   function refreshWordSwapButton() {
@@ -187,14 +180,9 @@ function createGamemaker() {
     setBoardSnapshotPreDrag: (v) => {
       boardSnapshotPreDrag = v;
     },
-    captureOpeningGridIfFirstCommit(snap) {
-      if (buildPlaysChron.length === 0 && snap) {
-        openingGridForExport = snap.map((row) => row.slice());
-      }
-    },
     onToolbarLetterProgress: refreshToolbarLetterProgress,
     appendBuildPlay(play) {
-      buildPlaysChron.push(play);
+      buildPlaysChron.push({ ...play });
     },
     bumpPlacementStep() {
       placementStep++;
@@ -265,7 +253,6 @@ function createGamemaker() {
     currentWords = wordsIn;
     placementStep = 0;
     buildPlaysChron = [];
-    openingGridForExport = null;
     placement.emptyBoard();
     placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     placement.resetSelection();
@@ -288,11 +275,10 @@ function createGamemaker() {
     ta.remove();
   }
 
-  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } | null} */
+  /** @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_tor_neighbors: string[] } | null} */
   function buildDictExportFromState() {
     return buildGamemakerDictExportPayload({
       gameBoard: ctx.state.gameBoard,
-      openingGridForExport,
       buildPlaysChron,
       currentWords,
       wordCount: WORD_COUNT,

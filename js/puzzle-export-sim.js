@@ -6,6 +6,9 @@ import {
   normalizeTileText,
   minUniqueTilesForReuseRule,
   normalizedOrthoNeighborsAtFlat,
+  applyColumnShiftInPlace,
+  applyRowShiftInPlace,
+  torNeighborQuadExportTokensFromBoard,
 } from "./board-logic.js";
 
 /** True when every cell is blank after `normalizeTileText` (e.g. gamemaker empty template). */
@@ -157,43 +160,140 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
   return { ok: true, reason: "ok", queueLeft: q };
 }
 
-/** Same replay as verifyForwardPuzzle — starter flats + orthogonal neighbor presets for exports. Null if invalid.
- * @param {{ fillEmptyPathCells?: boolean }} [options] — if `fillEmptyPathCells`, empty board cells along each word path are treated as matching (filled with glyph for replay only). Use for gamemaker “blank canvas” builds whose exported `starting_grid` is all empty.
+/**
+ * Clone `board`, apply committed row/col steps (`row`/`col`, signed steps match game shift semantics).
  */
-export function computePerfectHuntStarterHints(
+export function applyShiftSeqToBoard(board, seq, gridSize = GRID_SIZE) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || GRID_SIZE);
+  const b = board.map((row) => row.slice());
+  for (const op of seq || []) {
+    if (!op || typeof op !== "object") continue;
+    const t = op.t === "col" || op.t === "row" ? op.t : null;
+    const s = Number(op.s);
+    if (!t || !Number.isFinite(s)) continue;
+    const steps = Math.trunc(s);
+    if (t === "col") applyColumnShiftInPlace(b, steps, n);
+    else applyRowShiftInPlace(b, steps, n);
+  }
+  return b;
+}
+
+/** @param {unknown} raw */
+export function normalizeShiftsBeforeOps(raw) {
+  if (!Array.isArray(raw)) return [];
+  /** @type {Array<{ t: "row" | "col"; s: number }>} */
+  const out = [];
+  for (const op of raw) {
+    if (!op || typeof op !== "object") continue;
+    const rec = /** @type {{ t?: unknown; s?: unknown }} */ (op);
+    const tk = rec.t === "col" || rec.t === "row" ? rec.t : null;
+    const s = Math.trunc(Number(rec.s));
+    if (!tk || !Number.isFinite(s)) continue;
+    out.push({ t: tk, s });
+  }
+  return out;
+}
+
+/**
+ * Shift-aware ascending replay: derive starter flats + orthogonal neighbor signatures after
+ * applying optional per-word row/column shifts (`analyze-puzzle-json`, `computePerfectHuntStarterHints`).
+ * @param {unknown[] | null | undefined} [shiftsBeforeByWordAsc] — length aligns with hunt; missing entries treated as []
+ * @param {{ fillEmptyPathCells?: boolean }} [options]
+ * @returns {(
+ *   | { ok: true; perfect_hunt_starter_flats: number[]; perfect_hunt_starter_neighbor_sigs: Array<{ n: string | null; s: string | null; w: string | null; e: string | null }> }
+ *   | {
+ *       ok: false;
+ *       reason: string;
+ *       phase?: string;
+ *       word_index?: number;
+ *       step?: number;
+ *       flat?: number;
+ *       want?: string;
+ *       got?: string;
+ *       queue_left_len?: number;
+ *     }
+ * )}
+ */
+export function shiftAwareStarterHintsReplay(
   grid0,
   nextIn,
   wordsAsc,
   pathFlatByWordAsc,
+  shiftsBeforeByWordAsc,
   options = {}
 ) {
   const n = GRID_SIZE;
   const fillEmptyPathCells = options.fillEmptyPathCells === true;
-  const b = grid0.map((row) => row.slice());
   let q;
   try {
     q = canonicalNextLettersFromJsonArray(Array.isArray(nextIn) ? nextIn : []);
-  } catch {
-    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, reason: msg, phase: "next_letters" };
   }
   const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
   if (nw === 0 || !pathFlatByWordAsc || pathFlatByWordAsc.length !== nw) {
-    return null;
+    return {
+      ok: false,
+      reason: "wordsAsc and pathFlatByWordAsc length mismatch or empty",
+      phase: "input",
+    };
   }
+  /** @type {Array<Array<{ t: "col" | "row"; s: number }>>} */
+  const shiftRows = [];
+  for (let wi = 0; wi < nw; wi++) {
+    if (
+      Array.isArray(shiftsBeforeByWordAsc) &&
+      Array.isArray(shiftsBeforeByWordAsc[wi])
+    ) {
+      shiftRows.push(normalizeShiftsBeforeOps(shiftsBeforeByWordAsc[wi]));
+    } else {
+      shiftRows.push([]);
+    }
+  }
+
   /** @type {number[]} */
   const flats = [];
   /** @type {Array<{ n: string | null; s: string | null; w: string | null; e: string | null }>} */
   const sigs = [];
 
+  /** @type {string[][]} */
+  let b = grid0.map((row) => row.slice());
+
   for (let wi = 0; wi < nw; wi++) {
+    b = applyShiftSeqToBoard(b, shiftRows[wi], n);
+
     const w = (wordsAsc[wi] || "").toLowerCase();
     const path = pathFlatByWordAsc[wi];
-    if (!w || !path || !path.length) return null;
+    if (!w || !path || !path.length) {
+      return {
+        ok: false,
+        reason: "missing word or path at index " + wi,
+        word_index: wi,
+        phase: "word_path",
+      };
+    }
     const glyphs = wordToTileLabelSequence(w);
-    if (glyphs.length !== path.length) return null;
+    if (glyphs.length !== path.length) {
+      return {
+        ok: false,
+        reason: "glyphs vs path at word " + wi,
+        word_index: wi,
+        phase: "glyph_path",
+      };
+    }
     for (let i = 0; i < path.length; i++) {
       const f = path[i];
-      if (f < 0 || f >= GRID_CELL_COUNT) return null;
+      if (f < 0 || f >= GRID_CELL_COUNT) {
+        return {
+          ok: false,
+          reason: "path index oob " + f,
+          word_index: wi,
+          step: i,
+          flat: f,
+          phase: "path_index",
+        };
+      }
       const r = Math.floor(f / n);
       const c = f % n;
       const g = normalizeTileText(b[r][c]);
@@ -202,7 +302,16 @@ export function computePerfectHuntStarterHints(
         if (fillEmptyPathCells && g === "") {
           b[r][c] = glyphs[i];
         } else {
-          return null;
+          return {
+            ok: false,
+            reason: "word " + wi + " at step " + i + " want " + need + " got " + g,
+            word_index: wi,
+            step: i,
+            flat: f,
+            want: need,
+            got: g,
+            phase: "glyph_match",
+          };
         }
       }
     }
@@ -211,13 +320,78 @@ export function computePerfectHuntStarterHints(
     const ortho = normalizedOrthoNeighborsAtFlat(b, path[0], n);
     sigs.push({ n: ortho.n, s: ortho.s, w: ortho.w, e: ortho.e });
 
-    if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) return null;
+    if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) {
+      return {
+        ok: false,
+        reason: "not enough next letters for word " + wi,
+        word_index: wi,
+        phase: "refill",
+        queue_left_len: q.length,
+      };
+    }
   }
-  if (q.length !== 0) return null;
+  if (q.length !== 0) {
+    return {
+      ok: false,
+      reason: "next letters not fully consumed, left: " + q.length,
+      phase: "sack_tail",
+      queue_left_len: q.length,
+    };
+  }
   return {
+    ok: true,
     perfect_hunt_starter_flats: flats,
     perfect_hunt_starter_neighbor_sigs: sigs,
   };
+}
+
+/**
+ * Replay hunt like `computePerfectHuntStarterHints`, but applies `shiftsBeforeByWordAsc[wi]` immediately before spelling each ascending word (`{ t:'row'|'col', s: signedSteps }`).
+ * Same return shape; null when replay/refill/sack invariant fails.
+ */
+export function computeShiftAwareStarterHints(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc,
+  shiftsBeforeByWordAsc,
+  options = {}
+) {
+  const r = shiftAwareStarterHintsReplay(
+    grid0,
+    nextIn,
+    wordsAsc,
+    pathFlatByWordAsc,
+    shiftsBeforeByWordAsc,
+    options
+  );
+  if (!r.ok) return null;
+  return {
+    perfect_hunt_starter_flats: r.perfect_hunt_starter_flats,
+    perfect_hunt_starter_neighbor_sigs: r.perfect_hunt_starter_neighbor_sigs,
+  };
+}
+
+/** Same replay as verifyForwardPuzzle — starter presets with no row/col shifts between words. Null if invalid.
+ * @param {{ fillEmptyPathCells?: boolean }} [options]
+ */
+export function computePerfectHuntStarterHints(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc,
+  options = {}
+) {
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  const noop = Array.from({ length: nw }, () => []);
+  return computeShiftAwareStarterHints(
+    grid0,
+    nextIn,
+    wordsAsc,
+    pathFlatByWordAsc,
+    noop,
+    options
+  );
 }
 
 /**
@@ -355,7 +529,7 @@ function coveredFirstVisitsFromBoard(board, pathFlat) {
  *
  * @param {string[][]} editorStart4
  * @param {Array<{ word: string, pathFlat: number[], min_tiles?: number }>} playsChron
- * @returns {Array<{ word: string, pathFlat: number[], covered: string[], min_tiles: number }>}
+ * @returns {Array<{ word: string; pathFlat: number[]; covered: string[]; min_tiles: number; starter_tor_neighbor_quad: string[] }>}
  */
 export function recomputeCoveredChronFromHarness(editorStart4, playsChron) {
   const b = editorStart4.map((r) => r.map((c) => String(c || "").toLowerCase()));
@@ -365,6 +539,19 @@ export function recomputeCoveredChronFromHarness(editorStart4, playsChron) {
     const path = p.pathFlat || [];
     const covered = coveredFirstVisitsFromBoard(b, path);
     const glyphs = wordToTileLabelSequence(w);
+    for (let i = 0; i < path.length; i++) {
+      const f = path[i];
+      if (f < 0 || f >= GRID_CELL_COUNT) continue;
+      const r = Math.floor(f / GRID_SIZE);
+      const c = f % GRID_SIZE;
+      if (i < glyphs.length) b[r][c] = glyphs[i];
+    }
+    const pf0 =
+      path.length > 0 && path[0] >= 0 && path[0] < GRID_CELL_COUNT ? path[0] : null;
+    const starter_tor_neighbor_quad =
+      pf0 != null
+        ? torNeighborQuadExportTokensFromBoard(b, pf0, GRID_SIZE)
+        : ["0", "0", "0", "0"];
     out.push({
       word: p.word,
       pathFlat: path,
@@ -373,14 +560,8 @@ export function recomputeCoveredChronFromHarness(editorStart4, playsChron) {
         typeof p.min_tiles === "number"
           ? p.min_tiles
           : minUniqueTilesForReuseRule(glyphs),
+      starter_tor_neighbor_quad,
     });
-    for (let i = 0; i < path.length; i++) {
-      const f = path[i];
-      if (f < 0 || f >= GRID_CELL_COUNT) continue;
-      const r = Math.floor(f / GRID_SIZE);
-      const c = f % GRID_SIZE;
-      if (i < glyphs.length) b[r][c] = glyphs[i];
-    }
   }
   return out;
 }

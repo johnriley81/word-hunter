@@ -11,8 +11,10 @@ import {
 import {
   verifyForwardPuzzle,
   canonicalNextLettersFromJsonArray,
+  stripTrailingEmptyNextLetters,
   tryApplyFifoLetterRefillsAfterWordSubmission,
   replacementTilesFirstVisitFlatOrder,
+  computeShiftAwareStarterHints,
 } from "../js/puzzle-export-sim.js";
 import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
 
@@ -249,11 +251,20 @@ function shiftSeqLabel(seq) {
   return seq.map((o) => `${o.t}${o.s > 0 ? "+" : ""}${o.s}`).join(" → ");
 }
 
-const raw = process.argv[2] || "";
+const printHintsJson = process.argv.includes("--hints-json");
+const raw = process.argv.find((a, i) => i >= 2 && a !== "--hints-json") ?? "";
 if (!raw.trim()) {
-  console.error("Usage: node scripts/analyze-puzzle-json.mjs '{...json...}'");
+  console.error(
+    "Usage: node scripts/analyze-puzzle-json.mjs '{...json...}' [--hints-json]"
+  );
   console.error(
     "Env: PUZZLE_SHIFT_DEPTH, PUZZLE_MAX_PATHS, PUZZLE_MAX_NODES, PUZZLE_NO_MEMO, PUZZLE_DEBUG"
+  );
+  console.error(
+    '  --hints-json  prints {"perfect_hunt_starter_flats":[...],"perfect_hunt_starter_neighbor_sigs":[...]}'
+  );
+  console.error(
+    "    from the shift-aware solver replay (omit if using static export-only replay)."
   );
   process.exit(1);
 }
@@ -337,6 +348,25 @@ if (sol.ok) {
     "verifyForwardPuzzle (no shifts, export contract):",
     v.ok ? "OK" : v.reason
   );
+  if (printHintsJson) {
+    const hints = computeShiftAwareStarterHints(
+      grid,
+      stripTrailingEmptyNextLetters(next.slice()),
+      wordsAsc,
+      sol.paths,
+      sol.shiftsBefore,
+      {}
+    );
+    console.log("");
+    console.log("hints-json (--hints-json, shift-aware replay):");
+    console.log(JSON.stringify(hints));
+    if (!v.ok) {
+      console.log("");
+      console.log(
+        "note: export verifyForward failed; these presets match the analyzer’s shift+hunt replay."
+      );
+    }
+  }
 } else {
   console.log("RESULT:", sol.reason);
   if (sol.nodesExplored != null) console.log("DFS nodes explored:", sol.nodesExplored);

@@ -125,15 +125,19 @@ export function attachShiftGestures(ctx, host) {
     const n = GRID_SIZE;
     const tiles = inner.querySelectorAll(".shift-preview-tile");
     const need = n * k;
-    const starterFlat = computePerfectHuntStarterFlatWithRowHints(
-      ctx.state.gameBoard,
-      ctx.state.perfectHunt,
-      ctx.state.perfectHuntOrderIndex,
-      ctx.state.perfectHuntOnPace,
-      n,
-      ctx.state.perfectHuntStarterFlats,
-      ctx.state.perfectHuntStarterNeighborSigs
-    );
+    const starterFlat =
+      ctx.state.perfectHuntOnPace && ctx.state.perfectHuntHintStickyFlat != null
+        ? ctx.state.perfectHuntHintStickyFlat
+        : computePerfectHuntStarterFlatWithRowHints(
+            ctx.state.gameBoard,
+            ctx.state.perfectHunt,
+            ctx.state.perfectHuntOrderIndex,
+            ctx.state.perfectHuntOnPace,
+            n,
+            ctx.state.perfectHuntStarterFlats,
+            ctx.state.perfectHuntStarterNeighborSigs,
+            ctx.state.perfectHuntStarterTorNeighbors
+          );
     for (let i = 0; i < tiles.length; i++) {
       tiles[i].classList.remove(SHIFT_PREVIEW_HUNT_HINT_CLASS);
     }

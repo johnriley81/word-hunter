@@ -5,6 +5,10 @@ import {
   stripTrailingEmptyNextLetters,
   canonicalNextLettersFromJsonArray,
 } from "./puzzle-export-sim.js";
+import {
+  PERFECT_HUNT_TOR_NEIGHBOR_LEN,
+  normalizedExportedTorNeighborToken,
+} from "./board-logic.js";
 
 const GRID = 4;
 const HUNT_LEN = PERFECT_HUNT_WORD_COUNT;
@@ -15,6 +19,23 @@ function coerceNextLettersForRow(raw) {
 
 function coerceStarterFlatValues(raw) {
   return raw.map((x) => (typeof x === "number" && Number.isFinite(x) ? x : Number(x)));
+}
+
+export function coerceStarterTorNeighborsForRow(
+  raw,
+  label = "perfect_hunt_starter_tor_neighbors"
+) {
+  if (!Array.isArray(raw)) throw new Error(label + " must be an array");
+  if (raw.length !== PERFECT_HUNT_TOR_NEIGHBOR_LEN) {
+    throw new Error(label + " must have length " + PERFECT_HUNT_TOR_NEIGHBOR_LEN);
+  }
+  /** @type {string[]} */
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    const s = normalizedExportedTorNeighborToken(raw[i]);
+    out.push(s === "" ? "0" : s);
+  }
+  return out;
 }
 
 const CARDINAL_KEYS = ["n", "s", "e", "w"];
@@ -77,6 +98,8 @@ export function normalizePuzzleRow(raw) {
     perfect_hunt: o.perfect_hunt,
     perfect_hunt_starter_flats: o.perfect_hunt_starter_flats,
     perfect_hunt_starter_neighbor_sigs: o.perfect_hunt_starter_neighbor_sigs,
+    perfect_hunt_starter_tor_neighbors: o.perfect_hunt_starter_tor_neighbors,
+    perfect_hunt_starter_hints_diag: o.perfect_hunt_starter_hints_diag,
   };
 }
 
@@ -97,6 +120,7 @@ export function validatePuzzleRow(row) {
   }
   const hasFlats = row.perfect_hunt_starter_flats != null;
   const hasSigs = row.perfect_hunt_starter_neighbor_sigs != null;
+  const hasTorNeighbors = row.perfect_hunt_starter_tor_neighbors != null;
   if (hasFlats)
     validateStarterFlatsArray(
       row.perfect_hunt_starter_flats,
@@ -106,6 +130,15 @@ export function validatePuzzleRow(row) {
     validateNeighborSigArray(
       row.perfect_hunt_starter_neighbor_sigs,
       "perfect_hunt_starter_neighbor_sigs"
+    );
+  }
+  if (hasTorNeighbors) {
+    coerceStarterTorNeighborsForRow(row.perfect_hunt_starter_tor_neighbors);
+  }
+  const diag = row.perfect_hunt_starter_hints_diag;
+  if (diag != null && (typeof diag !== "object" || Array.isArray(diag))) {
+    throw new Error(
+      "perfect_hunt_starter_hints_diag must be a plain object when present"
     );
   }
 }
@@ -129,6 +162,21 @@ export function serializePuzzleRow(row) {
       ext.perfect_hunt_starter_neighbor_sigs.map((sig) => ({
         .../** @type {object} */ (sig),
       }));
+  }
+  if (Array.isArray(ext.perfect_hunt_starter_tor_neighbors)) {
+    packed.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
+      ext.perfect_hunt_starter_tor_neighbors,
+      "serialize perfect_hunt_starter_tor_neighbors"
+    );
+  }
+  if (
+    ext.perfect_hunt_starter_hints_diag != null &&
+    typeof ext.perfect_hunt_starter_hints_diag === "object" &&
+    !Array.isArray(ext.perfect_hunt_starter_hints_diag)
+  ) {
+    packed.perfect_hunt_starter_hints_diag = JSON.parse(
+      JSON.stringify(ext.perfect_hunt_starter_hints_diag)
+    );
   }
   return JSON.stringify(packed);
 }
@@ -173,6 +221,21 @@ export function parsePuzzlesFileText(text, opts = {}) {
         coerceNeighborSigFromExport(raw, fileLabel + " line " + lineNo + "[" + wi + "]")
       );
     }
+    if (norm.perfect_hunt_starter_tor_neighbors != null) {
+      entry.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
+        /** @type {unknown[]} */ (norm.perfect_hunt_starter_tor_neighbors),
+        fileLabel + " line " + lineNo + ": perfect_hunt_starter_tor_neighbors"
+      );
+    }
+    if (
+      norm.perfect_hunt_starter_hints_diag != null &&
+      typeof norm.perfect_hunt_starter_hints_diag === "object" &&
+      !Array.isArray(norm.perfect_hunt_starter_hints_diag)
+    ) {
+      entry.perfect_hunt_starter_hints_diag = /** @type {Record<string, unknown>} */ (
+        JSON.parse(JSON.stringify(norm.perfect_hunt_starter_hints_diag))
+      );
+    }
     puzzles.push(entry);
   }
   return puzzles;
@@ -188,6 +251,8 @@ export function dictExportToCanonicalRow(d) {
     perfect_hunt: d.perfect_hunt,
     perfect_hunt_starter_flats: dr.perfect_hunt_starter_flats,
     perfect_hunt_starter_neighbor_sigs: dr.perfect_hunt_starter_neighbor_sigs,
+    perfect_hunt_starter_tor_neighbors: dr.perfect_hunt_starter_tor_neighbors,
+    perfect_hunt_starter_hints_diag: dr.perfect_hunt_starter_hints_diag,
   });
   validatePuzzleRow(row);
   /** @type {Record<string, unknown>} */
@@ -210,6 +275,21 @@ export function dictExportToCanonicalRow(d) {
     out.perfect_hunt_starter_neighbor_sigs = /** @type {unknown[]} */ (
       rf.perfect_hunt_starter_neighbor_sigs
     ).map((raw, wi) => coerceNeighborSigFromExport(raw, "dict_export sig " + wi));
+  }
+  if (Array.isArray(rf.perfect_hunt_starter_tor_neighbors)) {
+    out.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
+      rf.perfect_hunt_starter_tor_neighbors,
+      "dict_export perfect_hunt_starter_tor_neighbors"
+    );
+  }
+  if (
+    rf.perfect_hunt_starter_hints_diag != null &&
+    typeof rf.perfect_hunt_starter_hints_diag === "object" &&
+    !Array.isArray(rf.perfect_hunt_starter_hints_diag)
+  ) {
+    out.perfect_hunt_starter_hints_diag = JSON.parse(
+      JSON.stringify(rf.perfect_hunt_starter_hints_diag)
+    );
   }
   return out;
 }

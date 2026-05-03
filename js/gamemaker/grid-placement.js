@@ -1,5 +1,9 @@
 import { GRID_SIZE, WORD_PATH_COLOR_STEPS, WORD_INVALID_SHAKE_MS } from "../config.js";
-import { wordToTileLabelSequence, minUniqueTilesForReuseRule } from "../board-logic.js";
+import {
+  wordToTileLabelSequence,
+  minUniqueTilesForReuseRule,
+  torNeighborQuadExportTokensFromBoard,
+} from "../board-logic.js";
 import { getTileButtonFromEvent, setTileTextAllowEmpty } from "../grid-tiles.js";
 import { isAdjacentGridTiles, syncSelectionVisitDepthOnGrid } from "../word-play.js";
 import { wordPathDragStrokeColorAt } from "../word-path.js";
@@ -44,9 +48,14 @@ export function buttonFlatIndex(grid, button) {
  *   getMouseDown: () => boolean;
  *   getBoardSnapshotPreDrag: () => string[][] | null;
  *   setBoardSnapshotPreDrag: (v: string[][] | null) => void;
- *   captureOpeningGridIfFirstCommit: (snap: string[][] | null) => void;
  *   onToolbarLetterProgress?: () => void;
- *   appendBuildPlay: (play: { word: string; min_tiles: number; pathFlat: number[]; covered: string[] }) => void;
+ *   appendBuildPlay: (play: {
+ *     word: string;
+ *     min_tiles: number;
+ *     pathFlat: number[];
+ *     covered: string[];
+ *     starter_tor_neighbor_quad: string[];
+ *   }) => void;
  *   bumpPlacementStep: () => void;
  *   updateUi: () => void;
  * }} deps
@@ -65,7 +74,6 @@ export function createGridPlacementApi(deps) {
     getMouseDown,
     getBoardSnapshotPreDrag,
     setBoardSnapshotPreDrag,
-    captureOpeningGridIfFirstCommit,
     appendBuildPlay,
     bumpPlacementStep,
     updateUi,
@@ -330,7 +338,6 @@ export function createGridPlacementApi(deps) {
       }
     }
     const snap = getBoardSnapshotPreDrag();
-    captureOpeningGridIfFirstCommit(snap);
     const covered = firstVisits.map((b) => {
       const f = buttonFlatIndex(grid, b);
       if (f < 0 || !snap) return "";
@@ -350,11 +357,17 @@ export function createGridPlacementApi(deps) {
     setBoardSnapshotPreDrag(null);
     const wiAsc = getCurrentWordIndexAsc();
     if (wiAsc >= 0) {
+      const starterTorQuad = torNeighborQuadExportTokensFromBoard(
+        ctx.state.gameBoard,
+        pathFlat[0],
+        GRID_SIZE
+      );
       appendBuildPlay({
         word: w,
         min_tiles: minTiles,
         pathFlat,
         covered,
+        starter_tor_neighbor_quad: starterTorQuad,
       });
     }
   }

@@ -2,7 +2,11 @@ import {
   LETTER_WEIGHTS,
   SHIFT_STRIDE_FIRST_FRAC,
   SCENARIO_MESSAGE_VARIANTS,
+  PERFECT_HUNT_WORD_COUNT,
 } from "./config.js";
+
+/** Exported toroidal neighbor hints: seven words × (N,S,W,E) slots. */
+export const PERFECT_HUNT_TOR_NEIGHBOR_LEN = PERFECT_HUNT_WORD_COUNT * 4;
 
 export function normalizeTileText(text) {
   const normalized = String(text || "")
@@ -102,6 +106,92 @@ export function normalizedOrthoNeighborsAtFlat(board, flat, gridSize) {
   };
 }
 
+/**
+ * Toroidal orthogonals (wrap edges). Hint-only — does not change shift/move rules.
+ * All directions are normalized tile labels (`""` if empty).
+ */
+export function normalizedTorusOrthoNeighborsAtFlat(board, flat, gridSize) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 4);
+  const r = Math.floor(flat / n);
+  const c = flat % n;
+  /** @type {(rr: number, cc: number) => string} */
+  const tileAt = (rr, cc) => normalizeTileText(board[(rr + n) % n][(cc + n) % n]);
+  return {
+    n: tileAt(r - 1, c),
+    s: tileAt(r + 1, c),
+    w: tileAt(r, c - 1),
+    e: tileAt(r, c + 1),
+  };
+}
+
+/** N,S,W,E normalized labels for hint matching (`""` blanks). */
+export function normalizedTorusOrthoNsweQuad(board, flat, gridSize) {
+  const o = normalizedTorusOrthoNeighborsAtFlat(board, flat, gridSize);
+  return [
+    normalizeTileText(o.n),
+    normalizeTileText(o.s),
+    normalizeTileText(o.w),
+    normalizeTileText(o.e),
+  ];
+}
+
+/** JSON token → compare label (`"0"` and blanks → `""`; else normalizeTileText). */
+export function normalizedExportedTorNeighborToken(token) {
+  const raw = token == null ? "" : String(token).trim().toLowerCase();
+  if (raw === "" || raw === "0") return "";
+  return normalizeTileText(raw);
+}
+
+/** `[n,s,w,e]` for export; empty slots encoded as `"0"`. */
+export function torNeighborQuadExportTokensFromBoard(board, flat, gridSize) {
+  const q = normalizedTorusOrthoNsweQuad(board, flat, gridSize);
+  return /** @type {string[]} */ (q.map((t) => (t === "" ? "0" : t)));
+}
+
+/**
+ * Starter flat via toroidal N,S,W,E ring (exported length `PERFECT_HUNT_TOR_NEIGHBOR_LEN`, ascend-major).
+ */
+function flatFromStarterTorNeighbors(
+  gameBoard,
+  huntWord,
+  orderIndex,
+  gridSize,
+  torNeighborsRow
+) {
+  if (!torNeighborsRow || torNeighborsRow.length !== PERFECT_HUNT_TOR_NEIGHBOR_LEN) {
+    return null;
+  }
+  const labels = wordToTileLabelSequence(String(huntWord || ""));
+  if (!labels.length) return null;
+  const target = normalizeTileText(labels[0]);
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
+  const base = orderIndex * 4;
+  const exp = /** @type {string[]} */ ([]);
+  for (let i = 0; i < 4; i++) {
+    exp.push(normalizedExportedTorNeighborToken(torNeighborsRow[base + i]));
+  }
+  /** @type {Array<{ flat: number; score: number }>} */
+  const cand = [];
+  for (let r = 0; r < n; r++) {
+    const row = gameBoard[r];
+    if (!Array.isArray(row)) continue;
+    for (let c = 0; c < n; c++) {
+      if (normalizeTileText(row[c]) !== target) continue;
+      const flat = r * n + c;
+      const live = normalizedTorusOrthoNsweQuad(gameBoard, flat, n);
+      let score = 0;
+      for (let k = 0; k < 4; k++) if (live[k] === exp[k]) score++;
+      cand.push({ flat, score });
+    }
+  }
+  if (cand.length === 0) return null;
+  cand.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.flat - b.flat;
+  });
+  return cand[0].flat;
+}
+
 /** Directions included in exported starter neighbor hints (`null` = off-board edge). */
 const NEIGHBOR_SIG_VERTICAL = /** @type {const} */ (["n", "s"]);
 const NEIGHBOR_SIG_HORIZONTAL = /** @type {const} */ (["w", "e"]);
@@ -174,10 +264,13 @@ function legacyFirstFlatMatchingOpeningGlyph(gameBoard, targetGlyph, gridSize) {
 
 /**
  * Starter flat for Perfect Hunt word `orderIndex`, or null.
- * Uses exported `starterFlats` / `starterNeighborSignatures` when present; otherwise falls back to
- * the first row-major cell matching the opening glyph (puzzles without published starter hints).
- * When a hint bundle exists but neither flat nor neighbor rule resolves uniquely, returns null.
- * @param {{ starterFlats?: number[]; starterNeighborSignatures?: unknown[] } | null} [exportedHints]
+ * Precedence when `exportedHints` is present: validated starter flat → toroidal neighbor ring →
+ * legacy `{n,s,w,e}` signatures. With no exported bundle, falls back to first row-major opener match.
+ * @param {{
+ *   starterFlats?: number[];
+ *   starterNeighborSignatures?: unknown[];
+ *   starterTorNeighbors?: string[];
+ * } | null} [exportedHints]
  */
 export function computePerfectHuntStarterFlat(
   gameBoard,
@@ -218,6 +311,18 @@ export function computePerfectHuntStarterFlat(
     }
   }
 
+  if (exportedHints && Array.isArray(exportedHints.starterTorNeighbors)) {
+    const tr = exportedHints.starterTorNeighbors;
+    const ft = flatFromStarterTorNeighbors(
+      gameBoard,
+      perfectHunt[orderIndex],
+      orderIndex,
+      n,
+      tr
+    );
+    if (ft != null) return ft;
+  }
+
   if (exportedHints && Array.isArray(exportedHints.starterNeighborSignatures)) {
     const sg = exportedHints.starterNeighborSignatures[orderIndex];
     const nb = flatFromNeighborSignatures(gameBoard, perfectHunt[orderIndex], n, sg);
@@ -231,18 +336,31 @@ export function computePerfectHuntStarterFlat(
 }
 
 /** Build hints object for computePerfectHuntStarterFlat from exported row fields. */
-export function puzzleRowPerfectHuntStarterHints(starterFlatsRow, neighborSigsRow) {
+export function puzzleRowPerfectHuntStarterHints(
+  starterFlatsRow,
+  neighborSigsRow,
+  starterTorNeighborsRow
+) {
   const hasFlats = Array.isArray(starterFlatsRow) && starterFlatsRow.length > 0;
   const hasSigs = Array.isArray(neighborSigsRow) && neighborSigsRow.length > 0;
-  if (!hasFlats && !hasSigs) return null;
-  /** @type {{ starterFlats?: number[]; starterNeighborSignatures?: unknown[] }} */
+  const hasTor =
+    Array.isArray(starterTorNeighborsRow) &&
+    starterTorNeighborsRow.length === PERFECT_HUNT_TOR_NEIGHBOR_LEN;
+  if (!hasFlats && !hasSigs && !hasTor) return null;
+  /** @type {{
+   * starterFlats?: number[];
+   * starterNeighborSignatures?: unknown[];
+   * starterTorNeighbors?: string[];
+   * }} */
   const o = {};
   if (hasFlats) o.starterFlats = /** @type {number[]} */ (starterFlatsRow);
+  if (hasTor)
+    o.starterTorNeighbors = /** @type {string[]} */ (starterTorNeighborsRow.slice());
   if (hasSigs) o.starterNeighborSignatures = neighborSigsRow;
   return o;
 }
 
-/** Same as passing puzzleRowPerfectHuntStarterHints(flats, sigs) into computePerfectHuntStarterFlat. */
+/** Same as passing puzzle row hints into computePerfectHuntStarterFlat. */
 export function computePerfectHuntStarterFlatWithRowHints(
   gameBoard,
   perfectHunt,
@@ -250,7 +368,8 @@ export function computePerfectHuntStarterFlatWithRowHints(
   onPace,
   gridSize,
   starterFlatsRow,
-  neighborSigsRow
+  neighborSigsRow,
+  starterTorNeighborsRow
 ) {
   return computePerfectHuntStarterFlat(
     gameBoard,
@@ -258,7 +377,11 @@ export function computePerfectHuntStarterFlatWithRowHints(
     orderIndex,
     onPace,
     gridSize,
-    puzzleRowPerfectHuntStarterHints(starterFlatsRow, neighborSigsRow)
+    puzzleRowPerfectHuntStarterHints(
+      starterFlatsRow,
+      neighborSigsRow,
+      starterTorNeighborsRow
+    )
   );
 }
 
@@ -424,6 +547,54 @@ export function applyRowShiftInPlace(board, signedSteps, n) {
       board[r][c] = down ? copy[(r - kk + n * 10) % n][c] : copy[(r + kk) % n][c];
     }
   }
+}
+
+/** Row-major index of the same logical cell after `applyColumnShiftInPlace` (+ = shift right). */
+export function remapFlatAfterColumnShiftSigned(flat, signedSteps, n) {
+  const nn = Math.max(1, Math.floor(Number(n)) || 4);
+  const kk = Math.abs(signedSteps) % nn;
+  if (kk === 0) return flat;
+  const r = Math.floor(flat / nn);
+  const c = flat % nn;
+  if (signedSteps > 0) {
+    return r * nn + ((c + kk) % nn);
+  }
+  return r * nn + ((c - kk + nn * 10) % nn);
+}
+
+/** Row-major index of the same logical cell after `applyRowShiftInPlace` (+ = shift down). */
+export function remapFlatAfterRowShiftSigned(flat, signedSteps, n) {
+  const nn = Math.max(1, Math.floor(Number(n)) || 4);
+  const kk = Math.abs(signedSteps) % nn;
+  if (kk === 0) return flat;
+  const r = Math.floor(flat / nn);
+  const c = flat % nn;
+  if (signedSteps > 0) {
+    return ((r + kk) % nn) * nn + c;
+  }
+  return ((r - kk + nn * 10) % nn) * nn + c;
+}
+
+/**
+ * Keeps the perfect-hunt hint on the same physical tile when the board is only permuted by a shift.
+ * @param {{ perfectHuntOnPace: boolean, perfectHuntHintStickyFlat: number | null }} state
+ * @param {"col" | "row"} kind
+ * @param {number} signedSteps
+ * @param {number} gridSize
+ */
+export function remapPerfectHuntHintStickyFlatAfterCommittedShift(
+  state,
+  kind,
+  signedSteps,
+  gridSize
+) {
+  if (!state.perfectHuntOnPace || state.perfectHuntHintStickyFlat == null) return;
+  const n = Math.max(1, Math.floor(Number(gridSize)) || 4);
+  const f = state.perfectHuntHintStickyFlat;
+  state.perfectHuntHintStickyFlat =
+    kind === "col"
+      ? remapFlatAfterColumnShiftSigned(f, signedSteps, n)
+      : remapFlatAfterRowShiftSigned(f, signedSteps, n);
 }
 
 export function parseStageTranslatePx(transformCss) {

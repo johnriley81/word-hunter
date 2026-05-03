@@ -11,7 +11,6 @@ test("buildGamemakerDictExportPayload returns null when play count mismatches wo
         ["i", "j", "k", "l"],
         ["m", "n", "o", "p"],
       ],
-      openingGridForExport: null,
       buildPlaysChron: [],
       currentWords: [{ word: "only", wordTotal: 1 }],
       wordCount: 7,
@@ -59,13 +58,14 @@ test("buildGamemakerDictExportPayload orders perfect_hunt ascending by wordTotal
 
   const payload = buildGamemakerDictExportPayload({
     gameBoard: board,
-    openingGridForExport: null,
     buildPlaysChron: playsChron,
     currentWords: sevenWords.slice(),
     wordCount: 7,
   });
 
   assert.ok(payload);
+  assert.deepStrictEqual(payload.starting_grids[0], board);
+  assert.equal(payload.perfect_hunt_starter_tor_neighbors?.length, 28);
   assert.deepEqual(payload.perfect_hunt, [
     "able",
     "quad",

@@ -1,14 +1,11 @@
-import { GRID_SIZE } from "../config.js";
 import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
-  normalizedOrthoNeighborsAtFlat,
+  normalizeTileText,
 } from "../board-logic.js";
 import {
   buildNextLettersFromCoveredInBuildOrder,
   stripTrailingEmptyNextLetters,
-  computePerfectHuntStarterHints,
-  isGridAllNormalizedEmpty,
 } from "../puzzle-export-sim.js";
 import {
   comparePoolWordEntriesAscForwardExport,
@@ -16,31 +13,40 @@ import {
 } from "./pool-order.js";
 
 /**
- * Build publishable dict payload from gamemaker session state (no DOM).
- *
- * Stacks `covered` via descending sack order (`comparePoolWordEntriesDescSackRefillOrder`) so the
- * lowest-score forward play is iterated last — see `buildNextLettersFromCoveredInBuildOrder`.
+ * Gamemaker publishable puzzle row (`starting_grids` → `starting_grid`).
+ * Covered stack iteration uses sack order (`comparePoolWordEntriesDescSackRefillOrder`);
+ * exported hunt order ascending (`comparePoolWordEntriesAscForwardExport`).
  *
  * @param {{
  *   gameBoard: string[][];
- *   openingGridForExport: string[][] | null;
- *   buildPlaysChron: Array<{ word: string; pathFlat: number[]; min_tiles?: number; covered: string[] }>;
+ *   buildPlaysChron: Array<{
+ *     word: string;
+ *     pathFlat: number[];
+ *     min_tiles?: number;
+ *     covered: string[];
+ *     starter_tor_neighbor_quad?: string[];
+ *   }>;
  *   currentWords: Array<{ word?: string; wordTotal?: number }>;
  *   wordCount: number;
  * }} input
- * @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[] } & Record<string, unknown> | null}
+ * @returns {{ starting_grids: string[][][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_tor_neighbors: string[] } | null}
  */
 export function buildGamemakerDictExportPayload(input) {
-  const { gameBoard, openingGridForExport, buildPlaysChron, currentWords, wordCount } =
-    input;
+  const { gameBoard, buildPlaysChron, currentWords, wordCount } = input;
+
+  const coerceStarterTorNeighborQuadExport = (/** @type {unknown} */ raw) => {
+    const a = Array.isArray(raw) ? /** @type {unknown[]} */ (raw).slice(0, 4) : [];
+    while (a.length < 4) a.push("0");
+    return a.map((tok) => {
+      const lc = String(tok ?? "")
+        .trim()
+        .toLowerCase();
+      if (lc === "" || lc === "0") return "0";
+      return normalizeTileText(String(tok ?? ""));
+    });
+  };
 
   const gEndL = gameBoard.map((r) => r.map((c) => String(c || "").toLowerCase()));
-  const gridOpening =
-    openingGridForExport &&
-    openingGridForExport.length === GRID_SIZE &&
-    openingGridForExport[0]?.length === GRID_SIZE
-      ? openingGridForExport.map((row) => row.map((c) => String(c || "").toLowerCase()))
-      : null;
 
   const playsForExport =
     buildPlaysChron && buildPlaysChron.length
@@ -55,6 +61,10 @@ export function buildGamemakerDictExportPayload(input) {
                 ? p.min_tiles
                 : minUniqueTilesForReuseRule(glyphs),
             covered: (p.covered || []).map((ch) => String(ch || "").toLowerCase()),
+            starter_tor_neighbor_quad: coerceStarterTorNeighborQuadExport(
+              /** @type {{ starter_tor_neighbor_quad?: unknown }} */ (p)
+                .starter_tor_neighbor_quad
+            ),
           };
         })
       : [];
@@ -75,36 +85,14 @@ export function buildGamemakerDictExportPayload(input) {
     fillEmpty: "",
   });
   const playsAsc = order.map((x) => playsForExport[x.i]);
-  const nextLettersRaw = stripTrailingEmptyNextLetters(nextLetters.slice());
-  const gridForReplay = gridOpening ?? gEndL;
-  const pathsAsc = playsAsc.map((p) =>
-    Array.isArray(p.pathFlat) ? p.pathFlat.slice() : []
+  const perfect_hunt_starter_tor_neighbors = playsAsc.flatMap(
+    (p) => p.starter_tor_neighbor_quad
   );
-  const replayGridAllEmpty = isGridAllNormalizedEmpty(gridForReplay);
-  const starterHints = computePerfectHuntStarterHints(
-    gridForReplay,
-    nextLettersRaw,
-    wordsAsc,
-    pathsAsc,
-    { fillEmptyPathCells: replayGridAllEmpty }
-  );
-
-  let starterPack = /** @type {Record<string, unknown>} */ ({});
-  if (starterHints) {
-    const flats = starterHints.perfect_hunt_starter_flats;
-    const sigsFromTerminalGrid = flats.map((flat) => ({
-      ...normalizedOrthoNeighborsAtFlat(gEndL, flat, GRID_SIZE),
-    }));
-    starterPack = {
-      perfect_hunt_starter_flats: flats,
-      perfect_hunt_starter_neighbor_sigs: sigsFromTerminalGrid,
-    };
-  }
 
   return {
     starting_grids: [gEndL],
     next_letters: stripTrailingEmptyNextLetters(nextLetters),
     perfect_hunt: wordsAsc,
-    ...starterPack,
+    perfect_hunt_starter_tor_neighbors,
   };
 }

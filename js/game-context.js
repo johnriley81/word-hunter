@@ -22,10 +22,14 @@ export function createGameContext() {
       perfectHuntOrderIndex: 0,
       /** @type {number | null} */
       perfectHuntHintFlat: null,
+      /** Opener hint flat; survives row/col shifts until the next hint resolve. */
+      perfectHuntHintStickyFlat: null,
       /** @type {number[] | null} */
       perfectHuntStarterFlats: null,
-      /** @type {Array<Record<string, string | null>> | null} */
+      /** @type {Array<Record<string, unknown>> | null} */
       perfectHuntStarterNeighborSigs: null,
+      /** @type {string[] | null} */
+      perfectHuntStarterTorNeighbors: null,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */
