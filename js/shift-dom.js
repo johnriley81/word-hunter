@@ -24,7 +24,7 @@ import {
   computePerfectHuntStarterFlatWithRowHints,
 } from "./board-logic.js";
 import { getTileText, setTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
-import { unlockGameAudio, playSound } from "./audio.js";
+import { unlockGameAudio } from "./audio.js";
 
 const SHIFT_PREVIEW_HUNT_HINT_CLASS = "shift-preview-tile--hunt-hint";
 
@@ -383,7 +383,6 @@ export function attachShiftGestures(ctx, host) {
       ) {
         return;
       }
-      playSound("button2", host.getIsMuted());
       boardShiftHintsHideInProgress = true;
       boardShiftZone.classList.add("board-shift-zone--instructions-fading");
       let finalized = false;
