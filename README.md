@@ -22,10 +22,26 @@ Pure logic is covered by Node tests:
 npm test
 ```
 
+## Development
+
+CI runs **Prettier** (HTML/CSS/JS/JSON/YAML/Markdown), **Black**, **isort**, and generic hygiene hooks via [pre-commit](https://pre-commit.com/). Install hooks locally so formatting matches CI before you push:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run every hook on the whole repo (same as CI):
+
+```bash
+pre-commit run --all-files
+```
+
 ## Architecture (high level)
 
 - **`js/app.js`** — Bootstraps CSS vars, creates the game context, calls `initGame` on `DOMContentLoaded`.
-- **`js/game.js`** — Main game shell: DOM refs, lifecycle (`startGame`, `endGame`, `resetRoundToPregame`, grid generation), wiring to feature modules.
+- **`js/game.js`** — Main game shell: DOM refs, lifecycle (`startGame`, `resetRoundToPregame`, grid generation), wiring to feature modules.
+- **`js/game-endgame.js`** — Endgame choreography (GAME OVER flashes, grid batch fade, audio fallback) and handoff to leaderboard post-game UI.
 - **`js/game-context.js`** — `createGameContext()`: shared **`ctx.refs`**, **`ctx.state`** (board, shift, word path, word-line UI), and **`ctx.fn`** hooks (e.g. `updateCurrentWord`) to avoid circular imports.
 
 Feature modules (each takes `ctx` and/or small host/runtime objects):
@@ -41,7 +57,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 | `word-path.js`             | Path gradient helpers (tested)                                                                                   |
 | `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                                     |
 | `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                            |
-| `leaderboard-ui.js`        | Table, overlay, API refresh, postgame copy-score flow                                                            |
+| `leaderboard-ui.js`        | Table, overlay, API refresh, post-game copy-score flow; **`rt.state`** holds mutable leaderboard/post-game flags |
 | `rules-dock.js`            | Rules overlay + mute wiring                                                                                      |
 | `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet` (gamemaker only), `puzzleListIndex`, `calculatePuzzleDayIndex` |
 | `audio.js`                 | Sound pools and playback                                                                                         |
