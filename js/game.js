@@ -224,6 +224,7 @@ export function initGame(ctx) {
   /** @type {Array<[string, number, number|string, string]> | null} */
   let demoLeaderboardRows = null;
   let demoLeaderboardSubmitUsed = false;
+  let liveLeaderboardSubmitUsed = false;
   let copyScoreLineUsed = false;
   let deferRetryUntilCopyScoreLineVisible = false;
   let tilePaletteTransitionTimer = null;
@@ -929,6 +930,10 @@ export function initGame(ctx) {
     setDemoSubmitUsed: (v) => {
       demoLeaderboardSubmitUsed = v;
     },
+    getLiveLeaderboardSubmitUsed: () => liveLeaderboardSubmitUsed,
+    setLiveLeaderboardSubmitUsed: (v) => {
+      liveLeaderboardSubmitUsed = v;
+    },
     getPlayerPosition: () => playerPosition,
     setPlayerPosition: (v) => {
       playerPosition = v;
@@ -1020,6 +1025,7 @@ export function initGame(ctx) {
     }
     lbCtl.hidePostgameLeaderboardOverlay();
     demoLeaderboardSubmitUsed = false;
+    liveLeaderboardSubmitUsed = false;
     if (endgameTileStartTimer !== null) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
@@ -1196,6 +1202,7 @@ export function initGame(ctx) {
     postgameSequenceStarted = false;
     demoLeaderboardRows = null;
     demoLeaderboardSubmitUsed = false;
+    liveLeaderboardSubmitUsed = false;
     if (!skipLeaderboardOverlayTeardown) {
       lbCtl.hidePostgameLeaderboardOverlay();
     }
