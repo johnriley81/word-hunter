@@ -28,6 +28,13 @@ import { unlockGameAudio } from "./audio.js";
 
 const SHIFT_PREVIEW_HUNT_HINT_CLASS = "shift-preview-tile--hunt-hint";
 
+/** Two rAF hops so styles flush before assigning `transition` (snap/rejoin). */
+function deferTwoAnimationFrames(fn) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(fn);
+  });
+}
+
 export function ensureShiftPreviewElements(ctx) {
   const { shiftPreviewStrip } = ctx.refs;
   if (!shiftPreviewStrip) return;
@@ -465,11 +472,9 @@ export function attachShiftGestures(ctx, host) {
     }
     ctx.state.shift.animating = false;
     scheduleLineOverlayFromShiftHost();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        host.unlockGridSizeAfterSwipe();
-        scheduleLineOverlayFromShiftHost();
-      });
+    deferTwoAnimationFrames(() => {
+      host.unlockGridSizeAfterSwipe();
+      scheduleLineOverlayFromShiftHost();
     });
   }
 
@@ -827,21 +832,19 @@ export function attachShiftGestures(ctx, host) {
 
         gridStage.style.transition = "none";
         void gridStage.offsetHeight;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (gridStage) {
-              gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
-              gridStage.addEventListener("transitionend", onRejoinTransitionEnd);
-            }
-            grid.removeEventListener("transitionend", onRejoinTransitionEnd);
-            grid.addEventListener("transitionend", onRejoinTransitionEnd);
-            gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-            grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-            void grid.offsetHeight;
-            void gridStage.offsetHeight;
-            gridStage.style.transform = "translate(0px, 0px)";
-            grid.style.transform = "translate(0px, 0px)";
-          });
+        deferTwoAnimationFrames(() => {
+          if (gridStage) {
+            gridStage.removeEventListener("transitionend", onRejoinTransitionEnd);
+            gridStage.addEventListener("transitionend", onRejoinTransitionEnd);
+          }
+          grid.removeEventListener("transitionend", onRejoinTransitionEnd);
+          grid.addEventListener("transitionend", onRejoinTransitionEnd);
+          gridStage.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+          grid.style.transition = `transform ${SHIFT_REJOIN_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+          void grid.offsetHeight;
+          void gridStage.offsetHeight;
+          gridStage.style.transform = "translate(0px, 0px)";
+          grid.style.transform = "translate(0px, 0px)";
         });
       }
     };
@@ -906,18 +909,13 @@ export function attachShiftGestures(ctx, host) {
       gridStage.style.transition = "none";
       gridStage.style.transform = stageTransformFromDrag;
       void gridStage.offsetHeight;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (gridStage && snapStageTransitionEndHandler) {
-            gridStage.removeEventListener(
-              "transitionend",
-              snapStageTransitionEndHandler
-            );
-          }
-          gridStage.addEventListener("transitionend", snapStageTransitionEndHandler);
-          gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
-          gridStage.style.transform = targetTransform;
-        });
+      deferTwoAnimationFrames(() => {
+        if (gridStage && snapStageTransitionEndHandler) {
+          gridStage.removeEventListener("transitionend", snapStageTransitionEndHandler);
+        }
+        gridStage.addEventListener("transitionend", snapStageTransitionEndHandler);
+        gridStage.style.transition = `transform ${SHIFT_COMMIT_SNAP_MS}ms ${SHIFT_COMMIT_SNAP_EASE}`;
+        gridStage.style.transform = targetTransform;
       });
     }
   }

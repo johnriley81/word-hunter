@@ -73,6 +73,11 @@ import {
 import { attachRulesDock } from "./rules-dock.js";
 import { omitEmptyNextLetterSlots } from "./puzzle-export-sim.js";
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
+import {
+  createLineOverlayLayoutSync,
+  lockGridSizeForSwipe as lockGridSizeForSwipeCore,
+  unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
+} from "./grid-layout.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -259,44 +264,20 @@ export function initGame(ctx) {
     gridViewport.style.height = "";
   }
 
+  const { syncLineOverlaySize, scheduleSyncLineOverlaySize } =
+    createLineOverlayLayoutSync({
+      grid,
+      gridLineWrapper,
+      gridLineContainer,
+      beforeMeasure: syncGridViewportSize,
+    });
+
   function lockGridSizeForSwipe() {
-    if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0)
-      return;
-    const br = grid.getBoundingClientRect();
-    if (br.width < 1 || br.height < 1) return;
-    ctx.state.shift.lockedGridWidthPx = br.width;
-    ctx.state.shift.lockedGridHeightPx = br.height;
-    grid.style.width = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.maxWidth = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.height = ctx.state.shift.lockedGridHeightPx + "px";
+    lockGridSizeForSwipeCore(grid, ctx.state.shift);
   }
 
   function unlockGridSizeAfterSwipe() {
-    ctx.state.shift.lockedGridWidthPx = 0;
-    ctx.state.shift.lockedGridHeightPx = 0;
-  }
-
-  function syncLineOverlaySize() {
-    if (!gridLineWrapper) return;
-    syncGridViewportSize();
-    const wrap = gridLineWrapper.getBoundingClientRect();
-    const gridR = grid.getBoundingClientRect();
-    const offsetLeft = Math.round(gridR.left - wrap.left);
-    const offsetTop = Math.round(gridR.top - wrap.top);
-    gridLineContainer.style.left = offsetLeft + "px";
-    gridLineContainer.style.top = offsetTop + "px";
-    gridLineContainer.style.width = grid.offsetWidth + "px";
-    gridLineContainer.style.height = grid.offsetHeight + "px";
-  }
-
-  let lineOverlaySyncRaf = 0;
-
-  function scheduleSyncLineOverlaySize() {
-    if (lineOverlaySyncRaf !== 0) return;
-    lineOverlaySyncRaf = window.requestAnimationFrame(() => {
-      lineOverlaySyncRaf = 0;
-      syncLineOverlaySize();
-    });
+    unlockGridSizeAfterSwipeCore(ctx.state.shift);
   }
 
   GAME_SOUND_IDS.forEach((key) => {

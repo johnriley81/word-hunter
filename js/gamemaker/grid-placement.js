@@ -1,4 +1,4 @@
-import { GRID_SIZE, WORD_PATH_COLOR_STEPS, WORD_INVALID_SHAKE_MS } from "../config.js";
+import { GRID_SIZE, WORD_INVALID_SHAKE_MS } from "../config.js";
 import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
@@ -6,8 +6,13 @@ import {
 } from "../board-logic.js";
 import { getTileButtonFromEvent, setTileTextAllowEmpty } from "../grid-tiles.js";
 import { isAdjacentGridTiles, syncSelectionVisitDepthOnGrid } from "../word-play.js";
-import { wordPathDragStrokeColorAt } from "../word-path.js";
 import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
+import {
+  createLineOverlayLayoutSync,
+  lockGridSizeForSwipe as lockGridSizeForSwipeCore,
+  unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
+} from "../grid-layout.js";
+import { restyleWordConnectorLines } from "../word-connector-lines.js";
 import { ensureShiftPreviewElements } from "../shift-dom.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -93,96 +98,28 @@ export function createGridPlacementApi(deps) {
   }
 
   function restyleAllWordConnectorLines() {
-    const lineEls = gridLineContainer.querySelectorAll("line");
-    let defs = gridLineContainer.querySelector("defs");
-    if (lineEls.length === 0) {
-      if (defs) defs.remove();
-      return;
-    }
-    const nSel = word.selectedButtons.length;
-    if (nSel < 2 || lineEls.length !== nSel - 1) return;
-    if (!defs) {
-      defs = document.createElementNS(SVG_NS, "defs");
-      gridLineContainer.insertBefore(defs, gridLineContainer.firstChild);
-    }
-    defs.replaceChildren();
-    const gridRect = grid.getBoundingClientRect();
-    const colorSpan = WORD_PATH_COLOR_STEPS;
-    const pathColorPhase = (k) => (((k / colorSpan) % 1) + 1) % 1;
-    for (let i = 0; i < lineEls.length; i++) {
-      const line = lineEls[i];
-      const btnA = word.selectedButtons[i];
-      const btnB = word.selectedButtons[i + 1];
-      const lastRect = btnA.getBoundingClientRect();
-      const currRect = btnB.getBoundingClientRect();
-      const x1 = lastRect.left + lastRect.width / 2 - gridRect.left;
-      const y1 = lastRect.top + lastRect.height / 2 - gridRect.top;
-      const x2 = currRect.left + currRect.width / 2 - gridRect.left;
-      const y2 = currRect.top + currRect.height / 2 - gridRect.top;
-      line.setAttribute("x1", String(x1));
-      line.setAttribute("y1", String(y1));
-      line.setAttribute("x2", String(x2));
-      line.setAttribute("y2", String(y2));
-      const p0 = pathColorPhase(i);
-      const p1 = pathColorPhase(i + 1);
-      const gradId = "gm-conn-grad-" + i;
-      const grad = document.createElementNS(SVG_NS, "linearGradient");
-      grad.setAttribute("id", gradId);
-      grad.setAttribute("gradientUnits", "userSpaceOnUse");
-      grad.setAttribute("x1", String(x1));
-      grad.setAttribute("y1", String(y1));
-      grad.setAttribute("x2", String(x2));
-      grad.setAttribute("y2", String(y2));
-      const stop0 = document.createElementNS(SVG_NS, "stop");
-      stop0.setAttribute("offset", "0%");
-      stop0.setAttribute("stop-color", wordPathDragStrokeColorAt(p0));
-      const stop1 = document.createElementNS(SVG_NS, "stop");
-      stop1.setAttribute("offset", "100%");
-      stop1.setAttribute("stop-color", wordPathDragStrokeColorAt(p1));
-      grad.appendChild(stop0);
-      grad.appendChild(stop1);
-      defs.appendChild(grad);
-      line.setAttribute("stroke", "url(#" + gradId + ")");
-    }
-  }
-
-  function syncLineOverlaySize() {
-    if (!gridLineWrapper) return;
-    const wrap = gridLineWrapper.getBoundingClientRect();
-    const gridR = grid.getBoundingClientRect();
-    const offsetLeft = Math.round(gridR.left - wrap.left);
-    const offsetTop = Math.round(gridR.top - wrap.top);
-    gridLineContainer.style.left = offsetLeft + "px";
-    gridLineContainer.style.top = offsetTop + "px";
-    gridLineContainer.style.width = grid.offsetWidth + "px";
-    gridLineContainer.style.height = grid.offsetHeight + "px";
-  }
-
-  let gamemakerLineOverlaySyncRaf = 0;
-
-  function scheduleSyncLineOverlaySize() {
-    if (gamemakerLineOverlaySyncRaf !== 0) return;
-    gamemakerLineOverlaySyncRaf = window.requestAnimationFrame(() => {
-      gamemakerLineOverlaySyncRaf = 0;
-      syncLineOverlaySize();
+    restyleWordConnectorLines({
+      grid,
+      gridLineContainer,
+      svgNs: SVG_NS,
+      selectedButtons: word.selectedButtons,
+      gradientIdPrefix: "gm-conn-grad",
     });
   }
 
+  const { syncLineOverlaySize, scheduleSyncLineOverlaySize } =
+    createLineOverlayLayoutSync({
+      grid,
+      gridLineWrapper,
+      gridLineContainer,
+    });
+
   function lockGridSizeForSwipe() {
-    if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0)
-      return;
-    const br = grid.getBoundingClientRect();
-    if (br.width < 1 || br.height < 1) return;
-    ctx.state.shift.lockedGridWidthPx = br.width;
-    ctx.state.shift.lockedGridHeightPx = br.height;
-    grid.style.width = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.maxWidth = ctx.state.shift.lockedGridWidthPx + "px";
-    grid.style.height = ctx.state.shift.lockedGridHeightPx + "px";
+    lockGridSizeForSwipeCore(grid, ctx.state.shift);
   }
 
   function unlockGridSizeAfterSwipe() {
-    ctx.state.shift.lockedGridWidthPx = 0;
-    ctx.state.shift.lockedGridHeightPx = 0;
+    unlockGridSizeAfterSwipeCore(ctx.state.shift);
   }
 
   function clearSelectionVisual() {

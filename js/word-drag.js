@@ -1,6 +1,5 @@
 import { playSound, bingPlaybackRateForWordLength } from "./audio.js";
 import {
-  WORD_PATH_COLOR_STEPS,
   WORD_LINE_FADE_MS,
   WORD_INVALID_SHAKE_MS,
   WORD_COMMIT_AFTER_PULSE_MS,
@@ -17,7 +16,7 @@ import {
 } from "./config.js";
 import { getTileButtonFromEvent, getTileText, setTileText } from "./grid-tiles.js";
 import { showMessage } from "./ui-word-line.js";
-import { wordPathDragStrokeColorAt } from "./word-path.js";
+import { restyleWordConnectorLines } from "./word-connector-lines.js";
 import { isAdjacentGridTiles, syncSelectionVisitDepthOnGrid } from "./word-play.js";
 
 export function clearWordSubmitFeedbackTimer(ctx) {
@@ -87,57 +86,13 @@ export function createWordDragHandlers(ctx, host) {
   }
 
   function restyleAllWordConnectorLines() {
-    const lineEls = host.gridLineContainer.querySelectorAll("line");
-    let defs = host.gridLineContainer.querySelector("defs");
-    if (lineEls.length === 0) {
-      if (defs) defs.remove();
-      return;
-    }
-    const n = w().selectedButtons.length;
-    if (n < 2 || lineEls.length !== n - 1) return;
-    if (!defs) {
-      defs = document.createElementNS(svgNs, "defs");
-      host.gridLineContainer.insertBefore(defs, host.gridLineContainer.firstChild);
-    }
-    defs.replaceChildren();
-    const gridRect = host.grid.getBoundingClientRect();
-    const colorSpan = WORD_PATH_COLOR_STEPS;
-    const pathColorPhase = (k) => (((k / colorSpan) % 1) + 1) % 1;
-    for (let i = 0; i < lineEls.length; i++) {
-      const line = lineEls[i];
-      const btnA = w().selectedButtons[i];
-      const btnB = w().selectedButtons[i + 1];
-      const lastRect = btnA.getBoundingClientRect();
-      const currRect = btnB.getBoundingClientRect();
-      const x1 = lastRect.left + lastRect.width / 2 - gridRect.left;
-      const y1 = lastRect.top + lastRect.height / 2 - gridRect.top;
-      const x2 = currRect.left + currRect.width / 2 - gridRect.left;
-      const y2 = currRect.top + currRect.height / 2 - gridRect.top;
-      line.setAttribute("x1", String(x1));
-      line.setAttribute("y1", String(y1));
-      line.setAttribute("x2", String(x2));
-      line.setAttribute("y2", String(y2));
-      const p0 = pathColorPhase(i);
-      const p1 = pathColorPhase(i + 1);
-      const gradId = `word-conn-path-grad-${i}`;
-      const grad = document.createElementNS(svgNs, "linearGradient");
-      grad.setAttribute("id", gradId);
-      grad.setAttribute("gradientUnits", "userSpaceOnUse");
-      grad.setAttribute("x1", String(x1));
-      grad.setAttribute("y1", String(y1));
-      grad.setAttribute("x2", String(x2));
-      grad.setAttribute("y2", String(y2));
-      const stop0 = document.createElementNS(svgNs, "stop");
-      stop0.setAttribute("offset", "0%");
-      stop0.setAttribute("stop-color", wordPathDragStrokeColorAt(p0));
-      const stop1 = document.createElementNS(svgNs, "stop");
-      stop1.setAttribute("offset", "100%");
-      stop1.setAttribute("stop-color", wordPathDragStrokeColorAt(p1));
-      grad.appendChild(stop0);
-      grad.appendChild(stop1);
-      defs.appendChild(grad);
-      line.setAttribute("stroke", `url(#${gradId})`);
-    }
+    restyleWordConnectorLines({
+      grid: host.grid,
+      gridLineContainer: host.gridLineContainer,
+      svgNs,
+      selectedButtons: w().selectedButtons,
+      gradientIdPrefix: "word-conn-path-grad",
+    });
   }
 
   function applyWordConnectorLineOutcome(isValid, options = {}) {
