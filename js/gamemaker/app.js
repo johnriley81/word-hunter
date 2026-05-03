@@ -119,6 +119,21 @@ function createGamemaker() {
     return buildPlaysChron.length === WORD_COUNT && getCurrentWordIndexAsc() < 0;
   }
 
+  /** If chron + board produce a payload, clamp step past the hunt so UI shows Next. */
+  function reconcilePlacementForExportUi() {
+    if (buildPlaysChron.length !== WORD_COUNT) return;
+    if (
+      !buildGamemakerDictExportPayload({
+        gameBoard: ctx.state.gameBoard,
+        buildPlaysChron,
+        currentWords,
+        wordCount: WORD_COUNT,
+      })
+    )
+      return;
+    if (placementStep < WORD_COUNT) placementStep = WORD_COUNT;
+  }
+
   function refreshListButtonLabel() {
     if (!btnList) return;
     btnList.textContent = isPuzzleCompleteForExport() ? "next" : "reset";
@@ -159,6 +174,7 @@ function createGamemaker() {
   }
 
   function updateUi() {
+    reconcilePlacementForExportUi();
     setToolbarForEntry(getTargetEntry(), 0);
     refreshListButtonLabel();
     refreshWordSwapButton();

@@ -1,4 +1,8 @@
-import { GRID_SIZE, WORD_INVALID_SHAKE_MS } from "../config.js";
+import {
+  GRID_SIZE,
+  PERFECT_HUNT_WORD_COUNT,
+  WORD_INVALID_SHAKE_MS,
+} from "../config.js";
 import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
@@ -269,9 +273,13 @@ export function createGridPlacementApi(deps) {
     return { ok: true, reason: "ok" };
   }
 
+  /**
+   * @returns {boolean} true if the board committed and `appendBuildPlay` ran
+   */
   function applyCommitToBoard() {
+    const commitIx = getCurrentWordIndexAsc();
     const entry = getTargetEntry();
-    if (!entry) return;
+    if (!entry || commitIx < 0 || commitIx >= PERFECT_HUNT_WORD_COUNT) return false;
     const w = String(/** @type {{ word?: string }} */ (entry).word || "").toLowerCase();
     const glyphs = wordToTileLabelSequence(w);
     const minTiles = minUniqueTilesForReuseRule(glyphs);
@@ -302,21 +310,19 @@ export function createGridPlacementApi(deps) {
       setTileTextAllowEmpty(b, g);
     }
     setBoardSnapshotPreDrag(null);
-    const wiAsc = getCurrentWordIndexAsc();
-    if (wiAsc >= 0) {
-      const starterTorQuad = torNeighborQuadExportTokensFromBoard(
-        ctx.state.gameBoard,
-        pathFlat[0],
-        GRID_SIZE
-      );
-      appendBuildPlay({
-        word: w,
-        min_tiles: minTiles,
-        pathFlat,
-        covered,
-        starter_tor_neighbor_quad: starterTorQuad,
-      });
-    }
+    const starterTorQuad = torNeighborQuadExportTokensFromBoard(
+      ctx.state.gameBoard,
+      pathFlat[0],
+      GRID_SIZE
+    );
+    appendBuildPlay({
+      word: w,
+      min_tiles: minTiles,
+      pathFlat,
+      covered,
+      starter_tor_neighbor_quad: starterTorQuad,
+    });
+    return true;
   }
 
   function onPointerUp() {
@@ -324,7 +330,18 @@ export function createGridPlacementApi(deps) {
     setMouseDown(false);
     const val = validatePathAgainstTarget();
     if (val.ok) {
-      applyCommitToBoard();
+      let committed = false;
+      try {
+        committed = applyCommitToBoard();
+      } catch {
+        committed = false;
+      }
+      if (!committed) {
+        revertBoardToPreDragSnapshot();
+        resetSelection();
+        updateUi();
+        return;
+      }
       bumpPlacementStep();
       resetSelection();
       updateUi();
