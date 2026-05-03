@@ -223,6 +223,7 @@ export function initGame(ctx) {
   let leaderboardFadeOutTimer = null;
   /** @type {Array<[string, number, number|string, string]> | null} */
   let demoLeaderboardRows = null;
+  let liveLeaderboardPreviewRows = null;
   let demoLeaderboardSubmitUsed = false;
   let liveLeaderboardSubmitUsed = false;
   let copyScoreLineUsed = false;
@@ -354,13 +355,14 @@ export function initGame(ctx) {
     });
   }
   leaderboardTable.addEventListener("click", (e) => {
-    if (!LEADERBOARD_USE_DEMO_DATA || demoLeaderboardSubmitUsed) return;
     if (!(e.target instanceof Element)) return;
-    const td = e.target.closest("td[data-demo-self-name]");
+    const td = e.target.closest("td[data-inline-self-name]");
     if (!td || !leaderboardTable.contains(td)) return;
+    if (LEADERBOARD_USE_DEMO_DATA && demoLeaderboardSubmitUsed) return;
+    if (!LEADERBOARD_USE_DEMO_DATA && liveLeaderboardSubmitUsed) return;
     if (td.querySelector(".leaderboard-inline-name-input")) return;
     e.preventDefault();
-    lbCtl.openDemoLeaderboardInlineNameEdit(td);
+    lbCtl.openLeaderboardInlineNameEdit(td);
   });
   updateCurrentWord();
   currentWordElement.textContent = PRE_START_WORDMARK;
@@ -934,6 +936,10 @@ export function initGame(ctx) {
     setLiveLeaderboardSubmitUsed: (v) => {
       liveLeaderboardSubmitUsed = v;
     },
+    getLiveLeaderboardPreviewRows: () => liveLeaderboardPreviewRows,
+    setLiveLeaderboardPreviewRows: (v) => {
+      liveLeaderboardPreviewRows = v;
+    },
     getPlayerPosition: () => playerPosition,
     setPlayerPosition: (v) => {
       playerPosition = v;
@@ -1026,6 +1032,7 @@ export function initGame(ctx) {
     lbCtl.hidePostgameLeaderboardOverlay();
     demoLeaderboardSubmitUsed = false;
     liveLeaderboardSubmitUsed = false;
+    liveLeaderboardPreviewRows = null;
     if (endgameTileStartTimer !== null) {
       window.clearTimeout(endgameTileStartTimer);
       endgameTileStartTimer = null;
@@ -1201,6 +1208,7 @@ export function initGame(ctx) {
     }
     postgameSequenceStarted = false;
     demoLeaderboardRows = null;
+    liveLeaderboardPreviewRows = null;
     demoLeaderboardSubmitUsed = false;
     liveLeaderboardSubmitUsed = false;
     if (!skipLeaderboardOverlayTeardown) {

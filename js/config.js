@@ -46,7 +46,8 @@ export const SHIFT_TAP_MAX_TRAVEL_PX = 20;
 export const SHIFT_TAP_MAX_PRESS_MS = 500;
 export const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_TOUCH = 325;
 export const SHIFT_DOUBLE_END_GAME_MAX_GAP_MS_MOUSE = 550;
-export const SCORE_SUBMIT_THRESHOLD = 50;
+/** Live leaderboard: score must be **greater than** this to submit and to show the preview row (`0` => score > 0). */
+export const SCORE_SUBMIT_THRESHOLD = 0;
 export const START_TOUCHPAD_FADE_MS = 420;
 export const TILE_PALETTE_MS = 420;
 /** Endgame only: active → inactive tile color transition (`tilePaletteToInactive`). */
@@ -55,10 +56,27 @@ export const TILE_PALETTE_TRANSITION_SETTLE_MS = 120;
 export const CURRENT_WORD_FADE_MS = 220;
 export const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 export const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
+/**
+ * Leaderboard: demo mode (`LEADERBOARD_USE_DEMO_DATA`) skips the API and uses the demo submit UI.
+ * Live base is `LEADERBOARD_PRODUCTION_API_BASE`; on localhost, `LEADERBOARD_API_BASE` points at the CORS proxy.
+ * Tests: `npm test` / `npm run test:leaderboard`. Local API without prod: `npm run dev:leaderboard`.
+ */
 export const LEADERBOARD_USE_DEMO_DATA = false;
-/** Trailing slash required; requests are `${LEADERBOARD_API_BASE}{puzzleId}`. */
-export const LEADERBOARD_API_BASE =
+export const LEADERBOARD_PRODUCTION_API_BASE =
   "https://johnriley81.pythonanywhere.com/leaderboard/";
+/** `${LEADERBOARD_API_BASE}{puzzleId}` — trailing slash required. */
+function resolveLeaderboardApiBase() {
+  if (typeof location === "undefined") {
+    return LEADERBOARD_PRODUCTION_API_BASE;
+  }
+  const h = location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") {
+    return "http://127.0.0.1:8765/leaderboard/";
+  }
+  return LEADERBOARD_PRODUCTION_API_BASE;
+}
+
+export const LEADERBOARD_API_BASE = resolveLeaderboardApiBase();
 /** When true, POST includes `scoreValidation` (server `WORDHUNTER_VALIDATE_SCORE`). */
 export const LEADERBOARD_SUBMIT_SCORE_VALIDATION = false;
 /** Only when `LEADERBOARD_USE_DEMO_DATA`: empty GET-style board, optional inject rows for UI tests. */
