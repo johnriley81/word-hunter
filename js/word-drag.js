@@ -456,9 +456,7 @@ export function createWordDragHandlers(ctx, host) {
             WORD_SUCCESS_MESSAGE_FADE_EARLY_MS
         )
       );
-      if (cw.length >= host.getLongestWord().length) {
-        host.setLongestWord(cw);
-      }
+      host.recordTrophyWordIfBest(cw, wordScore);
       host.updateScore();
 
       applyWordConnectorLineOutcome(true, { huntPaceSuccess: keepingPace });
