@@ -32,6 +32,7 @@ export const NEXT_LETTERS_UI_COUNT = NEXT_LETTERS_LEN - GRID_CELL_COUNT;
 export const SHIFT_STRIDE_FIRST_FRAC = 0.4;
 export const SHIFT_AXIS_LOCK_PX = 8;
 export const SHIFT_SLIDE_SENSITIVITY = 2;
+export const SHIFT_MAX_STEPS_PER_GESTURE = 7;
 export const SHIFT_SETTLE_MS = 340;
 export const SHIFT_SETTLE_EASE = "cubic-bezier(0.2, 0.85, 0.25, 1)";
 export const SHIFT_COMMIT_SNAP_MS = 220;

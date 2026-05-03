@@ -452,6 +452,7 @@ export function initGame(ctx) {
     getIsPaused: () => isPaused,
     getIsMouseDown: () => isMouseDown,
     getIsMuted: () => isMuted,
+    getShiftsAllowed: () => ctx.state.word.wordReplaceLockGen === 0 && !isMouseDown,
     endGame,
     syncDomFromBoard,
     applyColumnShift,

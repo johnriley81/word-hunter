@@ -1,6 +1,8 @@
 import {
   LETTER_WEIGHTS,
   SHIFT_STRIDE_FIRST_FRAC,
+  GRID_SIZE,
+  SHIFT_MAX_STEPS_PER_GESTURE,
   SCENARIO_MESSAGE_VARIANTS,
   PERFECT_HUNT_WORD_COUNT,
 } from "./config.js";
@@ -22,7 +24,8 @@ export function getLetterWeight(tileText) {
 }
 
 export function shiftMaxStepsPerGesture(n) {
-  return Math.max(1, n - 1);
+  const nn = Math.max(1, Math.floor(Number(n)) || GRID_SIZE);
+  return Math.max(1, SHIFT_MAX_STEPS_PER_GESTURE, nn - 1);
 }
 
 export function shiftCommitStepsFromAxisMag(magPx, stridePx, n) {

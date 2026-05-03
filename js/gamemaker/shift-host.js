@@ -53,7 +53,8 @@ export function createGamemakerShiftHost(deps) {
     getIsGameActive,
     getIsPaused: () => false,
     getIsMouseDown,
-    getShiftsAllowed: () => !getIsMouseDown(),
+    getShiftsAllowed: () =>
+      ctx.state.word.wordReplaceLockGen === 0 && !getIsMouseDown(),
     getIsMuted: () => true,
     endGame,
     syncDomFromBoard,
