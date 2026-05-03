@@ -300,7 +300,7 @@ export function createLeaderboardController(rt) {
               td.style.color = leaderboardSubPerfectRowColor;
             setLeaderboardCellFlash(td, displayNameCell, nameTrophyFlash);
             if (playerRowGoldNameTrophy) td.style.color = goldTextColor;
-          } else if (cellIndex === 1 || cellIndex === 3) {
+          } else if (cellIndex === 1 || cellIndex === 2 || cellIndex === 3) {
             if (submitRowBeigeNameTrophy)
               td.style.color = leaderboardSubPerfectRowColor;
             setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
