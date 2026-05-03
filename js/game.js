@@ -31,6 +31,7 @@ import {
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
   computePerfectHuntStarterFlatWithRowHints,
+  remapPerfectHuntHintStickyFlatAfterCommittedShift,
 } from "./board-logic.js";
 import {
   sounds,
@@ -71,6 +72,7 @@ import {
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
 import { omitEmptyNextLetterSlots } from "./puzzle-export-sim.js";
+import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -174,7 +176,7 @@ export function initGame(ctx) {
   let score = 0;
   let nextLetters = [];
   let wordSet = new Set();
-  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[] }>} */
+  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_tor_neighbors?: string[] }>} */
   let puzzles = [];
   let diffDays = 0;
   let isPaused = false;
@@ -379,12 +381,26 @@ export function initGame(ctx) {
   currentWordElement.textContent = PRE_START_WORDMARK;
   currentWordElement.style.color = "white";
 
+  function commitBoardShift(kind, signedSteps) {
+    if (kind === "col") {
+      applyColumnShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
+    } else {
+      applyRowShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
+    }
+    remapPerfectHuntHintStickyFlatAfterCommittedShift(
+      ctx.state,
+      kind,
+      signedSteps,
+      GRID_SIZE
+    );
+  }
+
   function applyColumnShift(signedSteps) {
-    applyColumnShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
+    commitBoardShift("col", signedSteps);
   }
 
   function applyRowShift(signedSteps) {
-    applyRowShiftInPlace(ctx.state.gameBoard, signedSteps, GRID_SIZE);
+    commitBoardShift("row", signedSteps);
   }
 
   function clearPerfectHuntHintVisual() {
@@ -393,6 +409,7 @@ export function initGame(ctx) {
       buttons[i].classList.remove(PERFECT_HUNT_HINT_CLASS);
     }
     ctx.state.perfectHuntHintFlat = null;
+    ctx.state.perfectHuntHintStickyFlat = null;
   }
 
   function computePerfectHuntHintFlat() {
@@ -403,14 +420,22 @@ export function initGame(ctx) {
       ctx.state.perfectHuntOnPace,
       GRID_SIZE,
       ctx.state.perfectHuntStarterFlats,
-      ctx.state.perfectHuntStarterNeighborSigs
+      ctx.state.perfectHuntStarterNeighborSigs,
+      ctx.state.perfectHuntStarterTorNeighbors
     );
   }
 
   function refreshPerfectHuntHint() {
     const nSq = GRID_SIZE * GRID_SIZE;
 
-    const nextFlat = computePerfectHuntHintFlat();
+    let nextFlat;
+    if (ctx.state.perfectHuntOnPace && ctx.state.perfectHuntHintStickyFlat != null) {
+      nextFlat = ctx.state.perfectHuntHintStickyFlat;
+    } else {
+      nextFlat = computePerfectHuntHintFlat();
+      ctx.state.perfectHuntHintStickyFlat =
+        ctx.state.perfectHuntOnPace && nextFlat != null ? nextFlat : null;
+    }
     const prevFlat = ctx.state.perfectHuntHintFlat;
 
     if (nextFlat == null) {
@@ -427,6 +452,7 @@ export function initGame(ctx) {
     const btn = grid.children[nextFlat];
     if (!btn) {
       ctx.state.perfectHuntHintFlat = null;
+      ctx.state.perfectHuntHintStickyFlat = null;
       return;
     }
 
@@ -564,6 +590,7 @@ export function initGame(ctx) {
     ctx.state.perfectHuntWordsSubmitted?.clear();
     ctx.state.perfectHuntOrderIndex = 0;
     ctx.state.perfectHuntOnPace = Boolean(ctx.state.perfectHunt?.length);
+    ctx.state.perfectHuntHintStickyFlat = null;
     updateScore();
 
     const activateGridTilesForPlay = () => {
@@ -640,9 +667,15 @@ export function initGame(ctx) {
           ob && typeof ob === "object" ? { ...ob } : {}
         )
       : null;
+    ctx.state.perfectHuntStarterTorNeighbors = Array.isArray(
+      p.perfect_hunt_starter_tor_neighbors
+    )
+      ? coerceStarterTorNeighborsForRow(p.perfect_hunt_starter_tor_neighbors)
+      : null;
     ctx.state.perfectHuntWordsSubmitted = new Set();
     ctx.state.perfectHuntOrderIndex = 0;
     ctx.state.perfectHuntHintFlat = null;
+    ctx.state.perfectHuntHintStickyFlat = null;
     ctx.state.perfectHuntOnPace =
       Array.isArray(p.perfect_hunt) && p.perfect_hunt.length > 0;
     if (rulesPerfectHuntTotalElement) {
@@ -831,6 +864,7 @@ export function initGame(ctx) {
       const hunt = ctx.state.perfectHunt;
       if (!hunt?.length) {
         ctx.state.perfectHuntOnPace = false;
+        ctx.state.perfectHuntHintStickyFlat = null;
         return { brokePace: false };
       }
       const idx = ctx.state.perfectHuntOrderIndex;
@@ -840,10 +874,12 @@ export function initGame(ctx) {
       const key = String(word || "").toLowerCase();
       const expected = hunt[idx];
       if (key === String(expected).toLowerCase()) {
+        ctx.state.perfectHuntHintStickyFlat = null;
         ctx.state.perfectHuntOrderIndex = idx + 1;
         return { brokePace: false };
       }
       ctx.state.perfectHuntOnPace = false;
+      ctx.state.perfectHuntHintStickyFlat = null;
       return { brokePace: true };
     },
     collapseNextLetterBlankSlots() {
@@ -1043,6 +1079,7 @@ export function initGame(ctx) {
       syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]));
     }
     ctx.state.perfectHuntHintFlat = null;
+    ctx.state.perfectHuntHintStickyFlat = null;
     runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
       const tiles = grid.getElementsByClassName("grid-button");
       for (let i = 0; i < tiles.length; i++) {
