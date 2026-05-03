@@ -11,6 +11,7 @@ import {
 } from "../js/leaderboard-api.js";
 import {
   applyLiveLeaderboardPreviewMerge,
+  demoRunQualifiesForLeaderboard,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
   mergeDemoRunIntoTop10,
@@ -166,6 +167,14 @@ test("applyLiveLeaderboardPreviewMerge: keeps API row; adds preview below on sam
     (r) => String(r[0]).toUpperCase() === "YOU" && r[2] === 88 && r.length < 5
   );
   assert.ok(firstYouIdx >= 0 && previewIdx > firstYouIdx);
+});
+
+test("demoRunQualifiesForLeaderboard: tie with 10th score qualifies", () => {
+  const base = normalizeLeaderboardRows(
+    Array.from({ length: 10 }, (_, i) => [`P${i}`, 100 - i * 10, "T"])
+  );
+  assert.equal(demoRunQualifiesForLeaderboard(base, 10), true);
+  assert.equal(demoRunQualifiesForLeaderboard(base, 9), false);
 });
 
 test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows player", () => {

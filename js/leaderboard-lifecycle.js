@@ -99,17 +99,11 @@ export function buildDemoLeaderboardRows() {
 export function demoRunQualifiesForLeaderboard(baseRows, runScore) {
   const s = Number(runScore);
   if (!Number.isFinite(s) || s <= 0) return false;
-  if (!baseRows || baseRows.length < 10) return true;
-  const raw = baseRows[9][2];
-  const tenthNum = Number(raw);
-  const tenthSlotOccupied =
-    raw !== "" &&
-    raw !== null &&
-    raw !== undefined &&
-    !Number.isNaN(tenthNum) &&
-    tenthNum > 0;
-  if (!tenthSlotOccupied) return true;
-  return s > tenthNum;
+  const n = baseRows?.length ?? 0;
+  if (n < 10) return true;
+  const tenthNum = Number(baseRows[9][2]);
+  if (!Number.isFinite(tenthNum) || tenthNum <= 0) return true;
+  return s >= tenthNum;
 }
 
 export function applyLiveLeaderboardPreviewMerge(
