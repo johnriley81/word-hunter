@@ -20,10 +20,10 @@ export function leaderboardLiveSelfRowIndex(
   rows,
   playerNameValue,
   runScore,
-  longestWord
+  trophyWord
 ) {
   if (!rows?.length) return -1;
-  const trophy = String(longestWord ?? "").trim();
+  const trophy = String(trophyWord ?? "").trim();
   const want = Number(runScore);
   const previewKey = leaderboardPreviewNameKey(playerNameValue);
   let untagged = -1;
@@ -46,10 +46,10 @@ export function leaderboardLiveSubmitNameFallbackRaw(
   rows,
   playerNameValue,
   runScore,
-  longestWord
+  trophyWord
 ) {
   if (!rows?.length) return "";
-  const trophy = String(longestWord ?? "").trim();
+  const trophy = String(trophyWord ?? "").trim();
   const want = Number(runScore);
   const matches = [];
   for (const r of rows) {
@@ -116,7 +116,7 @@ export function applyLiveLeaderboardPreviewMerge(
   normalizedApiRows,
   trimmedPlayerName,
   runScore,
-  longestWord,
+  trophyWord,
   { useDemoData, liveSubmitUsed }
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
@@ -131,7 +131,7 @@ export function applyLiveLeaderboardPreviewMerge(
     normalizedApiRows,
     trimmedPlayerName || "YOU",
     run,
-    String(longestWord || "").trim(),
+    String(trophyWord || "").trim(),
     { dedupeNameScoreTrophy: false, tagLiveRunPreview: true }
   );
 }

@@ -808,7 +808,7 @@ export function initGame(ctx) {
     updateScore,
     validateWord: (word) => wordSet.has(word.toLowerCase()),
     getWordScoreFromSelectedTiles: (seq) => getLiveWordScoreBreakdown(seq).wordTotal,
-    getLongestWord: () => trophyWord,
+    getTrophyWord: () => trophyWord,
     recordTrophyWordIfBest(word, wordScore) {
       const w = String(word || "");
       const n = Number(wordScore);
@@ -909,7 +909,7 @@ export function initGame(ctx) {
     ctx,
     leaderboardLink,
     getScore: () => score,
-    getLongestWord: () => trophyWord,
+    getTrophyWord: () => trophyWord,
     getLeaderboardPuzzleId: () => leaderboardPuzzleId,
     getScoreValidationTurns: () => scoreValidationTurns,
     getIsMuted: () => isMuted,

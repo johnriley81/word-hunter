@@ -19,7 +19,7 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     clicked,
     score,
     nameTrim,
-    longestWord,
+    trophyWord,
     scoreThreshold,
     useDemoData,
     liveSubmitUsed,
@@ -34,7 +34,7 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
   let tableRows = Array.isArray(fromNetwork) ? fromNetwork : [];
 
   const runPreviewMerge = (norm) =>
-    applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, longestWord, {
+    applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, trophyWord, {
       useDemoData,
       liveSubmitUsed,
     });
