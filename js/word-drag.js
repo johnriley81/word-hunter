@@ -441,6 +441,7 @@ export function createWordDragHandlers(ctx, host) {
         });
       }
       const tilesToReplace = Array.from(w().selectedButtonSet);
+      host.recordLeaderboardScoreTurn?.(cw, tilesToReplace.length);
       host.addToScore(wordScore);
       const paceOrderResult = host.recordPerfectHuntOrderPace(cw);
       host.commitPerfectHuntWordIfListed(cw);

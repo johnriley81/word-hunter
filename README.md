@@ -30,26 +30,26 @@ npm test
 
 Feature modules (each takes `ctx` and/or small host/runtime objects):
 
-| Module                     | Role                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `board-logic.js`           | Scoring, shifts, tile normalization (tested)                                                               |
-| `grid-tiles.js`            | Tile DOM helpers, `syncDomFromBoard`                                                                       |
-| `shift-gestures.js`        | Shift gesture state factory                                                                                |
-| `shift-dom.js`             | Shift preview, commit, pointers, grid lock hooks                                                           |
-| `word-play.js`             | Adjacency + selection visit depth on the grid                                                              |
-| `word-drag.js`             | Word selection, connector SVG, success/invalid choreography                                                |
-| `word-path.js`             | Path gradient helpers (tested)                                                                             |
-| `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                               |
-| `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                      |
-| `leaderboard-ui.js`        | Table, overlay, API refresh, postgame copy-score flow                                                      |
-| `rules-dock.js`            | Rules overlay + mute wiring                                                                                |
-| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet` (gamemaker only), `puzzleListIndex`, `calculateDiffDays` |
-| `audio.js`                 | Sound pools and playback                                                                                   |
-| `config.js`                | Constants and timings                                                                                      |
+| Module                     | Role                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `board-logic.js`           | Scoring, shifts, tile normalization (tested)                                                                     |
+| `grid-tiles.js`            | Tile DOM helpers, `syncDomFromBoard`                                                                             |
+| `shift-gestures.js`        | Shift gesture state factory                                                                                      |
+| `shift-dom.js`             | Shift preview, commit, pointers, grid lock hooks                                                                 |
+| `word-play.js`             | Adjacency + selection visit depth on the grid                                                                    |
+| `word-drag.js`             | Word selection, connector SVG, success/invalid choreography                                                      |
+| `word-path.js`             | Path gradient helpers (tested)                                                                                   |
+| `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                                     |
+| `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                            |
+| `leaderboard-ui.js`        | Table, overlay, API refresh, postgame copy-score flow                                                            |
+| `rules-dock.js`            | Rules overlay + mute wiring                                                                                      |
+| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet` (gamemaker only), `puzzleListIndex`, `calculatePuzzleDayIndex` |
+| `audio.js`                 | Sound pools and playback                                                                                         |
+| `config.js`                | Constants and timings                                                                                            |
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines per puzzle: `starting_grid`, compact `next_letters` (typically 50 tokens, pads to `NEXT_LETTERS_LEN` = 66), `perfect_hunt` ×7; Σ min-tiles per row = **66**). Daily row: `puzzleListIndex` in `puzzle-calendar.js` (`PUZZLE_ROTATION_EPOCH`). Leaderboard / share `#` still use legacy `calculateDiffDays`.
+- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines per puzzle: `starting_grid`, compact `next_letters` (typically 50 tokens, pads to `NEXT_LETTERS_LEN` = 66), `perfect_hunt` ×7; Σ min-tiles per row = **66**). Daily row: `puzzleListIndex` in `puzzle-calendar.js` (`PUZZLE_ROTATION_EPOCH`). Leaderboard path and share `#` use `calculatePuzzleDayIndex()` (same epoch).
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 
