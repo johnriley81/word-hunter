@@ -10,7 +10,7 @@ const baseInput = {
   scoreThreshold: SCORE_SUBMIT_THRESHOLD,
   useDemoData: false,
   liveSubmitUsed: false,
-  longestWord: "STAR",
+  trophyWord: "STAR",
 };
 
 test("GET [] + qualifying run: preview merge shows player at row 1", () => {

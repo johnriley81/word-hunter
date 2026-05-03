@@ -87,7 +87,8 @@ function cloneBoardSnapshotForLeaderboard(board) {
 
 let isMouseDown = false;
 let isGameActive = false;
-let longestWord = "";
+let trophyWord = "";
+let trophyWordScore = Number.NEGATIVE_INFINITY;
 let websiteLink = "https://wordhunter.io/";
 const leaderboardLink = LEADERBOARD_API_BASE;
 let playerPosition;
@@ -807,9 +808,18 @@ export function initGame(ctx) {
     updateScore,
     validateWord: (word) => wordSet.has(word.toLowerCase()),
     getWordScoreFromSelectedTiles: (seq) => getLiveWordScoreBreakdown(seq).wordTotal,
-    getLongestWord: () => longestWord,
-    setLongestWord: (w) => {
-      longestWord = w;
+    getTrophyWord: () => trophyWord,
+    recordTrophyWordIfBest(word, wordScore) {
+      const w = String(word || "");
+      const n = Number(wordScore);
+      if (!Number.isFinite(n)) return;
+      if (
+        n > trophyWordScore ||
+        (n === trophyWordScore && w.length > trophyWord.length)
+      ) {
+        trophyWord = w;
+        trophyWordScore = n;
+      }
     },
     addToScore: (delta) => {
       score += delta;
@@ -899,7 +909,7 @@ export function initGame(ctx) {
     ctx,
     leaderboardLink,
     getScore: () => score,
-    getLongestWord: () => longestWord,
+    getTrophyWord: () => trophyWord,
     getLeaderboardPuzzleId: () => leaderboardPuzzleId,
     getScoreValidationTurns: () => scoreValidationTurns,
     getIsMuted: () => isMuted,
@@ -1239,7 +1249,8 @@ export function initGame(ctx) {
     playerPosition = undefined;
 
     score = 0;
-    longestWord = "";
+    trophyWord = "";
+    trophyWordScore = Number.NEGATIVE_INFINITY;
 
     resetShiftDragVisualHard();
     grid.style.width = "";
@@ -1339,7 +1350,7 @@ export function initGame(ctx) {
     if (playerPosition) {
       leaderboardText = `#${playerPosition} on `;
     }
-    return `${leaderboardText}wordhunter #${leaderboardPuzzleId} 🏹${score}\n🏆 ${longestWord.toUpperCase()} 🏆\n${websiteLink}`;
+    return `${leaderboardText}wordhunter #${leaderboardPuzzleId} 🏹${score}\n🏆 ${trophyWord.toUpperCase()} 🏆\n${websiteLink}`;
   }
 
   function writeScoreToClipboardPromise() {

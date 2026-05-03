@@ -53,7 +53,7 @@ export function createLeaderboardController(rt) {
   function findDemoSelfRowIndex() {
     const rows = rt.getDemoRows();
     if (!LEADERBOARD_USE_DEMO_DATA || !rows) return -1;
-    const trophy = String(rt.getLongestWord() || "").trim();
+    const trophy = String(rt.getTrophyWord() || "").trim();
     const want = Number(rt.getScore());
     return rows.findIndex(
       (r) => leaderboardNumericScore(r) === want && String(r[3] || "").trim() === trophy
@@ -65,7 +65,7 @@ export function createLeaderboardController(rt) {
       rt.getLiveLeaderboardPreviewRows?.(),
       refs().playerName.value,
       rt.getScore(),
-      rt.getLongestWord()
+      rt.getTrophyWord()
     );
   }
 
@@ -196,7 +196,7 @@ export function createLeaderboardController(rt) {
         row
       );
       const trophyStr = String(rowTrophy || "").trim();
-      const trophyMatches = trophyStr === String(rt.getLongestWord() || "").trim();
+      const trophyMatches = trophyStr === String(rt.getTrophyWord() || "").trim();
       const isDemoSelfRow =
         LEADERBOARD_USE_DEMO_DATA &&
         hasScore &&
@@ -452,7 +452,7 @@ export function createLeaderboardController(rt) {
         rt.getLiveLeaderboardPreviewRows?.(),
         playerName.value,
         rt.getScore(),
-        rt.getLongestWord()
+        rt.getTrophyWord()
       )
     );
     if (t) playerName.value = t;
@@ -478,7 +478,7 @@ export function createLeaderboardController(rt) {
       clicked,
       score: rt.getScore(),
       nameTrim,
-      longestWord: rt.getLongestWord(),
+      trophyWord: rt.getTrophyWord(),
       scoreThreshold: SCORE_SUBMIT_THRESHOLD,
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
       liveSubmitUsed: rt.getLiveLeaderboardSubmitUsed(),
@@ -499,7 +499,7 @@ export function createLeaderboardController(rt) {
           const postBody = {
             player: nameTrim,
             score: rt.getScore(),
-            trophy: rt.getLongestWord(),
+            trophy: rt.getTrophyWord(),
           };
           if (LEADERBOARD_SUBMIT_SCORE_VALIDATION) {
             postBody.scoreValidation = rt.getScoreValidationTurns();
@@ -577,7 +577,7 @@ export function createLeaderboardController(rt) {
         const run = Number(rt.getScore());
         let rows = [];
         if (demoRunQualifiesForLeaderboard([], run) && run > 0) {
-          rows = mergeDemoRunIntoTop10([], "YOU", run, rt.getLongestWord() || "");
+          rows = mergeDemoRunIntoTop10([], "YOU", run, rt.getTrophyWord() || "");
         }
         rt.setDemoRows(rows);
         renderLeaderboardTable(rows);
@@ -585,7 +585,7 @@ export function createLeaderboardController(rt) {
         const base = buildDemoLeaderboardRows();
         if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
           rt.setDemoRows(
-            mergeDemoRunIntoTop10(base, "YOU", rt.getScore(), rt.getLongestWord() || "")
+            mergeDemoRunIntoTop10(base, "YOU", rt.getScore(), rt.getTrophyWord() || "")
           );
         } else {
           rt.setDemoRows(base);
