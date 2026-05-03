@@ -17,33 +17,30 @@
   --grid-button-active-color: hwb(44 91% 2%);
   --grid-button-active-text-color: #1f3165;
   --grid-button-active-border-color: #000000;
-  /** Perfect-hunt on-pace word submit: bright tile fill (not the pale default active cell). */
   --hunt-pace-highlight-bg: #f5e2a2;
   --hunt-pace-highlight-text: #3d2800;
   --perfect-hunt-starter-hint-orange-solid: #fc8a09;
-  --perfect-hunt-starter-hint-glow-min: color-mix(
+  --perfect-hunt-starter-hint-ring-dim: color-mix(
     in srgb,
-    var(--perfect-hunt-starter-hint-orange-solid) 75%,
-    transparent
+    var(--perfect-hunt-starter-hint-orange-solid) 82%,
+    black
   );
-  --perfect-hunt-starter-hint-glow-peak: color-mix(
+  --perfect-hunt-starter-hint-ring-soft: color-mix(
     in srgb,
-    var(--perfect-hunt-starter-hint-orange-solid) 46%,
-    transparent
+    var(--perfect-hunt-starter-hint-ring-dim) 72%,
+    white
   );
-  --perfect-hunt-starter-hint-glow-static: color-mix(
-    in srgb,
-    var(--perfect-hunt-starter-hint-orange-solid) 37%,
-    transparent
-  );
-  --perfect-hunt-starter-hint-pulse-duration: 1.75s;
-  /** Halo thickness: blur + spread size the glow around the tile. */
-  --perfect-hunt-starter-hint-glow-blur-min: 9px;
-  --perfect-hunt-starter-hint-glow-spread-min: 0px;
-  --perfect-hunt-starter-hint-glow-blur-peak: 15px;
-  --perfect-hunt-starter-hint-glow-spread-peak: 2px;
-  --perfect-hunt-starter-hint-glow-blur-static: 11px;
-  --perfect-hunt-starter-hint-glow-spread-static: 1px;
+  --perfect-hunt-starter-hint-pulse-duration: 2s;
+  --perfect-hunt-starter-hint-ring-width-rest: 1px;
+  --perfect-hunt-starter-hint-ring-width-peak: 2px;
+  --perfect-hunt-starter-hint-ring-shadow-rest: inset 0 0 0
+    var(--perfect-hunt-starter-hint-ring-width-rest)
+    color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 38%, transparent);
+  --perfect-hunt-starter-hint-ring-shadow-peak: inset 0 0 0
+    var(--perfect-hunt-starter-hint-ring-width-peak)
+    color-mix(in srgb, var(--perfect-hunt-starter-hint-orange-solid) 97%, transparent);
+  --perfect-hunt-starter-hint-ring-shadow-static: inset 0 0 0 2px
+    color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 58%, transparent);
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #8e8e93;
   --leaderboard-button-text-color: white;
@@ -808,18 +805,14 @@ html {
   cursor: default;
 }
 
-@keyframes perfectHuntStarterGlowPulse {
+@keyframes perfectHuntStarterHintRingPulse {
   0%,
   100% {
-    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-min)
-      var(--perfect-hunt-starter-hint-glow-spread-min)
-      var(--perfect-hunt-starter-hint-glow-min);
+    box-shadow: var(--perfect-hunt-starter-hint-ring-shadow-rest);
   }
 
   50% {
-    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-peak)
-      var(--perfect-hunt-starter-hint-glow-spread-peak)
-      var(--perfect-hunt-starter-hint-glow-peak);
+    box-shadow: var(--perfect-hunt-starter-hint-ring-shadow-peak);
   }
 }
 
@@ -837,12 +830,12 @@ html {
 .grid-button.shift-preview-tile.shift-preview-tile--hunt-hint::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: calc(-1 * var(--grid-button-border-width));
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
-  animation: perfectHuntStarterGlowPulse var(--perfect-hunt-starter-hint-pulse-duration)
-    ease-in-out infinite;
+  animation: perfectHuntStarterHintRingPulse
+    var(--perfect-hunt-starter-hint-pulse-duration) ease-in-out infinite;
 }
 
 .grid-button.grid-button--perfect-hunt-hint .tile-glyph,
@@ -860,9 +853,7 @@ html {
   .grid-button.grid-button--perfect-hunt-hint::before,
   .grid-button.shift-preview-tile.shift-preview-tile--hunt-hint::before {
     animation: none;
-    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-static)
-      var(--perfect-hunt-starter-hint-glow-spread-static)
-      var(--perfect-hunt-starter-hint-glow-static);
+    box-shadow: var(--perfect-hunt-starter-hint-ring-shadow-static);
   }
 }
 
@@ -887,7 +878,6 @@ html {
   pointer-events: none;
 }
 
-/* `#grid.grid--endgame-final-fade`: whole-grid opacity to 0; starts when `triggerEndgameTileExitAnimation` runs (after last game-over flash). */
 @keyframes gridEndgameBatchFade {
   from {
     opacity: 1;
@@ -904,6 +894,7 @@ html {
 }
 
 .grid-button {
+  --grid-button-border-width: 2px;
   box-sizing: border-box;
   position: relative;
   display: flex;
@@ -914,7 +905,7 @@ html {
   aspect-ratio: 1;
   height: auto;
   min-height: 0;
-  border: 2px solid var(--grid-button-border-color);
+  border: var(--grid-button-border-width) solid var(--grid-button-border-color);
   box-shadow: 0 0 0 3px var(--grid-button-shadow-color);
   border-radius: 16px;
   font-size: clamp(1.5rem, 5.8vw, 2.3rem);
