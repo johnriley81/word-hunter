@@ -196,6 +196,7 @@ function createGamemaker() {
     syncDomFromBoard: () =>
       placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard),
     syncLineOverlaySize: () => placement.syncLineOverlaySize(),
+    scheduleSyncLineOverlaySize: () => placement.scheduleSyncLineOverlaySize(),
     lockGridSizeForSwipe: () => placement.lockGridSizeForSwipe(),
     unlockGridSizeAfterSwipe: () => placement.unlockGridSizeAfterSwipe(),
     getIsGameActive: () => isGameActive,

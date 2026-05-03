@@ -50,6 +50,7 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
 });
 
 test("dictExport round-trip one JSON line", () => {
+  const tor28 = Array.from({ length: 28 }, (_, i) => (i % 5 === 0 ? "0" : "z"));
   const d = {
     starting_grids: [
       [
@@ -62,15 +63,7 @@ test("dictExport round-trip one JSON line", () => {
     next_letters: Array(NEXT_LETTERS_LEN).fill("x"),
     perfect_hunt: HUNT_PLACEHOLDERS.slice(),
     perfect_hunt_starter_flats: [0, 1, 2, 3, 4, 5, 6],
-    perfect_hunt_starter_neighbor_sigs: Array.from(
-      { length: PERFECT_HUNT_WORD_COUNT },
-      () => ({
-        n: null,
-        s: "z",
-        e: "z",
-        w: "z",
-      })
-    ),
+    perfect_hunt_starter_tor_neighbors: tor28.slice(),
   };
   const line = serializePuzzleRow(dictExportToCanonicalRow(d));
   assert.ok(!line.includes("\n"), "single-line JSON");
@@ -78,56 +71,7 @@ test("dictExport round-trip one JSON line", () => {
   assert.equal(again.length, 1);
   assert.deepEqual(again[0].perfect_hunt, d.perfect_hunt);
   assert.deepEqual(again[0].perfect_hunt_starter_flats, d.perfect_hunt_starter_flats);
-  assert.equal(
-    again[0].perfect_hunt_starter_neighbor_sigs?.length,
-    PERFECT_HUNT_WORD_COUNT
-  );
-  assert.equal(again[0].perfect_hunt_starter_neighbor_sigs?.[0]?.n, null);
-});
-
-test("serializePuzzleRow preserves perfect_hunt_starter_hints_diag round-trip", () => {
-  const d = {
-    starting_grids: [
-      [
-        ["h", "r", "e", "i"],
-        ["t", "r", "i", "n"],
-        ["s", "u", "a", "t"],
-        ["c", "i", "s", "r"],
-      ],
-    ],
-    next_letters: Array(NEXT_LETTERS_LEN).fill("z"),
-    perfect_hunt: HUNT_PLACEHOLDERS.slice(),
-    perfect_hunt_starter_hints_diag: {
-      ok: false,
-      reason: "word 3 at step 1 want q got z",
-      phase: "glyph_match",
-      word_index: 3,
-      step: 1,
-      flat: 11,
-      want: "q",
-      got: "z",
-      queue_left_len: null,
-      shifts_before_by_word_asc: Array.from(
-        { length: PERFECT_HUNT_WORD_COUNT },
-        () => []
-      ),
-      words_asc: HUNT_PLACEHOLDERS.slice(),
-      fill_empty_path_cells: false,
-      replay_basis: "terminal_builder_tray",
-      opening_differs_from_shipped_terminal: true,
-      opening_snapshot_present: true,
-    },
-  };
-  const line = serializePuzzleRow(dictExportToCanonicalRow(d));
-  const again = parsePuzzlesFileText(line);
-  assert.equal(again.length, 1);
-  const diag = /** @type {Record<string, unknown>} */ (
-    again[0].perfect_hunt_starter_hints_diag
-  );
-  assert.ok(diag);
-  assert.equal(diag.ok, false);
-  assert.equal(diag.phase, "glyph_match");
-  assert.equal(diag.word_index, 3);
+  assert.equal(again[0].perfect_hunt_starter_tor_neighbors?.length, 28);
 });
 
 test("serializePuzzleRow round-trip preserves perfect_hunt_starter_tor_neighbors", () => {

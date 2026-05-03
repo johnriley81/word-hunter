@@ -26,8 +26,6 @@ export function createGameContext() {
       perfectHuntHintStickyFlat: null,
       /** @type {number[] | null} */
       perfectHuntStarterFlats: null,
-      /** @type {Array<Record<string, unknown>> | null} */
-      perfectHuntStarterNeighborSigs: null,
       /** @type {string[] | null} */
       perfectHuntStarterTorNeighbors: null,
       wordLine: {

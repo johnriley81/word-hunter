@@ -62,6 +62,14 @@ export function attachShiftGestures(ctx, host) {
     boardShiftDismissButton,
   } = ctx.refs;
 
+  function scheduleLineOverlayFromShiftHost() {
+    if (typeof host.scheduleSyncLineOverlaySize === "function") {
+      host.scheduleSyncLineOverlaySize();
+    } else {
+      host.syncLineOverlaySize();
+    }
+  }
+
   function resetShiftVisualState() {
     ctx.state.shift.visualTx = 0;
     ctx.state.shift.visualTy = 0;
@@ -135,7 +143,6 @@ export function attachShiftGestures(ctx, host) {
             ctx.state.perfectHuntOnPace,
             n,
             ctx.state.perfectHuntStarterFlats,
-            ctx.state.perfectHuntStarterNeighborSigs,
             ctx.state.perfectHuntStarterTorNeighbors
           );
     for (let i = 0; i < tiles.length; i++) {
@@ -437,7 +444,7 @@ export function attachShiftGestures(ctx, host) {
     if (gridLineWrapper) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
   }
 
   function finishShiftSwipeAnimation() {
@@ -457,11 +464,11 @@ export function attachShiftGestures(ctx, host) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
     ctx.state.shift.animating = false;
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         host.unlockGridSizeAfterSwipe();
-        host.syncLineOverlaySize();
+        scheduleLineOverlayFromShiftHost();
       });
     });
   }
@@ -542,7 +549,7 @@ export function attachShiftGestures(ctx, host) {
       }
       grid.style.transition = "";
       grid.style.transform = "";
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       return;
     }
 
@@ -568,7 +575,7 @@ export function attachShiftGestures(ctx, host) {
     const dx = before.left - after.left;
     const dy = before.top - after.top;
 
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
     animateGridSettleFromTo(dx, dy, () => {
       finishShiftSwipeAnimation();
     });
@@ -608,7 +615,7 @@ export function attachShiftGestures(ctx, host) {
       const after = grid.getBoundingClientRect();
       const dx = before.left - after.left;
       const dy = before.top - after.top;
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       animateGridSettleFromTo(dx, dy, () => {
         finishShiftSwipeAnimation();
       });
@@ -656,7 +663,7 @@ export function attachShiftGestures(ctx, host) {
       commitDone = true;
       applyShift();
       host.syncDomFromBoard();
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
     };
 
     const afterSnapTeardown = () => {
@@ -843,7 +850,7 @@ export function attachShiftGestures(ctx, host) {
       afterSnapTeardown();
     }, SHIFT_GESTURE_FALLBACK_MS);
 
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
 
     if (skipSnapAnimate) {
       gridStage.style.transition = "none";
@@ -946,7 +953,7 @@ export function attachShiftGestures(ctx, host) {
     if (gridLineWrapper) {
       gridLineWrapper.classList.remove("grid-line-wrapper--shift-clipping");
     }
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
     try {
       boardShiftZone.setPointerCapture(e.pointerId);
     } catch (_) {}
@@ -991,7 +998,7 @@ export function attachShiftGestures(ctx, host) {
       grid.style.transform = "translate(0, 0)";
       clearShiftPreview();
       resetShiftVisualState();
-      host.syncLineOverlaySize();
+      scheduleLineOverlayFromShiftHost();
       return;
     }
 
@@ -1029,7 +1036,7 @@ export function attachShiftGestures(ctx, host) {
     );
     ctx.state.shift.visualTx = q.tx;
     ctx.state.shift.visualTy = q.ty;
-    host.syncLineOverlaySize();
+    scheduleLineOverlayFromShiftHost();
   }
 
   function onShiftPointerUp(e) {

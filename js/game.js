@@ -158,6 +158,9 @@ export function initGame(ctx) {
     leaderboardDemoAdd,
   } = ctx.refs;
 
+  /** Live list of `#grid` tile buttons — refresh in `generateGrid` after rebuilding children. */
+  let gridButtonElements = grid.getElementsByClassName("grid-button");
+
   const PERFECT_HUNT_HINT_CLASS = "grid-button--perfect-hunt-hint";
 
   if (rulesNextLettersCountElement) {
@@ -176,7 +179,7 @@ export function initGame(ctx) {
   let score = 0;
   let nextLetters = [];
   let wordSet = new Set();
-  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_tor_neighbors?: string[] }>} */
+  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[] }>} */
   let puzzles = [];
   let diffDays = 0;
   let isPaused = false;
@@ -282,25 +285,18 @@ export function initGame(ctx) {
     const offsetTop = Math.round(gridR.top - wrap.top);
     gridLineContainer.style.left = offsetLeft + "px";
     gridLineContainer.style.top = offsetTop + "px";
+    gridLineContainer.style.width = grid.offsetWidth + "px";
+    gridLineContainer.style.height = grid.offsetHeight + "px";
+  }
 
-    const tiles = grid.querySelectorAll(".grid-button");
-    if (!tiles.length) {
-      gridLineContainer.style.width = grid.offsetWidth + "px";
-      gridLineContainer.style.height = grid.offsetHeight + "px";
-      return;
-    }
-    const gridRect = grid.getBoundingClientRect();
-    let maxBottom = 0;
-    let maxRight = 0;
-    tiles.forEach((tile) => {
-      const br = tile.getBoundingClientRect();
-      maxBottom = Math.max(maxBottom, br.bottom - gridRect.top);
-      maxRight = Math.max(maxRight, br.right - gridRect.left);
+  let lineOverlaySyncRaf = 0;
+
+  function scheduleSyncLineOverlaySize() {
+    if (lineOverlaySyncRaf !== 0) return;
+    lineOverlaySyncRaf = window.requestAnimationFrame(() => {
+      lineOverlaySyncRaf = 0;
+      syncLineOverlaySize();
     });
-    gridLineContainer.style.width =
-      Math.ceil(Math.max(grid.offsetWidth, maxRight)) + "px";
-    gridLineContainer.style.height =
-      Math.ceil(Math.max(grid.offsetHeight, maxBottom)) + "px";
   }
 
   GAME_SOUND_IDS.forEach((key) => {
@@ -404,9 +400,8 @@ export function initGame(ctx) {
   }
 
   function clearPerfectHuntHintVisual() {
-    const buttons = grid.getElementsByClassName("grid-button");
-    for (let i = 0; i < buttons.length; i++) {
-      buttons[i].classList.remove(PERFECT_HUNT_HINT_CLASS);
+    for (let i = 0; i < gridButtonElements.length; i++) {
+      gridButtonElements[i].classList.remove(PERFECT_HUNT_HINT_CLASS);
     }
     ctx.state.perfectHuntHintFlat = null;
     ctx.state.perfectHuntHintStickyFlat = null;
@@ -420,7 +415,6 @@ export function initGame(ctx) {
       ctx.state.perfectHuntOnPace,
       GRID_SIZE,
       ctx.state.perfectHuntStarterFlats,
-      ctx.state.perfectHuntStarterNeighborSigs,
       ctx.state.perfectHuntStarterTorNeighbors
     );
   }
@@ -482,6 +476,7 @@ export function initGame(ctx) {
     applyColumnShift,
     applyRowShift,
     syncLineOverlaySize,
+    scheduleSyncLineOverlaySize,
     clearTapStreak,
     lockGridSizeForSwipe,
     unlockGridSizeAfterSwipe,
@@ -494,7 +489,7 @@ export function initGame(ctx) {
       tilePaletteTransitionTimer = null;
     }
 
-    const tiles = grid.querySelectorAll(".grid-button");
+    const tiles = gridButtonElements;
     for (let i = 0; i < tiles.length; i++) {
       const el = tiles[i];
       el.classList.remove(
@@ -582,7 +577,7 @@ export function initGame(ctx) {
     currentWordElement.classList.add("visible");
 
     syncLineOverlaySize();
-    requestAnimationFrame(syncLineOverlaySize);
+    scheduleSyncLineOverlaySize();
     lockGridSizeForSwipe();
 
     score = 0;
@@ -594,9 +589,8 @@ export function initGame(ctx) {
     updateScore();
 
     const activateGridTilesForPlay = () => {
-      const buttons = grid.getElementsByClassName("grid-button");
-      for (let i = 0; i < buttons.length; i++) {
-        const b = buttons[i];
+      for (let i = 0; i < gridButtonElements.length; i++) {
+        const b = gridButtonElements[i];
         b.classList.remove(
           "grid-button--palette-to-active",
           "grid-button--palette-to-inactive",
@@ -660,13 +654,6 @@ export function initGame(ctx) {
     ctx.state.perfectHuntStarterFlats = Array.isArray(p.perfect_hunt_starter_flats)
       ? p.perfect_hunt_starter_flats.slice()
       : null;
-    ctx.state.perfectHuntStarterNeighborSigs = Array.isArray(
-      p.perfect_hunt_starter_neighbor_sigs
-    )
-      ? p.perfect_hunt_starter_neighbor_sigs.map((ob) =>
-          ob && typeof ob === "object" ? { ...ob } : {}
-        )
-      : null;
     ctx.state.perfectHuntStarterTorNeighbors = Array.isArray(
       p.perfect_hunt_starter_tor_neighbors
     )
@@ -707,10 +694,12 @@ export function initGame(ctx) {
       }
     }
 
+    gridButtonElements = grid.getElementsByClassName("grid-button");
+
     ensureShiftPreviewElements(ctx);
     syncLineOverlaySize();
     refreshPerfectHuntHint();
-    requestAnimationFrame(syncLineOverlaySize);
+    scheduleSyncLineOverlaySize();
     requestAnimationFrame(lockGridSizeForSwipe);
   }
 
@@ -955,9 +944,8 @@ export function initGame(ctx) {
   });
 
   function triggerEndgameTileExitAnimation() {
-    const tiles = grid.getElementsByClassName("grid-button");
-    for (let i = 0; i < tiles.length; i++) {
-      const el = tiles[i];
+    for (let i = 0; i < gridButtonElements.length; i++) {
+      const el = gridButtonElements[i];
       el.classList.remove(
         "grid-button--endgame-exit",
         "grid-button--endgame-flip-exit"
@@ -1049,7 +1037,7 @@ export function initGame(ctx) {
     grid.classList.remove("grid--endgame-final-fade");
     grid.style.removeProperty("--endgame-grid-batch-fade-ms");
 
-    const buttons = grid.getElementsByClassName("grid-button");
+    const buttons = gridButtonElements;
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].disabled = true;
       buttons[i].classList.remove("selected");
@@ -1081,9 +1069,8 @@ export function initGame(ctx) {
     ctx.state.perfectHuntHintFlat = null;
     ctx.state.perfectHuntHintStickyFlat = null;
     runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
-      const tiles = grid.getElementsByClassName("grid-button");
-      for (let i = 0; i < tiles.length; i++) {
-        const el = tiles[i];
+      for (let i = 0; i < gridButtonElements.length; i++) {
+        const el = gridButtonElements[i];
         el.classList.remove("grid-button--active");
         el.classList.add("grid-button--inactive");
       }
@@ -1301,9 +1288,8 @@ export function initGame(ctx) {
       leaderboardDemoAdd.classList.add("hiddenDisplay");
     }
 
-    const tiles = grid.querySelectorAll(".grid-button");
-    for (let i = 0; i < tiles.length; i++) {
-      tiles[i].classList.remove(
+    for (let i = 0; i < gridButtonElements.length; i++) {
+      gridButtonElements[i].classList.remove(
         "grid-button--palette-to-active",
         "grid-button--palette-to-inactive",
         "grid-button--palette-to-active-fade-in",
@@ -1328,7 +1314,7 @@ export function initGame(ctx) {
     }
 
     syncLineOverlaySize();
-    requestAnimationFrame(syncLineOverlaySize);
+    scheduleSyncLineOverlaySize();
   }
 
   function buildClipboardScoreText() {

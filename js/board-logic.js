@@ -192,63 +192,6 @@ function flatFromStarterTorNeighbors(
   return cand[0].flat;
 }
 
-/** Directions included in exported starter neighbor hints (`null` = off-board edge). */
-const NEIGHBOR_SIG_VERTICAL = /** @type {const} */ (["n", "s"]);
-const NEIGHBOR_SIG_HORIZONTAL = /** @type {const} */ (["w", "e"]);
-
-/** Whether `expRaw` from JSON matches live ortho cell `actualVal` (`null` means off-board). */
-function orthoNeighborSigExpMatchesActual(actualVal, expRaw) {
-  return expRaw === null
-    ? actualVal === null
-    : normalizeTileText(String(expRaw)) === actualVal;
-}
-
-/**
- * Compare exported `{ n,s,e,w }` to live orthogonals (`null` = off-board).
- * A direction counts only if `sig` defines it (`!== undefined`). Match passes when
- * at least one specified vertical (`n`/`s`) agrees with `actual` and at least one specified
- * horizontal (`w`/`e`) agrees — strict four-way equality is not required.
- */
-export function exportedOrthoNeighborSigMatches(actual, sig) {
-  if (!sig || typeof sig !== "object") return false;
-  /** @param {readonly ("n"|"s"|"e"|"w")[]} dirs */
-  const axisMatch = (dirs) => {
-    let anySpec = false;
-    let anyHit = false;
-    for (const dir of dirs) {
-      const expRaw = sig[dir];
-      if (expRaw === undefined) continue;
-      anySpec = true;
-      if (orthoNeighborSigExpMatchesActual(actual[dir], expRaw)) anyHit = true;
-    }
-    return { anySpec, anyHit };
-  };
-  const v = axisMatch(NEIGHBOR_SIG_VERTICAL);
-  const h = axisMatch(NEIGHBOR_SIG_HORIZONTAL);
-  if (!v.anySpec || !h.anySpec) return false;
-  return v.anyHit && h.anyHit;
-}
-
-function flatFromNeighborSignatures(gameBoard, perfectHuntWord, gridSize, neighborSig) {
-  const labels = wordToTileLabelSequence(String(perfectHuntWord || ""));
-  if (!neighborSig || typeof neighborSig !== "object") return null;
-  if (!labels.length) return null;
-  const target = normalizeTileText(labels[0]);
-  const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
-  const matches = [];
-  for (let r = 0; r < n; r++) {
-    const row = gameBoard[r];
-    if (!Array.isArray(row)) continue;
-    for (let c = 0; c < n; c++) {
-      if (normalizeTileText(row[c]) !== target) continue;
-      const flat = r * n + c;
-      const ortho = normalizedOrthoNeighborsAtFlat(gameBoard, flat, n);
-      if (exportedOrthoNeighborSigMatches(ortho, neighborSig)) matches.push(flat);
-    }
-  }
-  return matches.length === 1 ? matches[0] : null;
-}
-
 /** First row-major cell whose tile matches `targetGlyph` — only for puzzles with no exported starter hints. */
 function legacyFirstFlatMatchingOpeningGlyph(gameBoard, targetGlyph, gridSize) {
   const n = Math.max(1, Math.floor(Number(gridSize)) || 0);
@@ -264,11 +207,10 @@ function legacyFirstFlatMatchingOpeningGlyph(gameBoard, targetGlyph, gridSize) {
 
 /**
  * Starter flat for Perfect Hunt word `orderIndex`, or null.
- * Precedence when `exportedHints` is present: validated starter flat → toroidal neighbor ring →
- * legacy `{n,s,w,e}` signatures. With no exported bundle, falls back to first row-major opener match.
+ * Precedence when `exportedHints` is present: validated starter flat → toroidal neighbor ring JSON.
+ * With no exported bundle, falls back to first row-major opener match.
  * @param {{
  *   starterFlats?: number[];
- *   starterNeighborSignatures?: unknown[];
  *   starterTorNeighbors?: string[];
  * } | null} [exportedHints]
  */
@@ -323,12 +265,6 @@ export function computePerfectHuntStarterFlat(
     if (ft != null) return ft;
   }
 
-  if (exportedHints && Array.isArray(exportedHints.starterNeighborSignatures)) {
-    const sg = exportedHints.starterNeighborSignatures[orderIndex];
-    const nb = flatFromNeighborSignatures(gameBoard, perfectHunt[orderIndex], n, sg);
-    if (nb != null) return nb;
-  }
-
   if (!exportedHints) {
     return legacyFirstFlatMatchingOpeningGlyph(gameBoard, target, n);
   }
@@ -338,25 +274,21 @@ export function computePerfectHuntStarterFlat(
 /** Build hints object for computePerfectHuntStarterFlat from exported row fields. */
 export function puzzleRowPerfectHuntStarterHints(
   starterFlatsRow,
-  neighborSigsRow,
   starterTorNeighborsRow
 ) {
   const hasFlats = Array.isArray(starterFlatsRow) && starterFlatsRow.length > 0;
-  const hasSigs = Array.isArray(neighborSigsRow) && neighborSigsRow.length > 0;
   const hasTor =
     Array.isArray(starterTorNeighborsRow) &&
     starterTorNeighborsRow.length === PERFECT_HUNT_TOR_NEIGHBOR_LEN;
-  if (!hasFlats && !hasSigs && !hasTor) return null;
+  if (!hasFlats && !hasTor) return null;
   /** @type {{
    * starterFlats?: number[];
-   * starterNeighborSignatures?: unknown[];
    * starterTorNeighbors?: string[];
    * }} */
   const o = {};
   if (hasFlats) o.starterFlats = /** @type {number[]} */ (starterFlatsRow);
   if (hasTor)
     o.starterTorNeighbors = /** @type {string[]} */ (starterTorNeighborsRow.slice());
-  if (hasSigs) o.starterNeighborSignatures = neighborSigsRow;
   return o;
 }
 
@@ -368,7 +300,6 @@ export function computePerfectHuntStarterFlatWithRowHints(
   onPace,
   gridSize,
   starterFlatsRow,
-  neighborSigsRow,
   starterTorNeighborsRow
 ) {
   return computePerfectHuntStarterFlat(
@@ -377,11 +308,7 @@ export function computePerfectHuntStarterFlatWithRowHints(
     orderIndex,
     onPace,
     gridSize,
-    puzzleRowPerfectHuntStarterHints(
-      starterFlatsRow,
-      neighborSigsRow,
-      starterTorNeighborsRow
-    )
+    puzzleRowPerfectHuntStarterHints(starterFlatsRow, starterTorNeighborsRow)
   );
 }
 

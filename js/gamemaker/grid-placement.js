@@ -158,6 +158,16 @@ export function createGridPlacementApi(deps) {
     gridLineContainer.style.height = grid.offsetHeight + "px";
   }
 
+  let gamemakerLineOverlaySyncRaf = 0;
+
+  function scheduleSyncLineOverlaySize() {
+    if (gamemakerLineOverlaySyncRaf !== 0) return;
+    gamemakerLineOverlaySyncRaf = window.requestAnimationFrame(() => {
+      gamemakerLineOverlaySyncRaf = 0;
+      syncLineOverlaySize();
+    });
+  }
+
   function lockGridSizeForSwipe() {
     if (ctx.state.shift.lockedGridWidthPx > 0 && ctx.state.shift.lockedGridHeightPx > 0)
       return;
@@ -442,6 +452,7 @@ export function createGridPlacementApi(deps) {
     }
     ensureShiftPreviewElements(ctx);
     syncLineOverlaySize();
+    scheduleSyncLineOverlaySize();
     requestAnimationFrame(() => {
       lockGridSizeForSwipe();
     });
@@ -450,6 +461,7 @@ export function createGridPlacementApi(deps) {
   return {
     syncBuildDomFromBoardFixed,
     syncLineOverlaySize,
+    scheduleSyncLineOverlaySize,
     lockGridSizeForSwipe,
     unlockGridSizeAfterSwipe,
     resetSelection,
