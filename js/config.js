@@ -61,8 +61,10 @@ export const LEADERBOARD_API_BASE =
   "https://johnriley81.pythonanywhere.com/leaderboard/";
 /** When true, POST includes `scoreValidation` (server `WORDHUNTER_VALIDATE_SCORE`). */
 export const LEADERBOARD_SUBMIT_SCORE_VALIDATION = false;
-export const LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW = true;
-export const LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW = true;
+/** Only when `LEADERBOARD_USE_DEMO_DATA`: empty GET-style board, optional inject rows for UI tests. */
+export const LEADERBOARD_DEMO_EMPTY_BOARD = false;
+export const LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW = false;
+export const LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW = false;
 export const LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA = 777;
 export const DEMO_LEADERBOARD_NAME_MAX = 8;
 /** Leaderboard overlay `#leaderboard-elements` opacity in/out (prior 660ms baseline; doubled = half playback speed). */

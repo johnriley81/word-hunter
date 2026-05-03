@@ -1,5 +1,6 @@
 import {
   LEADERBOARD_USE_DEMO_DATA,
+  LEADERBOARD_DEMO_EMPTY_BOARD,
   LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW,
   LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW,
@@ -86,6 +87,24 @@ function leaderboardNumericScore(row) {
   return Number(raw);
 }
 
+function submittingSubPerfectFromRun(perfectTarget, runScoreNum) {
+  return (
+    perfectTarget != null &&
+    Number.isFinite(perfectTarget) &&
+    Number.isFinite(runScoreNum) &&
+    runScoreNum < perfectTarget
+  );
+}
+
+function rowPerfectOverFlags(perfectTarget, row) {
+  const scoreNum = leaderboardNumericScore(row);
+  const hasScore = scoreNum !== null;
+  return {
+    isPerfectHuntScore: perfectTarget != null && hasScore && scoreNum === perfectTarget,
+    isAbovePerfectHunt: perfectTarget != null && hasScore && scoreNum > perfectTarget,
+  };
+}
+
 function setLeaderboardCellFlash(td, text, kind) {
   const cls =
     kind === "perfect"
@@ -109,7 +128,7 @@ export function createLeaderboardController(rt) {
   function isRunSubmittingSubPerfect() {
     const cap = rt.getPerfectHuntTargetSum?.() ?? null;
     const run = Number(rt.getScore());
-    return cap != null && Number.isFinite(cap) && Number.isFinite(run) && run < cap;
+    return submittingSubPerfectFromRun(cap, run);
   }
 
   function syncDemoSelfPseudoSelectSubPerfect(td, subPerfect) {
@@ -134,15 +153,37 @@ export function createLeaderboardController(rt) {
     const idx = findDemoSelfRowIndex();
     if (idx < 0 || !rows) return;
     const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
+    const row = rows[idx];
+    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
+    const runScoreNum = Number(rt.getScore());
+    const submittingSubPerfect = submittingSubPerfectFromRun(
+      perfectTarget,
+      runScoreNum
+    );
+    const { isPerfectHuntScore, isAbovePerfectHunt } = rowPerfectOverFlags(
+      perfectTarget,
+      row
+    );
+
     td.textContent = "";
     td.removeAttribute("data-demo-self-name");
-    td.classList.remove(
-      "leaderboard-name-cell--you-pseudo-select",
-      "leaderboard-name-cell--you-pseudo-select--sub-perfect"
-    );
+    td.classList.add("leaderboard-name-cell--editing-name");
+    td.classList.add("leaderboard-name-cell--you-pseudo-select");
+    syncDemoSelfPseudoSelectSubPerfect(td, submittingSubPerfect);
+
     const input = document.createElement("input");
     input.type = "text";
-    input.className = "leaderboard-inline-name-input";
+    const inputClasses = ["leaderboard-inline-name-input"];
+    if (submittingSubPerfect) {
+      inputClasses.push("leaderboard-inline-name-input--sub-perfect");
+    } else if (isPerfectHuntScore) {
+      inputClasses.push("leaderboard-perfect-hunt-flash");
+    } else if (isAbovePerfectHunt) {
+      inputClasses.push("leaderboard-over-perfect-glow");
+    } else {
+      inputClasses.push("leaderboard-inline-name-input--player-gold");
+    }
+    input.className = inputClasses.join(" ");
     input.maxLength = DEMO_LEADERBOARD_NAME_MAX;
     input.setAttribute("inputmode", "text");
     input.setAttribute("pattern", "[A-Za-z]*");
@@ -166,13 +207,8 @@ export function createLeaderboardController(rt) {
     });
     input.addEventListener("blur", () => {
       const v = sanitizeDemoLeaderboardName(input.value);
-      const stored = v || "YOU";
-      rows[idx][0] = stored;
-      td.innerHTML = "";
-      td.textContent = stored.toLowerCase() === "doughack" ? "doug" : stored;
-      td.dataset.demoSelfName = "1";
-      td.classList.add("leaderboard-name-cell--you-pseudo-select");
-      syncDemoSelfPseudoSelectSubPerfect(td, isRunSubmittingSubPerfect());
+      rows[idx][0] = v || "YOU";
+      renderLeaderboardTable(rows);
     });
   }
 
@@ -181,7 +217,7 @@ export function createLeaderboardController(rt) {
     let qualifies;
     if (LEADERBOARD_USE_DEMO_DATA) {
       qualifies = demoRunQualifiesForLeaderboard(
-        buildDemoLeaderboardRows(),
+        LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows(),
         rt.getScore()
       );
     } else {
@@ -237,6 +273,9 @@ export function createLeaderboardController(rt) {
 
   function mergeDemoLeaderboardPreviewRows(leaderboard) {
     if (!LEADERBOARD_USE_DEMO_DATA) return leaderboard;
+    if (LEADERBOARD_DEMO_EMPTY_BOARD) {
+      return leaderboard;
+    }
     const target = rt.getPerfectHuntTargetSum?.() ?? null;
     if (target == null || !Number.isFinite(target)) return leaderboard;
     let rows = leaderboard;
@@ -279,6 +318,7 @@ export function createLeaderboardController(rt) {
     const { leaderboardTable, playerName } = refs();
     rt.setPlayerPosition(undefined);
     leaderboardTable.innerHTML = "";
+    const thead = document.createElement("thead");
     const tbody = document.createElement("tbody");
 
     const rows = mergeDemoLeaderboardPreviewRows(
@@ -290,17 +330,14 @@ export function createLeaderboardController(rt) {
       th.textContent = headerText;
       headerRow.appendChild(th);
     });
-    headerRow.style.backgroundColor = "black";
-    headerRow.style.color = "white";
-    tbody.appendChild(headerRow);
+    thead.appendChild(headerRow);
 
     const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
     const runScoreNum = Number(rt.getScore());
-    const submittingSubPerfect =
-      perfectTarget != null &&
-      Number.isFinite(perfectTarget) &&
-      Number.isFinite(runScoreNum) &&
-      runScoreNum < perfectTarget;
+    const submittingSubPerfect = submittingSubPerfectFromRun(
+      perfectTarget,
+      runScoreNum
+    );
     const typedPlayerName = String(playerName.value || "").trim();
 
     rows.forEach((row, index) => {
@@ -312,6 +349,10 @@ export function createLeaderboardController(rt) {
       const playerStr = String(playerRaw || "").trim();
       const scoreNum = leaderboardNumericScore(row);
       const hasScore = scoreNum !== null;
+      const { isPerfectHuntScore, isAbovePerfectHunt } = rowPerfectOverFlags(
+        perfectTarget,
+        row
+      );
       const trophyStr = String(rowTrophy || "").trim();
       const trophyMatches = trophyStr === String(rt.getLongestWord() || "").trim();
       const isDemoSelfRow =
@@ -323,10 +364,6 @@ export function createLeaderboardController(rt) {
       const nameMatches = Boolean(playerStr) && playerStr === typedPlayerName;
       const scoreMatches =
         scoreNum !== null && Number.isFinite(runScoreNum) && scoreNum === runScoreNum;
-      const isPerfectHuntScore =
-        perfectTarget != null && hasScore && scoreNum === perfectTarget;
-      const isAbovePerfectHunt =
-        perfectTarget != null && hasScore && scoreNum > perfectTarget;
 
       let displayPlayer = playerStr;
       if (playerStr.toLowerCase() === "doughack") {
@@ -337,12 +374,12 @@ export function createLeaderboardController(rt) {
         color = redTextColorLeaderboard;
       } else if (isDemoSelfRow) {
         rt.setPlayerPosition(index + 1);
-        color = submittingSubPerfect ? "white" : goldTextColor;
+        color = "white";
       } else if (playerStr.toLowerCase() === "doughack") {
         color = "magenta";
       } else if (nameMatches && scoreMatches && trophyMatches) {
         rt.setPlayerPosition(index + 1);
-        color = submittingSubPerfect ? "white" : goldTextColor;
+        color = "white";
       }
 
       tr.style.color = color;
@@ -358,6 +395,12 @@ export function createLeaderboardController(rt) {
       const submitRowBeigeNameTrophy =
         submittingSubPerfect &&
         (isDemoSelfRow || (nameMatches && scoreMatches && trophyMatches));
+      const playerRowGoldNameTrophy =
+        hardFlag !== 1 &&
+        playerStr.toLowerCase() !== "doughack" &&
+        (isDemoSelfRow || (nameMatches && scoreMatches && trophyMatches)) &&
+        !submittingSubPerfect &&
+        !nameTrophyFlash;
 
       const positionDisplay = `${index + 1}.`;
 
@@ -372,10 +415,12 @@ export function createLeaderboardController(rt) {
             if (submitRowBeigeNameTrophy)
               td.style.color = leaderboardSubPerfectRowColor;
             setLeaderboardCellFlash(td, displayNameCell, nameTrophyFlash);
+            if (playerRowGoldNameTrophy) td.style.color = goldTextColor;
           } else if (cellIndex === 1 || cellIndex === 3) {
             if (submitRowBeigeNameTrophy)
               td.style.color = leaderboardSubPerfectRowColor;
             setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
+            if (playerRowGoldNameTrophy) td.style.color = goldTextColor;
           } else {
             td.textContent = cellText;
           }
@@ -386,6 +431,11 @@ export function createLeaderboardController(rt) {
       tbody.appendChild(tr);
     });
 
+    if (rows.length > 0) {
+      tbody.style.setProperty("--lb-rows", String(rows.length));
+    }
+
+    leaderboardTable.appendChild(thead);
     leaderboardTable.appendChild(tbody);
     applyLeaderboardSubmitButtonVisibility(rows);
   }
@@ -481,10 +531,7 @@ export function createLeaderboardController(rt) {
       rt.revealPostgameRetryAfterCopyScoreVisible?.();
     }, CURRENT_WORD_BRIEF_FADE_IN_MS);
     rt.updateNextLetters();
-    const { playerName, leaderboardButton } = refs();
-    playerName.classList.add("hiddenDisplay");
-    leaderboardButton.classList.add("hiddenDisplay");
-    leaderboardButton.classList.add("leaderboard-action--concealed");
+    refs().playerName.classList.add("hiddenDisplay");
   }
 
   async function refreshLeaderboardFromApi(clicked) {
@@ -555,16 +602,26 @@ export function createLeaderboardController(rt) {
     leaderboardElements.setAttribute("aria-hidden", "false");
 
     if (LEADERBOARD_USE_DEMO_DATA) {
-      const base = buildDemoLeaderboardRows();
-      if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
-        rt.setDemoRows(
-          mergeDemoRunIntoTop10(base, "YOU", rt.getScore(), rt.getLongestWord() || "")
-        );
+      if (LEADERBOARD_DEMO_EMPTY_BOARD) {
+        const run = Number(rt.getScore());
+        let rows = [];
+        if (demoRunQualifiesForLeaderboard([], run) && run > 0) {
+          rows = mergeDemoRunIntoTop10([], "YOU", run, rt.getLongestWord() || "");
+        }
+        rt.setDemoRows(rows);
+        renderLeaderboardTable(rows);
       } else {
-        rt.setDemoRows(base);
+        const base = buildDemoLeaderboardRows();
+        if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
+          rt.setDemoRows(
+            mergeDemoRunIntoTop10(base, "YOU", rt.getScore(), rt.getLongestWord() || "")
+          );
+        } else {
+          rt.setDemoRows(base);
+        }
+        const rows = rt.getDemoRows();
+        if (rows) renderLeaderboardTable(rows);
       }
-      const rows = rt.getDemoRows();
-      if (rows) renderLeaderboardTable(rows);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           leaderboardElements.classList.add("leaderboard-elements--visible");
@@ -613,7 +670,8 @@ export function createLeaderboardController(rt) {
         rt.playSound("click", rt.getIsMuted());
       }
       const cur = rt.getDemoRows();
-      rt.setDemoRows(cur || buildDemoLeaderboardRows());
+      const fallback = LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows();
+      rt.setDemoRows(cur != null ? cur : fallback);
       const rows = rt.getDemoRows();
       if (rows) renderLeaderboardTable(rows);
       return;
