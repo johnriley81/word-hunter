@@ -169,11 +169,12 @@ test("applyLiveLeaderboardPreviewMerge: keeps API row; adds preview below on sam
   assert.ok(firstYouIdx >= 0 && previewIdx > firstYouIdx);
 });
 
-test("demoRunQualifiesForLeaderboard: tie with 10th score qualifies", () => {
+test("demoRunQualifiesForLeaderboard: beat 10th score only (tie does not qualify)", () => {
   const base = normalizeLeaderboardRows(
     Array.from({ length: 10 }, (_, i) => [`P${i}`, 100 - i * 10, "T"])
   );
-  assert.equal(demoRunQualifiesForLeaderboard(base, 10), true);
+  assert.equal(demoRunQualifiesForLeaderboard(base, 10), false);
+  assert.equal(demoRunQualifiesForLeaderboard(base, 11), true);
   assert.equal(demoRunQualifiesForLeaderboard(base, 9), false);
 });
 

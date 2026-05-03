@@ -103,7 +103,7 @@ export function demoRunQualifiesForLeaderboard(baseRows, runScore) {
   if (n < 10) return true;
   const tenthNum = Number(baseRows[9][2]);
   if (!Number.isFinite(tenthNum) || tenthNum <= 0) return true;
-  return s >= tenthNum;
+  return s > tenthNum;
 }
 
 export function applyLiveLeaderboardPreviewMerge(
