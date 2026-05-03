@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 import { deriveLiveLeaderboardAfterFetch } from "../js/leaderboard-live-flow.js";
 import { normalizeLeaderboardRows } from "../js/leaderboard-api.js";
+import { demoRunQualifiesForLeaderboard } from "../js/leaderboard-lifecycle.js";
 
 const EMPTY_PAD = ["", 0, "", ""];
 
@@ -188,4 +189,22 @@ test("Lambda API Gateway envelope: parse body then same commit + rows", () => {
   assert.equal(tableRows.length, 10);
   assert.deepEqual(tableRows[0], ["Ada", 0, 88, "STAR"]);
   assert.deepEqual(tableRows.slice(1), Array(9).fill(EMPTY_PAD));
+});
+
+test("derive: submit cutoff uses GET board before preview merge", () => {
+  const raw = Array.from({ length: 10 }, (_, i) => [`N${i}`, 200 - i * 10, "STAR"]);
+  const { tableRows, eligibilityRows } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw },
+    {
+      ...baseInput,
+      clicked: false,
+      score: 115,
+      nameTrim: "",
+      trophyWord: "STAR",
+    }
+  );
+  assert.equal(eligibilityRows[9][2], 110);
+  assert.ok(demoRunQualifiesForLeaderboard(eligibilityRows, 115));
+  assert.equal(tableRows[9][2], 115);
+  assert.equal(demoRunQualifiesForLeaderboard(tableRows, 115), false);
 });
