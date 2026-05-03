@@ -37,6 +37,13 @@
     transparent
   );
   --perfect-hunt-starter-hint-pulse-duration: 1.75s;
+  /** Halo thickness: larger blur + spread = wider glow around the tile (“outline”). */
+  --perfect-hunt-starter-hint-glow-blur-min: 11px;
+  --perfect-hunt-starter-hint-glow-spread-min: 2px;
+  --perfect-hunt-starter-hint-glow-blur-peak: 18px;
+  --perfect-hunt-starter-hint-glow-spread-peak: 4px;
+  --perfect-hunt-starter-hint-glow-blur-static: 14px;
+  --perfect-hunt-starter-hint-glow-spread-static: 2px;
   --grid-button-text-color: white;
   --leaderboard-button-background-color: #ed3d02;
   --leaderboard-button-text-color: white;
@@ -804,11 +811,15 @@ html {
 @keyframes perfectHuntStarterGlowPulse {
   0%,
   100% {
-    box-shadow: 0 0 9px 0 var(--perfect-hunt-starter-hint-glow-min);
+    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-min)
+      var(--perfect-hunt-starter-hint-glow-spread-min)
+      var(--perfect-hunt-starter-hint-glow-min);
   }
 
   50% {
-    box-shadow: 0 0 15px 2px var(--perfect-hunt-starter-hint-glow-peak);
+    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-peak)
+      var(--perfect-hunt-starter-hint-glow-spread-peak)
+      var(--perfect-hunt-starter-hint-glow-peak);
   }
 }
 
@@ -849,7 +860,9 @@ html {
   .grid-button.grid-button--perfect-hunt-hint::before,
   .grid-button.shift-preview-tile.shift-preview-tile--hunt-hint::before {
     animation: none;
-    box-shadow: 0 0 11px 1px var(--perfect-hunt-starter-hint-glow-static);
+    box-shadow: 0 0 var(--perfect-hunt-starter-hint-glow-blur-static)
+      var(--perfect-hunt-starter-hint-glow-spread-static)
+      var(--perfect-hunt-starter-hint-glow-static);
   }
 }
 
