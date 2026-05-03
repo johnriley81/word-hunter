@@ -33,6 +33,10 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
   const fromNetwork = leaderboardRowsFromResponse(response, payload, canPost);
   let tableRows = Array.isArray(fromNetwork) ? fromNetwork : [];
 
+  const eligibilityRows = useDemoData
+    ? null
+    : padNormalizedLeaderboardToTop10(normalizeLeaderboardRows(tableRows));
+
   const runPreviewMerge = (norm) =>
     applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, trophyWord, {
       useDemoData,
@@ -53,5 +57,5 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     tableRows = padNormalizedLeaderboardToTop10(tableRows);
   }
 
-  return { tableRows, committed, canPost };
+  return { tableRows, committed, canPost, eligibilityRows };
 }

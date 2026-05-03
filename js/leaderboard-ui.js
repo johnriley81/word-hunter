@@ -327,8 +327,10 @@ export function createLeaderboardController(rt) {
           LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows(),
           rt.getScore()
         )
-      : demoRunQualifiesForLeaderboard(rows, rt.getScore()) &&
-        !st.liveLeaderboardSubmitUsed;
+      : demoRunQualifiesForLeaderboard(
+          st.liveLeaderboardEligibilityRows ?? rows,
+          rt.getScore()
+        ) && !st.liveLeaderboardSubmitUsed;
 
     applyLeaderboardSubmitButtonVisibility({
       leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
@@ -486,6 +488,7 @@ export function createLeaderboardController(rt) {
     let committed = false;
 
     try {
+      let network;
       try {
         const requestURL = `${rt.leaderboardLink}${rt.getLeaderboardPuzzleId()}`;
         const requestOptions = {
@@ -512,17 +515,16 @@ export function createLeaderboardController(rt) {
         try {
           raw = await response.json();
         } catch {}
-        ({ tableRows, committed } = deriveLiveLeaderboardAfterFetch(
-          { ok: response.ok, status: response.status, raw },
-          deriveInput
-        ));
+        network = { ok: response.ok, status: response.status, raw };
       } catch (err) {
         leaderboardDebugWarn(err);
-        ({ tableRows, committed } = deriveLiveLeaderboardAfterFetch(
-          { ok: false, status: 0, raw: {} },
-          deriveInput
-        ));
+        network = { ok: false, status: 0, raw: {} };
       }
+
+      const resolved = deriveLiveLeaderboardAfterFetch(network, deriveInput);
+      tableRows = resolved.tableRows;
+      committed = resolved.committed;
+      st.liveLeaderboardEligibilityRows = resolved.eligibilityRows;
 
       if (committed) {
         rt.playSound("submit", rt.getIsMuted());

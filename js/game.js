@@ -166,6 +166,7 @@ export function initGame(ctx) {
   const leaderboardRtState = {
     demoLeaderboardRows: null,
     liveLeaderboardPreviewRows: null,
+    liveLeaderboardEligibilityRows: null,
     demoLeaderboardSubmitUsed: false,
     liveLeaderboardSubmitUsed: false,
     playerPosition: undefined,
@@ -976,6 +977,7 @@ export function initGame(ctx) {
     leaderboardRtState.postgameSequenceStarted = false;
     leaderboardRtState.demoLeaderboardRows = null;
     leaderboardRtState.liveLeaderboardPreviewRows = null;
+    leaderboardRtState.liveLeaderboardEligibilityRows = null;
     leaderboardRtState.demoLeaderboardSubmitUsed = false;
     leaderboardRtState.liveLeaderboardSubmitUsed = false;
     if (!skipLeaderboardOverlayTeardown) {

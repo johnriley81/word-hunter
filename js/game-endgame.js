@@ -132,6 +132,7 @@ export function createGameEndgameCoordinator(deps) {
     st.demoLeaderboardSubmitUsed = false;
     st.liveLeaderboardSubmitUsed = false;
     st.liveLeaderboardPreviewRows = null;
+    st.liveLeaderboardEligibilityRows = null;
     clearInternalEndgameTimers();
 
     deps.clearTapStreak();
