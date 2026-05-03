@@ -58,25 +58,39 @@ function parsedFetchPayload(raw) {
   return b ?? {};
 }
 
+function top10RowsFromPayload(payload) {
+  if (payload == null) return [];
+  if (Array.isArray(payload)) return payload;
+  if (typeof payload === "object" && Array.isArray(payload.top_10))
+    return payload.top_10;
+  return [];
+}
+
+const LEADERBOARD_POST_COMMIT_MARKERS = Object.freeze([
+  "record inserted successfully",
+  "this record already exists",
+]);
+
+function leaderboardPostMessageIndicatesCommit(payload) {
+  const m = String(payload?.message ?? "").toLowerCase();
+  return LEADERBOARD_POST_COMMIT_MARKERS.some((s) => m.includes(s));
+}
+
 function leaderboardRowsFromResponse(response, payload, didSubmit) {
   if (!response.ok) {
-    if (
-      didSubmit &&
-      payload &&
-      typeof payload === "object" &&
-      Array.isArray(payload.top_10)
-    ) {
-      return payload.top_10;
+    if (didSubmit) {
+      const fromBody = top10RowsFromPayload(payload);
+      if (
+        fromBody.length > 0 ||
+        (payload && typeof payload === "object" && "top_10" in payload)
+      ) {
+        return fromBody;
+      }
     }
     console.error("Leaderboard request failed", response.status, payload);
     return [];
   }
-  if (didSubmit) {
-    return payload && typeof payload === "object" && Array.isArray(payload.top_10)
-      ? payload.top_10
-      : [];
-  }
-  return Array.isArray(payload) ? payload : [];
+  return top10RowsFromPayload(payload);
 }
 
 function leaderboardNumericScore(row) {
@@ -221,14 +235,9 @@ export function createLeaderboardController(rt) {
         rt.getScore()
       );
     } else {
-      const playerHasScore = Number(rt.getScore()) > 0;
-      qualifies = playerHasScore;
-      if (qualifies && rows && rows.length >= 10) {
-        const tenthNum = leaderboardNumericScore(rows[9]);
-        if (tenthNum != null && tenthNum > 0) {
-          qualifies = rt.getScore() > tenthNum;
-        }
-      }
+      qualifies =
+        demoRunQualifiesForLeaderboard(rows, rt.getScore()) &&
+        !rt.getLiveLeaderboardSubmitUsed();
     }
 
     if (LEADERBOARD_USE_DEMO_DATA) {
@@ -575,8 +584,9 @@ export function createLeaderboardController(rt) {
       const payload = parsedFetchPayload(raw);
       const leaderboard = leaderboardRowsFromResponse(response, payload, willSubmit);
 
-      if (willSubmit && response.ok) {
+      if (willSubmit && response.ok && leaderboardPostMessageIndicatesCommit(payload)) {
         rt.playSound("submit", rt.getIsMuted());
+        rt.setLiveLeaderboardSubmitUsed(true);
       }
 
       renderLeaderboardTable(leaderboard);
