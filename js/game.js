@@ -7,6 +7,7 @@ import {
   GRID_SIZE,
   NEXT_LETTERS_LEN,
   NEXT_LETTERS_UI_COUNT,
+  PERFECT_HUNT_WORD_COUNT,
   START_TOUCHPAD_FADE_MS,
   TILE_PALETTE_MS,
   TILE_PALETTE_TRANSITION_SETTLE_MS,
@@ -102,6 +103,7 @@ export function initGame(ctx) {
     rules: document.querySelector("#rules"),
     rulesButton: document.querySelector("#rules-button"),
     rulesPerfectHuntTotalElement: document.querySelector("#rules-perfect-hunt-total"),
+    rulesPerfectHuntCountElement: document.querySelector("#rules-perfect-hunt-count"),
     rulesNextLettersCountElement: document.querySelector("#rules-next-letters-count"),
     muteButton: document.getElementById("mute-button"),
     doneButton: document.querySelector("#done-button"),
@@ -139,6 +141,7 @@ export function initGame(ctx) {
     rules,
     rulesButton,
     rulesPerfectHuntTotalElement,
+    rulesPerfectHuntCountElement,
     rulesNextLettersCountElement,
     muteButton,
     doneButton,
@@ -181,6 +184,9 @@ export function initGame(ctx) {
 
   if (rulesNextLettersCountElement) {
     rulesNextLettersCountElement.textContent = String(NEXT_LETTERS_UI_COUNT);
+  }
+  if (rulesPerfectHuntCountElement) {
+    rulesPerfectHuntCountElement.textContent = String(PERFECT_HUNT_WORD_COUNT);
   }
 
   const SVG_NS = "http://www.w3.org/2000/svg";
