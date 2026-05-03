@@ -49,9 +49,10 @@ function trimLeaderboardSubmitName(raw) {
 
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
+  const st = rt.state;
 
   function findDemoSelfRowIndex() {
-    const rows = rt.getDemoRows();
+    const rows = st.demoLeaderboardRows;
     if (!LEADERBOARD_USE_DEMO_DATA || !rows) return -1;
     const trophy = String(rt.getTrophyWord() || "").trim();
     const want = Number(rt.getScore());
@@ -62,7 +63,7 @@ export function createLeaderboardController(rt) {
 
   function findLiveSelfRowIndex() {
     return leaderboardLiveSelfRowIndex(
-      rt.getLiveLeaderboardPreviewRows?.(),
+      st.liveLeaderboardPreviewRows,
       refs().playerName.value,
       rt.getScore(),
       rt.getTrophyWord()
@@ -73,10 +74,10 @@ export function createLeaderboardController(rt) {
     let rows;
     let idx;
     if (LEADERBOARD_USE_DEMO_DATA) {
-      rows = rt.getDemoRows();
+      rows = st.demoLeaderboardRows;
       idx = findDemoSelfRowIndex();
     } else {
-      rows = rt.getLiveLeaderboardPreviewRows?.();
+      rows = st.liveLeaderboardPreviewRows;
       idx = findLiveSelfRowIndex();
     }
     if (idx < 0 || !rows) return;
@@ -148,7 +149,7 @@ export function createLeaderboardController(rt) {
 
   function renderLeaderboardTable(leaderboard) {
     const { leaderboardTable, playerName } = refs();
-    rt.setPlayerPosition(undefined);
+    st.playerPosition = undefined;
     leaderboardTable.innerHTML = "";
     const thead = document.createElement("thead");
     const tbody = document.createElement("tbody");
@@ -160,7 +161,7 @@ export function createLeaderboardController(rt) {
     );
     if (!LEADERBOARD_USE_DEMO_DATA) {
       rows = padNormalizedLeaderboardToTop10(rows);
-      rt.setLiveLeaderboardPreviewRows(rows.map((r) => r.slice(0, 5)));
+      st.liveLeaderboardPreviewRows = rows.map((r) => r.slice(0, 5));
     }
     const headerRow = document.createElement("tr");
     ["", "👤", "🏹", "🏆"].forEach((headerText) => {
@@ -215,11 +216,11 @@ export function createLeaderboardController(rt) {
         isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
       const isLiveInlineSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
-        !rt.getLiveLeaderboardSubmitUsed() &&
+        !st.liveLeaderboardSubmitUsed &&
         isLiveCurrentRunPreviewRow;
       const isLiveSubmittedSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
-        rt.getLiveLeaderboardSubmitUsed() &&
+        st.liveLeaderboardSubmitUsed &&
         isLiveStatsAndNameMatch;
       const playerCanonical = String(
         sanitizeDemoLeaderboardName(playerStr) || playerStr
@@ -236,7 +237,7 @@ export function createLeaderboardController(rt) {
         trophyMatches &&
         (LEADERBOARD_USE_DEMO_DATA ||
           (rowPreviewNameKey === previewNameKey &&
-            (rt.getLiveLeaderboardSubmitUsed() ||
+            (st.liveLeaderboardSubmitUsed ||
               row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
 
       let displayPlayer = playerStr;
@@ -247,12 +248,12 @@ export function createLeaderboardController(rt) {
       if (hardFlag === 1) {
         color = redTextColorLeaderboard;
       } else if (isDemoSelfRow || isLiveInlineSelfRow || isLiveSubmittedSelfRow) {
-        rt.setPlayerPosition(index + 1);
+        st.playerPosition = index + 1;
         color = "white";
       } else if (playerStr.toLowerCase() === "doughack") {
         color = "magenta";
       } else if (nameMatchesHighlight) {
-        rt.setPlayerPosition(index + 1);
+        st.playerPosition = index + 1;
         color = "white";
       }
 
@@ -283,7 +284,7 @@ export function createLeaderboardController(rt) {
         !nameTrophyFlash;
 
       const useInlineNameCell =
-        (isDemoSelfRow && !rt.getDemoSubmitUsed()) || isLiveInlineSelfRow;
+        (isDemoSelfRow && !st.demoLeaderboardSubmitUsed) || isLiveInlineSelfRow;
 
       const positionDisplay = `${index + 1}.`;
 
@@ -327,7 +328,7 @@ export function createLeaderboardController(rt) {
           rt.getScore()
         )
       : demoRunQualifiesForLeaderboard(rows, rt.getScore()) &&
-        !rt.getLiveLeaderboardSubmitUsed();
+        !st.liveLeaderboardSubmitUsed;
 
     applyLeaderboardSubmitButtonVisibility({
       leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
@@ -335,14 +336,14 @@ export function createLeaderboardController(rt) {
       qualifiesForBoardSlot,
       score: rt.getScore(),
       scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
-      liveSubmitUsed: rt.getLiveLeaderboardSubmitUsed(),
-      demoSubmitUsed: rt.getDemoSubmitUsed(),
+      liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      demoSubmitUsed: st.demoLeaderboardSubmitUsed,
     });
   }
 
   function finalizeDemoLeaderboardSubmit() {
-    const rows = rt.getDemoRows();
-    if (!LEADERBOARD_USE_DEMO_DATA || rt.getDemoSubmitUsed()) return;
+    const rows = st.demoLeaderboardRows;
+    if (!LEADERBOARD_USE_DEMO_DATA || st.demoLeaderboardSubmitUsed) return;
     if (Number(rt.getScore()) <= 0) return;
     const idx = findDemoSelfRowIndex();
     if (idx < 0 || !rows) return;
@@ -356,7 +357,7 @@ export function createLeaderboardController(rt) {
       name = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
     }
     rows[idx][0] = name;
-    rt.setDemoSubmitUsed(true);
+    st.demoLeaderboardSubmitUsed = true;
     renderLeaderboardTable(rows);
   }
 
@@ -383,49 +384,47 @@ export function createLeaderboardController(rt) {
   }
 
   function hidePostgameLeaderboardOverlay() {
-    const t1 = rt.getPostgameCopyScoreTimer();
+    const t1 = st.postgameCopyScoreTimer;
     if (t1 !== null) {
       window.clearTimeout(t1);
-      rt.setPostgameCopyScoreTimer(null);
+      st.postgameCopyScoreTimer = null;
     }
-    const t2 = rt.getLeaderboardFadeOutTimer();
+    const t2 = st.leaderboardFadeOutTimer;
     if (t2 !== null) {
       window.clearTimeout(t2);
-      rt.setLeaderboardFadeOutTimer(null);
+      st.leaderboardFadeOutTimer = null;
     }
     refs().leaderboardElements.classList.remove("leaderboard-elements--visible");
     finalizePostgameLeaderboardOverlayHidden();
   }
 
   function beginPostgameLeaderboardOverlayFadeOut() {
-    const t1 = rt.getPostgameCopyScoreTimer();
+    const t1 = st.postgameCopyScoreTimer;
     if (t1 !== null) {
       window.clearTimeout(t1);
-      rt.setPostgameCopyScoreTimer(null);
+      st.postgameCopyScoreTimer = null;
     }
-    const t2 = rt.getLeaderboardFadeOutTimer();
+    const t2 = st.leaderboardFadeOutTimer;
     if (t2 !== null) {
       window.clearTimeout(t2);
-      rt.setLeaderboardFadeOutTimer(null);
+      st.leaderboardFadeOutTimer = null;
     }
     const { leaderboardElements } = refs();
     if (!leaderboardElements.classList.contains("leaderboard-elements--visible")) {
       return false;
     }
     leaderboardElements.classList.remove("leaderboard-elements--visible");
-    rt.setLeaderboardFadeOutTimer(
-      window.setTimeout(() => {
-        rt.setLeaderboardFadeOutTimer(null);
-        finalizePostgameLeaderboardOverlayHidden();
-      }, LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS)
-    );
+    st.leaderboardFadeOutTimer = window.setTimeout(() => {
+      st.leaderboardFadeOutTimer = null;
+      finalizePostgameLeaderboardOverlayHidden();
+    }, LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS);
     return true;
   }
 
   function revealPostGameCopyScoreLine() {
     clearWordLineTimers(rt.ctx);
     refs().currentWordElement.classList.remove("current-word--valid-solve");
-    rt.setEndgameUiShown(true);
+    st.endgameUiShown = true;
     fadeInCurrentWordLine(rt.ctx, "Copy Score", happyHuntingColor, {});
     window.setTimeout(() => {
       rt.revealPostgameRetryAfterCopyScoreVisible?.();
@@ -449,7 +448,7 @@ export function createLeaderboardController(rt) {
     if (LEADERBOARD_USE_DEMO_DATA) return "";
     t = trimLeaderboardSubmitName(
       leaderboardLiveSubmitNameFallbackRaw(
-        rt.getLiveLeaderboardPreviewRows?.(),
+        st.liveLeaderboardPreviewRows,
         playerName.value,
         rt.getScore(),
         rt.getTrophyWord()
@@ -481,7 +480,7 @@ export function createLeaderboardController(rt) {
       trophyWord: rt.getTrophyWord(),
       scoreThreshold: SCORE_SUBMIT_THRESHOLD,
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
-      liveSubmitUsed: rt.getLiveLeaderboardSubmitUsed(),
+      liveSubmitUsed: st.liveLeaderboardSubmitUsed,
     };
     let tableRows;
     let committed = false;
@@ -527,7 +526,7 @@ export function createLeaderboardController(rt) {
 
       if (committed) {
         rt.playSound("submit", rt.getIsMuted());
-        rt.setLiveLeaderboardSubmitUsed(true);
+        st.liveLeaderboardSubmitUsed = true;
         playerName.value = nameTrim;
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
@@ -537,9 +536,9 @@ export function createLeaderboardController(rt) {
         !LEADERBOARD_USE_DEMO_DATA &&
         Array.isArray(tableRows) &&
         tableRows.length === 0 &&
-        rt.getLiveLeaderboardSubmitUsed()
+        st.liveLeaderboardSubmitUsed
       ) {
-        const prev = rt.getLiveLeaderboardPreviewRows?.();
+        const prev = st.liveLeaderboardPreviewRows;
         if (prev?.length) {
           tableRows = prev.map((r) => r.slice());
         }
@@ -549,7 +548,7 @@ export function createLeaderboardController(rt) {
     } finally {
       if (clicked) {
         playerName.disabled = false;
-        if (rt.getLiveLeaderboardSubmitUsed()) {
+        if (st.liveLeaderboardSubmitUsed) {
           leaderboardButton.disabled = true;
           leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";
         } else {
@@ -561,9 +560,9 @@ export function createLeaderboardController(rt) {
   }
 
   function maybeShowPostGameUi() {
-    if (!rt.getEndgamePostUiReady() || rt.getEndgameUiShown()) return;
-    if (rt.getPostgameSequenceStarted()) return;
-    rt.setPostgameSequenceStarted(true);
+    if (!st.endgamePostUiReady || st.endgameUiShown) return;
+    if (st.postgameSequenceStarted) return;
+    st.postgameSequenceStarted = true;
 
     const { leaderboardElements, leaderboardTable, leaderboardDemoAdd } = refs();
     leaderboardElements.style.display = "flex";
@@ -579,18 +578,21 @@ export function createLeaderboardController(rt) {
         if (demoRunQualifiesForLeaderboard([], run) && run > 0) {
           rows = mergeDemoRunIntoTop10([], "YOU", run, rt.getTrophyWord() || "");
         }
-        rt.setDemoRows(rows);
+        st.demoLeaderboardRows = rows;
         renderLeaderboardTable(rows);
       } else {
         const base = buildDemoLeaderboardRows();
         if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
-          rt.setDemoRows(
-            mergeDemoRunIntoTop10(base, "YOU", rt.getScore(), rt.getTrophyWord() || "")
+          st.demoLeaderboardRows = mergeDemoRunIntoTop10(
+            base,
+            "YOU",
+            rt.getScore(),
+            rt.getTrophyWord() || ""
           );
         } else {
-          rt.setDemoRows(base);
+          st.demoLeaderboardRows = base;
         }
-        const rows = rt.getDemoRows();
+        const rows = st.demoLeaderboardRows;
         if (rows) renderLeaderboardTable(rows);
       }
       requestAnimationFrame(() => {
@@ -598,12 +600,10 @@ export function createLeaderboardController(rt) {
           leaderboardElements.classList.add("leaderboard-elements--visible");
         });
       });
-      rt.setPostgameCopyScoreTimer(
-        window.setTimeout(() => {
-          rt.setPostgameCopyScoreTimer(null);
-          revealPostGameCopyScoreLine();
-        }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS)
-      );
+      st.postgameCopyScoreTimer = window.setTimeout(() => {
+        st.postgameCopyScoreTimer = null;
+        revealPostGameCopyScoreLine();
+      }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS);
       return;
     }
 
@@ -625,12 +625,10 @@ export function createLeaderboardController(rt) {
           leaderboardElements.classList.add("leaderboard-elements--visible");
         });
       });
-      rt.setPostgameCopyScoreTimer(
-        window.setTimeout(() => {
-          rt.setPostgameCopyScoreTimer(null);
-          revealPostGameCopyScoreLine();
-        }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS)
-      );
+      st.postgameCopyScoreTimer = window.setTimeout(() => {
+        st.postgameCopyScoreTimer = null;
+        revealPostGameCopyScoreLine();
+      }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS);
     })();
   }
 
@@ -640,10 +638,10 @@ export function createLeaderboardController(rt) {
         void unlockGameAudio();
         rt.playSound("click", rt.getIsMuted());
       }
-      const cur = rt.getDemoRows();
+      const cur = st.demoLeaderboardRows;
       const fallback = LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows();
-      rt.setDemoRows(cur != null ? cur : fallback);
-      const rows = rt.getDemoRows();
+      st.demoLeaderboardRows = cur != null ? cur : fallback;
+      const rows = st.demoLeaderboardRows;
       if (rows) renderLeaderboardTable(rows);
       return;
     }

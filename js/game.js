@@ -1,7 +1,6 @@
 import {
   lightGreenPreviewColor,
   lightRedPreviewColor,
-  happyHuntingColor,
   UPCOMING_LABEL,
   UPCOMING_PREVIEW_MAX,
   PRE_START_WORDMARK,
@@ -10,24 +9,15 @@ import {
   NEXT_LETTERS_UI_COUNT,
   START_TOUCHPAD_FADE_MS,
   TILE_PALETTE_MS,
-  ENDGAME_TILE_TO_INACTIVE_MS,
   TILE_PALETTE_TRANSITION_SETTLE_MS,
-  ENDGAME_GRID_BATCH_FADE_MS,
   LEADERBOARD_USE_DEMO_DATA,
   LEADERBOARD_API_BASE,
   LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
-  ENDGAME_SOUND_FALLBACK_MS,
-  GAME_OVER_FLASH_TIMES,
-  GAME_OVER_FLASH_HOLD_EXTRA_MS,
-  ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS,
-  PERFECT_HUNT_GAME_OVER_MESSAGE,
-  PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
   WORD_LETTER_FLIP_MS,
 } from "./config.js";
 import {
-  pickRandomScenarioMessage,
   getLiveWordScoreBreakdownFromLabels,
   buildPerfectHuntMetadata,
   applyColumnShiftInPlace,
@@ -59,12 +49,10 @@ import {
 } from "./grid-tiles.js";
 import { attachShiftGestures, ensureShiftPreviewElements } from "./shift-dom.js";
 import {
-  getShowMessageDurationMs,
   clearWordLineTimers,
   crossfadeCopyScoreToCopied,
   crossfadeWordmarkToHappyHunting,
   fadeInCurrentWordLine,
-  showMessage,
 } from "./ui-word-line.js";
 import {
   bumpWordReplaceEpoch,
@@ -80,6 +68,7 @@ import {
   lockGridSizeForSwipe as lockGridSizeForSwipeCore,
   unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
 } from "./grid-layout.js";
+import { createGameEndgameCoordinator } from "./game-endgame.js";
 
 function cloneBoardSnapshotForLeaderboard(board) {
   return board.map((row) => row.map((cell) => String(cell || "").toLowerCase()));
@@ -91,7 +80,6 @@ let trophyWord = "";
 let trophyWordScore = Number.NEGATIVE_INFINITY;
 let websiteLink = "https://wordhunter.io/";
 const leaderboardLink = LEADERBOARD_API_BASE;
-let playerPosition;
 
 export function initGame(ctx) {
   Object.assign(ctx.refs, {
@@ -175,6 +163,23 @@ export function initGame(ctx) {
 
   const PERFECT_HUNT_HINT_CLASS = "grid-button--perfect-hunt-hint";
 
+  const leaderboardRtState = {
+    demoLeaderboardRows: null,
+    liveLeaderboardPreviewRows: null,
+    demoLeaderboardSubmitUsed: false,
+    liveLeaderboardSubmitUsed: false,
+    playerPosition: undefined,
+    postgameCopyScoreTimer: null,
+    leaderboardFadeOutTimer: null,
+    endgamePostUiReady: false,
+    endgameUiShown: false,
+    postgameSequenceStarted: false,
+    copyScoreLineUsed: false,
+    deferRetryUntilCopyScoreVisible: false,
+  };
+
+  let resetShiftDragVisualHard = () => {};
+
   if (rulesNextLettersCountElement) {
     rulesNextLettersCountElement.textContent = String(NEXT_LETTERS_UI_COUNT);
   }
@@ -213,24 +218,8 @@ export function initGame(ctx) {
     },
   });
 
-  let endgameBlankRestoreFallbackTimer = null;
   let startUiTransitionTimer = null;
-  let endgameTileStartTimer = null;
-  let endgamePostgameRevealDelayTimer = null;
-  let endgamePostUiReady = false;
-  let endgameUiShown = false;
-  let postgameSequenceStarted = false;
-  let postgameCopyScoreTimer = null;
-  let leaderboardFadeOutTimer = null;
-  /** @type {Array<[string, number, number|string, string]> | null} */
-  let demoLeaderboardRows = null;
-  let liveLeaderboardPreviewRows = null;
-  let demoLeaderboardSubmitUsed = false;
-  let liveLeaderboardSubmitUsed = false;
-  let copyScoreLineUsed = false;
-  let deferRetryUntilCopyScoreLineVisible = false;
   let tilePaletteTransitionTimer = null;
-  let perfectGameOverDeferTimer = null;
   const shiftState = {
     get pointerId() {
       return ctx.state.shift.pointerId;
@@ -339,7 +328,7 @@ export function initGame(ctx) {
 
   currentWordElement.addEventListener("click", function () {
     if (isGameActive) return;
-    if (endgameUiShown && !copyScoreLineUsed) {
+    if (leaderboardRtState.endgameUiShown && !leaderboardRtState.copyScoreLineUsed) {
       void copyScoreFirstTap();
     } else {
       copyScoreQuietTap();
@@ -350,7 +339,8 @@ export function initGame(ctx) {
   if (leaderboardDemoAdd) {
     leaderboardDemoAdd.addEventListener("click", () => {
       if (!LEADERBOARD_USE_DEMO_DATA) return;
-      if (leaderboardDemoAdd.disabled || demoLeaderboardSubmitUsed) return;
+      if (leaderboardDemoAdd.disabled || leaderboardRtState.demoLeaderboardSubmitUsed)
+        return;
       if (Number(score) <= 0) return;
       lbCtl.finalizeDemoLeaderboardSubmit();
     });
@@ -359,8 +349,10 @@ export function initGame(ctx) {
     if (!(e.target instanceof Element)) return;
     const td = e.target.closest("td[data-inline-self-name]");
     if (!td || !leaderboardTable.contains(td)) return;
-    if (LEADERBOARD_USE_DEMO_DATA && demoLeaderboardSubmitUsed) return;
-    if (!LEADERBOARD_USE_DEMO_DATA && liveLeaderboardSubmitUsed) return;
+    if (LEADERBOARD_USE_DEMO_DATA && leaderboardRtState.demoLeaderboardSubmitUsed)
+      return;
+    if (!LEADERBOARD_USE_DEMO_DATA && leaderboardRtState.liveLeaderboardSubmitUsed)
+      return;
     if (td.querySelector(".leaderboard-inline-name-input")) return;
     e.preventDefault();
     lbCtl.openLeaderboardInlineNameEdit(td);
@@ -455,26 +447,6 @@ export function initGame(ctx) {
     syncDomFromBoardTiles(grid, ctx.state.gameBoard, GRID_SIZE);
     refreshPerfectHuntHint();
   }
-
-  const shiftHost = {
-    shiftState,
-    uiState,
-    getIsGameActive: () => isGameActive,
-    getIsPaused: () => isPaused,
-    getIsMouseDown: () => isMouseDown,
-    getIsMuted: () => isMuted,
-    getShiftsAllowed: () => ctx.state.word.wordReplaceLockGen === 0 && !isMouseDown,
-    endGame,
-    syncDomFromBoard,
-    applyColumnShift,
-    applyRowShift,
-    syncLineOverlaySize,
-    scheduleSyncLineOverlaySize,
-    clearTapStreak,
-    lockGridSizeForSwipe,
-    unlockGridSizeAfterSwipe,
-  };
-  const { resetShiftDragVisualHard } = attachShiftGestures(ctx, shiftHost);
 
   function runGridTilePaletteTransition(direction, durationMs, onComplete) {
     if (tilePaletteTransitionTimer !== null) {
@@ -599,13 +571,10 @@ export function initGame(ctx) {
         b.style.removeProperty("border-color");
         b.style.removeProperty("filter");
         b.classList.remove(
-          "grid-button--endgame-exit",
-          "grid-button--endgame-flip-exit",
           "grid-button--slot-consumed",
           "grid-button--slot-consumed-hunt-pace",
           "grid-button--slot-consumed-instant"
         );
-        b.style.removeProperty("--endgame-flip-delay");
       }
     };
     if (fadeTilesToActive) {
@@ -734,7 +703,7 @@ export function initGame(ctx) {
 
   function updateCurrentWord() {
     if (ctx.state.wordLine.active) return;
-    if (endgameUiShown) return;
+    if (leaderboardRtState.endgameUiShown) return;
     currentWordElement.classList.remove("current-word--soft-hidden");
     if (!wordState.currentWord) {
       currentWordElement.textContent = "";
@@ -908,277 +877,76 @@ export function initGame(ctx) {
   lbCtl = createLeaderboardController({
     ctx,
     leaderboardLink,
+    state: leaderboardRtState,
     getScore: () => score,
     getTrophyWord: () => trophyWord,
     getLeaderboardPuzzleId: () => leaderboardPuzzleId,
     getScoreValidationTurns: () => scoreValidationTurns,
     getIsMuted: () => isMuted,
     getIsGameActive: () => isGameActive,
-    getEndgamePostUiReady: () => endgamePostUiReady,
-    setEndgamePostUiReady: (v) => {
-      endgamePostUiReady = v;
-    },
-    getEndgameUiShown: () => endgameUiShown,
-    setEndgameUiShown: (v) => {
-      endgameUiShown = v;
-    },
-    getPostgameSequenceStarted: () => postgameSequenceStarted,
-    setPostgameSequenceStarted: (v) => {
-      postgameSequenceStarted = v;
-    },
-    getPostgameCopyScoreTimer: () => postgameCopyScoreTimer,
-    setPostgameCopyScoreTimer: (v) => {
-      postgameCopyScoreTimer = v;
-    },
-    getLeaderboardFadeOutTimer: () => leaderboardFadeOutTimer,
-    setLeaderboardFadeOutTimer: (v) => {
-      leaderboardFadeOutTimer = v;
-    },
-    getDemoRows: () => demoLeaderboardRows,
-    setDemoRows: (v) => {
-      demoLeaderboardRows = v;
-    },
-    getDemoSubmitUsed: () => demoLeaderboardSubmitUsed,
-    setDemoSubmitUsed: (v) => {
-      demoLeaderboardSubmitUsed = v;
-    },
-    getLiveLeaderboardSubmitUsed: () => liveLeaderboardSubmitUsed,
-    setLiveLeaderboardSubmitUsed: (v) => {
-      liveLeaderboardSubmitUsed = v;
-    },
-    getLiveLeaderboardPreviewRows: () => liveLeaderboardPreviewRows,
-    setLiveLeaderboardPreviewRows: (v) => {
-      liveLeaderboardPreviewRows = v;
-    },
-    getPlayerPosition: () => playerPosition,
-    setPlayerPosition: (v) => {
-      playerPosition = v;
-    },
     getPerfectHuntTargetSum: () => ctx.state.perfectHuntTargetSum,
     playSound,
     updateNextLetters,
     revealPostgameRetryAfterCopyScoreVisible: () => {
-      if (!deferRetryUntilCopyScoreLineVisible) return;
-      deferRetryUntilCopyScoreLineVisible = false;
+      if (!leaderboardRtState.deferRetryUntilCopyScoreVisible) return;
+      leaderboardRtState.deferRetryUntilCopyScoreVisible = false;
       retryButton.classList.remove("hiddenDisplay");
       retryButton.classList.add("visibleDisplay", "dock-fade-in");
       retryButton.disabled = false;
     },
   });
 
-  function triggerEndgameTileExitAnimation() {
-    for (let i = 0; i < gridButtonElements.length; i++) {
-      const el = gridButtonElements[i];
-      el.classList.remove(
-        "grid-button--endgame-exit",
-        "grid-button--endgame-flip-exit"
-      );
-      el.style.removeProperty("--endgame-flip-delay");
-      if (getTileText(el) === "") {
-        el.classList.remove(
-          "grid-button--slot-consumed",
-          "grid-button--slot-consumed-hunt-pace",
-          "grid-button--slot-consumed-instant"
-        );
-        el.classList.add("grid-button--inactive");
-      } else {
-        el.classList.remove("selected");
-        el.classList.remove(
-          "grid-button--word-release-green",
-          "grid-button--word-release-hunt-pace",
-          "grid-button--slot-consumed",
-          "grid-button--slot-consumed-hunt-pace",
-          "grid-button--slot-consumed-instant",
-          "grid-button--active",
-          "grid-button--letter-flip",
-          "grid-button--letter-swap-in",
-          "grid-button--palette-to-active",
-          "grid-button--palette-to-inactive",
-          "grid-button--palette-to-active-fade-in"
-        );
-        el.classList.add("grid-button--inactive");
-        el.style.animation = "none";
-        el.style.transition = "none";
-      }
-    }
-    void grid.offsetWidth;
-    if (endgamePostgameRevealDelayTimer !== null) {
-      window.clearTimeout(endgamePostgameRevealDelayTimer);
-      endgamePostgameRevealDelayTimer = null;
-    }
-    grid.style.setProperty(
-      "--endgame-grid-batch-fade-ms",
-      `${ENDGAME_GRID_BATCH_FADE_MS}ms`
-    );
-    void grid.offsetWidth;
-    grid.classList.add("grid--endgame-final-fade");
-    endgamePostgameRevealDelayTimer = window.setTimeout(() => {
-      endgamePostgameRevealDelayTimer = null;
-      endgamePostUiReady = true;
-      lbCtl.maybeShowPostGameUi();
-    }, ENDGAME_GRID_BATCH_FADE_MS);
-  }
+  const gameEndgame = createGameEndgameCoordinator({
+    ctx,
+    grid,
+    getGridButtons: () => gridButtonElements,
+    perfectHuntHintClass: PERFECT_HUNT_HINT_CLASS,
+    getLbCtl: () => lbCtl,
+    rtState: leaderboardRtState,
+    clearTapStreak,
+    setRulesOverlayVisible,
+    resetSelectionState,
+    runGridTilePaletteTransition,
+    playSound,
+    getIsMuted: () => isMuted,
+    setIsGameActive: (v) => {
+      isGameActive = v;
+    },
+    refs: {
+      gridLineContainer,
+      doneButton,
+      boardShiftZone,
+      buttonContainer,
+      startButton,
+      retryButton,
+      playerName,
+      leaderboardButton,
+      leaderboardDemoAdd,
+    },
+  });
 
-  function onGameOverSoundEndedPostGameUi() {
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
-      endgameBlankRestoreFallbackTimer = null;
-    }
-  }
+  const shiftHost = {
+    shiftState,
+    uiState,
+    getIsGameActive: () => isGameActive,
+    getIsPaused: () => isPaused,
+    getIsMouseDown: () => isMouseDown,
+    getIsMuted: () => isMuted,
+    getShiftsAllowed: () => ctx.state.word.wordReplaceLockGen === 0 && !isMouseDown,
+    endGame: (opts) => gameEndgame.endGame(opts),
+    syncDomFromBoard,
+    applyColumnShift,
+    applyRowShift,
+    syncLineOverlaySize,
+    scheduleSyncLineOverlaySize,
+    clearTapStreak,
+    lockGridSizeForSwipe,
+    unlockGridSizeAfterSwipe,
+  };
+  ({ resetShiftDragVisualHard } = attachShiftGestures(ctx, shiftHost));
 
-  function endGame(opts = {}) {
-    const isPerfectStinger = opts.endgameStinger === "perfect";
-    isGameActive = false;
-    clearWordSubmitFeedbackTimer(ctx);
-    bumpWordReplaceEpoch(ctx);
-    endgamePostUiReady = false;
-    endgameUiShown = false;
-    copyScoreLineUsed = false;
-    postgameSequenceStarted = false;
-    if (postgameCopyScoreTimer !== null) {
-      window.clearTimeout(postgameCopyScoreTimer);
-      postgameCopyScoreTimer = null;
-    }
-    lbCtl.hidePostgameLeaderboardOverlay();
-    demoLeaderboardSubmitUsed = false;
-    liveLeaderboardSubmitUsed = false;
-    liveLeaderboardPreviewRows = null;
-    if (endgameTileStartTimer !== null) {
-      window.clearTimeout(endgameTileStartTimer);
-      endgameTileStartTimer = null;
-    }
-    if (endgamePostgameRevealDelayTimer !== null) {
-      window.clearTimeout(endgamePostgameRevealDelayTimer);
-      endgamePostgameRevealDelayTimer = null;
-    }
-    if (perfectGameOverDeferTimer !== null) {
-      window.clearTimeout(perfectGameOverDeferTimer);
-      perfectGameOverDeferTimer = null;
-    }
-    clearTapStreak();
-
-    setRulesOverlayVisible(false);
-
-    grid.classList.remove("grid--endgame-final-fade");
-    grid.style.removeProperty("--endgame-grid-batch-fade-ms");
-
-    const buttons = gridButtonElements;
-    for (let i = 0; i < buttons.length; i++) {
-      buttons[i].disabled = true;
-      buttons[i].classList.remove("selected");
-      buttons[i].classList.remove("grid-button--selected-enter");
-      buttons[i].classList.remove(
-        "grid-button--invalid-shake",
-        "grid-button--word-success",
-        "grid-button--word-release-green",
-        "grid-button--word-release-hunt-pace",
-        "grid-button--letter-flip",
-        "grid-button--letter-swap-in",
-        "grid-button--slot-consumed",
-        "grid-button--slot-consumed-hunt-pace",
-        "grid-button--slot-consumed-instant",
-        PERFECT_HUNT_HINT_CLASS
-      );
-      buttons[i].removeAttribute("data-selection-visits");
-      buttons[i].style.color = "";
-      buttons[i].style.removeProperty("background-color");
-      buttons[i].style.removeProperty("border-color");
-      buttons[i].style.removeProperty("filter");
-      buttons[i].classList.remove(
-        "grid-button--endgame-exit",
-        "grid-button--endgame-flip-exit"
-      );
-      buttons[i].style.removeProperty("--endgame-flip-delay");
-      syncConsumedEmptySlotVisual(buttons[i], getTileText(buttons[i]));
-    }
-    ctx.state.perfectHuntHintFlat = null;
-    ctx.state.perfectHuntHintStickyFlat = null;
-    runGridTilePaletteTransition("toInactive", ENDGAME_TILE_TO_INACTIVE_MS, () => {
-      for (let i = 0; i < gridButtonElements.length; i++) {
-        const el = gridButtonElements[i];
-        el.classList.remove("grid-button--active");
-        el.classList.add("grid-button--inactive");
-      }
-    });
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
-      endgameBlankRestoreFallbackTimer = null;
-    }
-    if (!isPerfectStinger) {
-      playSound("gameOver", isMuted, { onEnded: onGameOverSoundEndedPostGameUi });
-    }
-    endgameBlankRestoreFallbackTimer = window.setTimeout(() => {
-      endgameBlankRestoreFallbackTimer = null;
-      onGameOverSoundEndedPostGameUi();
-    }, ENDGAME_SOUND_FALLBACK_MS);
-    resetSelectionState();
-    while (gridLineContainer.firstChild) {
-      gridLineContainer.firstChild.remove();
-    }
-
-    doneButton.classList.add("hiddenDisplay");
-    doneButton.classList.remove("visibleDisplay");
-    boardShiftZone.classList.add("hiddenDisplay");
-    boardShiftZone.classList.remove("visibleDisplay");
-
-    buttonContainer.classList.remove("hiddenDisplay");
-    startButton.classList.add("hiddenDisplay");
-    startButton.classList.remove("visibleDisplay");
-    deferRetryUntilCopyScoreLineVisible = isPerfectStinger;
-    if (isPerfectStinger) {
-      retryButton.classList.add("hiddenDisplay");
-      retryButton.classList.remove("visibleDisplay", "dock-fade-in");
-      retryButton.disabled = true;
-    } else {
-      retryButton.classList.remove("dock-fade-in", "hiddenDisplay");
-      retryButton.classList.add("visibleDisplay");
-      retryButton.disabled = false;
-    }
-
-    const gameOverFlashText = isPerfectStinger
-      ? PERFECT_HUNT_GAME_OVER_MESSAGE
-      : pickRandomScenarioMessage("game_over", "Game Over");
-
-    const scheduleGameOverFlashesAndGridFadeExit = () => {
-      showMessage(
-        ctx,
-        gameOverFlashText,
-        GAME_OVER_FLASH_TIMES,
-        happyHuntingColor,
-        null,
-        GAME_OVER_FLASH_HOLD_EXTRA_MS
-      );
-      const gameOverMessageLeadMs = getShowMessageDurationMs(
-        GAME_OVER_FLASH_TIMES,
-        GAME_OVER_FLASH_HOLD_EXTRA_MS
-      );
-      endgameTileStartTimer = window.setTimeout(() => {
-        endgameTileStartTimer = null;
-        triggerEndgameTileExitAnimation();
-      }, gameOverMessageLeadMs + ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS);
-    };
-
-    if (isPerfectStinger) {
-      perfectGameOverDeferTimer = window.setTimeout(() => {
-        perfectGameOverDeferTimer = null;
-        scheduleGameOverFlashesAndGridFadeExit();
-      }, PERFECT_ENDGAME_DEBOUNCE_BEFORE_GAME_OVER_MS);
-    } else {
-      scheduleGameOverFlashesAndGridFadeExit();
-    }
-    playerName.classList.add("hiddenDisplay");
-    leaderboardButton.classList.add("hiddenDisplay");
-    leaderboardButton.classList.add("leaderboard-action--concealed");
-    if (leaderboardDemoAdd) {
-      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
-      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
-      leaderboardDemoAdd.disabled = false;
-      leaderboardDemoAdd.classList.add("hiddenDisplay");
-    }
-  }
-
-  wordDragHost.endGameWithStinger = (opts) => endGame(opts);
-  wordDragHost.onPerfectFanfareEnded = onGameOverSoundEndedPostGameUi;
+  wordDragHost.endGameWithStinger = (opts) => gameEndgame.endGame(opts);
+  wordDragHost.onPerfectFanfareEnded = gameEndgame.onGameOverSoundEndedPostGameUi;
 
   function resetRoundToPregame(options = {}) {
     const forImmediateStart = options.forImmediateStart === true;
@@ -1192,35 +960,24 @@ export function initGame(ctx) {
     isMouseDown = false;
     clearTapStreak();
 
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
-      endgameBlankRestoreFallbackTimer = null;
+    gameEndgame.clearInternalEndgameTimers();
+
+    if (leaderboardRtState.postgameCopyScoreTimer !== null) {
+      window.clearTimeout(leaderboardRtState.postgameCopyScoreTimer);
+      leaderboardRtState.postgameCopyScoreTimer = null;
     }
-    if (endgameTileStartTimer !== null) {
-      window.clearTimeout(endgameTileStartTimer);
-      endgameTileStartTimer = null;
+    if (
+      !skipLeaderboardOverlayTeardown &&
+      leaderboardRtState.leaderboardFadeOutTimer !== null
+    ) {
+      window.clearTimeout(leaderboardRtState.leaderboardFadeOutTimer);
+      leaderboardRtState.leaderboardFadeOutTimer = null;
     }
-    if (endgamePostgameRevealDelayTimer !== null) {
-      window.clearTimeout(endgamePostgameRevealDelayTimer);
-      endgamePostgameRevealDelayTimer = null;
-    }
-    if (perfectGameOverDeferTimer !== null) {
-      window.clearTimeout(perfectGameOverDeferTimer);
-      perfectGameOverDeferTimer = null;
-    }
-    if (postgameCopyScoreTimer !== null) {
-      window.clearTimeout(postgameCopyScoreTimer);
-      postgameCopyScoreTimer = null;
-    }
-    if (!skipLeaderboardOverlayTeardown && leaderboardFadeOutTimer !== null) {
-      window.clearTimeout(leaderboardFadeOutTimer);
-      leaderboardFadeOutTimer = null;
-    }
-    postgameSequenceStarted = false;
-    demoLeaderboardRows = null;
-    liveLeaderboardPreviewRows = null;
-    demoLeaderboardSubmitUsed = false;
-    liveLeaderboardSubmitUsed = false;
+    leaderboardRtState.postgameSequenceStarted = false;
+    leaderboardRtState.demoLeaderboardRows = null;
+    leaderboardRtState.liveLeaderboardPreviewRows = null;
+    leaderboardRtState.demoLeaderboardSubmitUsed = false;
+    leaderboardRtState.liveLeaderboardSubmitUsed = false;
     if (!skipLeaderboardOverlayTeardown) {
       lbCtl.hidePostgameLeaderboardOverlay();
     }
@@ -1238,15 +995,15 @@ export function initGame(ctx) {
 
     resetGameOverAudio();
 
-    endgamePostUiReady = false;
-    endgameUiShown = false;
-    copyScoreLineUsed = false;
-    deferRetryUntilCopyScoreLineVisible = false;
+    leaderboardRtState.endgamePostUiReady = false;
+    leaderboardRtState.endgameUiShown = false;
+    leaderboardRtState.copyScoreLineUsed = false;
+    leaderboardRtState.deferRetryUntilCopyScoreVisible = false;
 
     ctx.state.shift.animating = false;
     ctx.state.shift.pointerId = null;
     ctx.state.shift.dragLockedHorizontal = null;
-    playerPosition = undefined;
+    leaderboardRtState.playerPosition = undefined;
 
     score = 0;
     trophyWord = "";
@@ -1328,8 +1085,6 @@ export function initGame(ctx) {
         "grid-button--word-release-hunt-pace",
         "grid-button--letter-flip",
         "grid-button--letter-swap-in",
-        "grid-button--endgame-exit",
-        "grid-button--endgame-flip-exit",
         "grid-button--slot-consumed",
         "grid-button--slot-consumed-hunt-pace",
         "grid-button--slot-consumed-instant",
@@ -1347,8 +1102,8 @@ export function initGame(ctx) {
 
   function buildClipboardScoreText() {
     let leaderboardText = "";
-    if (playerPosition) {
-      leaderboardText = `#${playerPosition} on `;
+    if (leaderboardRtState.playerPosition) {
+      leaderboardText = `#${leaderboardRtState.playerPosition} on `;
     }
     return `${leaderboardText}wordhunter #${leaderboardPuzzleId} 🏹${score}\n🏆 ${trophyWord.toUpperCase()} 🏆\n${websiteLink}`;
   }
@@ -1373,8 +1128,8 @@ export function initGame(ctx) {
   }
 
   function copyScoreFirstTap() {
-    if (copyScoreLineUsed) return;
-    copyScoreLineUsed = true;
+    if (leaderboardRtState.copyScoreLineUsed) return;
+    leaderboardRtState.copyScoreLineUsed = true;
     playSound("copy", isMuted);
     void writeScoreToClipboardPromise()
       .catch((err) => {
