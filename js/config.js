@@ -4,6 +4,8 @@ export const lightGreenPreviewColor = "#8ff7a8";
 export const lightRedPreviewColor = "#ff9b9b";
 export const redTextColorLeaderboard = "red";
 export const goldTextColor = "#e3af02";
+/** Beige for 👤 / 🏆 on the submitting player’s row when their run is below the puzzle perfect-hunt Σ (rank + 🏹 stay white). */
+export const leaderboardSubPerfectRowColor = "#f5e2a2";
 /** Success message / highlights when the submitted word is the next perfect-hunt list word on pace. */
 export const huntPaceSuccessFlashColor = "#ffdd22";
 export const happyHuntingColor = "gold";
@@ -54,6 +56,9 @@ export const CURRENT_WORD_FADE_MS = 220;
 export const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 export const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
 export const LEADERBOARD_USE_DEMO_DATA = true;
+export const LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW = true;
+export const LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW = true;
+export const LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA = 777;
 export const DEMO_LEADERBOARD_NAME_MAX = 8;
 /** Leaderboard overlay `#leaderboard-elements` opacity in/out (prior 660ms baseline; doubled = half playback speed). */
 export const LEADERBOARD_POSTGAME_FADE_MS = 1320;
