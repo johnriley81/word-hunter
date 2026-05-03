@@ -16,6 +16,7 @@ import {
   normalizeLeaderboardRows,
   leaderboardDebugWarn,
   padNormalizedLeaderboardToTop10,
+  LEADERBOARD_META_LIVE_PREVIEW,
 } from "./leaderboard-api.js";
 import {
   buildDemoLeaderboardRows,
@@ -159,7 +160,7 @@ export function createLeaderboardController(rt) {
     );
     if (!LEADERBOARD_USE_DEMO_DATA) {
       rows = padNormalizedLeaderboardToTop10(rows);
-      rt.setLiveLeaderboardPreviewRows(rows.map((r) => r.slice()));
+      rt.setLiveLeaderboardPreviewRows(rows.map((r) => r.slice(0, 5)));
     }
     const headerRow = document.createElement("tr");
     ["", "👤", "🏹", "🏆"].forEach((headerText) => {
@@ -208,16 +209,18 @@ export function createLeaderboardController(rt) {
         scoreNum === runScoreNum &&
         trophyMatches;
       const rowPreviewNameKey = leaderboardPreviewNameKey(playerStr);
-      const isLivePreviewRunRow =
+      const isLiveStatsAndNameMatch =
         sameScoreAndTrophyAsRun && rowPreviewNameKey === previewNameKey;
+      const isLiveCurrentRunPreviewRow =
+        isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
       const isLiveInlineSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
         !rt.getLiveLeaderboardSubmitUsed() &&
-        isLivePreviewRunRow;
+        isLiveCurrentRunPreviewRow;
       const isLiveSubmittedSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
         rt.getLiveLeaderboardSubmitUsed() &&
-        isLivePreviewRunRow;
+        isLiveStatsAndNameMatch;
       const playerCanonical = String(
         sanitizeDemoLeaderboardName(playerStr) || playerStr
       ).trim();
@@ -231,7 +234,10 @@ export function createLeaderboardController(rt) {
         nameMatches &&
         scoreMatches &&
         trophyMatches &&
-        (LEADERBOARD_USE_DEMO_DATA || rowPreviewNameKey === previewNameKey);
+        (LEADERBOARD_USE_DEMO_DATA ||
+          (rowPreviewNameKey === previewNameKey &&
+            (rt.getLiveLeaderboardSubmitUsed() ||
+              row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
 
       let displayPlayer = playerStr;
       if (playerStr.toLowerCase() === "doughack") {

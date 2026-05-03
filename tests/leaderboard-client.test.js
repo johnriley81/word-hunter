@@ -7,6 +7,7 @@ import {
   leaderboardPostTreatAsCommitted,
   parsedFetchPayload,
   normalizeLeaderboardRows,
+  LEADERBOARD_META_LIVE_PREVIEW,
 } from "../js/leaderboard-api.js";
 import {
   applyLiveLeaderboardPreviewMerge,
@@ -131,22 +132,23 @@ test("leaderboardLiveSubmitNameFallbackRaw: single matching row when field empty
 
 test("leaderboardLiveSubmitNameFallbackRaw: disambiguate by preview key when field empty", () => {
   const rows = normalizeLeaderboardRows([
-    ["TOMMY", 50, "Z"],
-    ["YOU", 50, "Z"],
+    ["TOMMY", 0, 50, "Z"],
+    ["YOU", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
   ]);
   assert.equal(leaderboardLiveSubmitNameFallbackRaw(rows, "", 50, "Z"), "YOU");
 });
 
-test("leaderboardLiveSelfRowIndex: name key distinguishes preview row", () => {
+test("leaderboardLiveSelfRowIndex: prefers tagged current-run preview row", () => {
   const rows = normalizeLeaderboardRows([
-    ["TOMMY", 50, "Z"],
-    ["YOU", 50, "Z"],
+    ["YOU", 0, 50, "Z"],
+    ["TOMMY", 0, 50, "Z"],
+    ["YOU", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
   ]);
-  assert.equal(leaderboardLiveSelfRowIndex(rows, "", 50, "Z"), 1);
-  assert.equal(leaderboardLiveSelfRowIndex(rows, "TOMMY", 50, "Z"), 0);
+  assert.equal(leaderboardLiveSelfRowIndex(rows, "", 50, "Z"), 2);
+  assert.equal(leaderboardLiveSelfRowIndex(rows, "TOMMY", 50, "Z"), 1);
 });
 
-test("applyLiveLeaderboardPreviewMerge: no duplicate YOU when API already has this run", () => {
+test("applyLiveLeaderboardPreviewMerge: keeps API row; adds preview below on same name/score/trophy", () => {
   const norm = normalizeLeaderboardRows([
     ["YOU", 88, "blinders"],
     ["TOMMY", 88, "blinders"],
@@ -155,10 +157,15 @@ test("applyLiveLeaderboardPreviewMerge: no duplicate YOU when API already has th
     useDemoData: false,
     liveSubmitUsed: false,
   });
-  const youCount = merged.filter(
+  const youRows = merged.filter(
     (r) => String(r[0]).toUpperCase() === "YOU" && r[2] === 88
-  ).length;
-  assert.equal(youCount, 1);
+  );
+  assert.equal(youRows.length, 2);
+  const previewIdx = merged.findIndex((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
+  const firstYouIdx = merged.findIndex(
+    (r) => String(r[0]).toUpperCase() === "YOU" && r[2] === 88 && r.length < 5
+  );
+  assert.ok(firstYouIdx >= 0 && previewIdx > firstYouIdx);
 });
 
 test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows player", () => {
@@ -183,4 +190,11 @@ test("applyLiveLeaderboardPreviewMerge: skipped after submit or in demo", () => 
 test("normalizeLeaderboardRows: API 3-tuple to internal 4-field row", () => {
   const [r] = normalizeLeaderboardRows([["Ada", 88, "star"]]);
   assert.deepEqual(r, ["Ada", 0, 88, "star"]);
+});
+
+test("normalizeLeaderboardRows: preserves live-preview meta when present", () => {
+  const [r] = normalizeLeaderboardRows([
+    ["Ada", 0, 88, "star", LEADERBOARD_META_LIVE_PREVIEW],
+  ]);
+  assert.deepEqual(r, ["Ada", 0, 88, "star", LEADERBOARD_META_LIVE_PREVIEW]);
 });

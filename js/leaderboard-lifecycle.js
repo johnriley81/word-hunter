@@ -1,4 +1,5 @@
 import { DEMO_LEADERBOARD_NAME_MAX, SCORE_SUBMIT_THRESHOLD } from "./config.js";
+import { LEADERBOARD_META_LIVE_PREVIEW } from "./leaderboard-api.js";
 import { leaderboardNumericScore } from "./leaderboard-ui-helpers.js";
 
 export function sanitizeDemoLeaderboardName(raw) {
@@ -15,7 +16,6 @@ export function leaderboardPreviewNameKey(raw) {
   return sanitizeDemoLeaderboardName(t) || t;
 }
 
-/** Preview row index for inline edit: same run (score + trophy) and same name key as the field. */
 export function leaderboardLiveSelfRowIndex(
   rows,
   playerNameValue,
@@ -26,15 +26,22 @@ export function leaderboardLiveSelfRowIndex(
   const trophy = String(longestWord ?? "").trim();
   const want = Number(runScore);
   const previewKey = leaderboardPreviewNameKey(playerNameValue);
-  return rows.findIndex(
-    (r) =>
-      leaderboardNumericScore(r) === want &&
-      String(r[3] || "").trim() === trophy &&
-      leaderboardPreviewNameKey(r[0]) === previewKey
-  );
+  let untagged = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (
+      leaderboardNumericScore(r) !== want ||
+      String(r[3] || "").trim() !== trophy ||
+      leaderboardPreviewNameKey(r[0]) !== previewKey
+    ) {
+      continue;
+    }
+    if (r[4] === LEADERBOARD_META_LIVE_PREVIEW) return i;
+    if (untagged < 0) untagged = i;
+  }
+  return untagged;
 }
 
-/** POST name from preview rows when #player-name is empty. */
 export function leaderboardLiveSubmitNameFallbackRaw(
   rows,
   playerNameValue,
@@ -52,6 +59,15 @@ export function leaderboardLiveSubmitNameFallbackRaw(
   }
   if (!matches.length) return "";
   const previewKey = leaderboardPreviewNameKey(playerNameValue);
+  const keyedTagged = matches.find(
+    (r) =>
+      r[4] === LEADERBOARD_META_LIVE_PREVIEW &&
+      leaderboardPreviewNameKey(r[0]) === previewKey
+  );
+  if (keyedTagged) {
+    const raw = String(keyedTagged[0] ?? "").trim();
+    return raw || "YOU";
+  }
   const keyed = matches.find((r) => leaderboardPreviewNameKey(r[0]) === previewKey);
   if (keyed) {
     const raw = String(keyed[0] ?? "").trim();
@@ -115,11 +131,14 @@ export function applyLiveLeaderboardPreviewMerge(
     normalizedApiRows,
     trimmedPlayerName || "YOU",
     run,
-    String(longestWord || "").trim()
+    String(longestWord || "").trim(),
+    { dedupeNameScoreTrophy: false, tagLiveRunPreview: true }
   );
 }
 
-export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy) {
+export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpts) {
+  const dedupeNameScoreTrophy = !mergeOpts || mergeOpts.dedupeNameScoreTrophy !== false;
+  const tagLiveRunPreview = Boolean(mergeOpts?.tagLiveRunPreview);
   const filled = baseRows.map((r, idx) => {
     return [
       String(r[0] || ""),
@@ -137,24 +156,34 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy) {
     .trim()
     .toUpperCase();
   const scoreNum = Number(runScore);
-  const deduped = dataRows.filter((r) => {
-    const sameScore = Number(r[2]) === scoreNum;
-    const sameTrophy =
-      String(r[3] || "")
-        .trim()
-        .toUpperCase() === trophyKey;
-    const sameName = sanitizeDemoLeaderboardName(r[0]) === nameKey;
-    return !(sameScore && sameTrophy && sameName);
-  });
+  let deduped = dataRows;
+  if (dedupeNameScoreTrophy) {
+    deduped = dataRows.filter((r) => {
+      const sameScore = Number(r[2]) === scoreNum;
+      const sameTrophy =
+        String(r[3] || "")
+          .trim()
+          .toUpperCase() === trophyKey;
+      const sameName = sanitizeDemoLeaderboardName(r[0]) === nameKey;
+      return !(sameScore && sameTrophy && sameName);
+    });
+  }
   const maxOrder = deduped.length === 0 ? -1 : Math.max(...deduped.map((r) => r[4]));
-  const newRow = [name, 0, runScore, String(trophy || ""), maxOrder + 1];
+  const previewTieOrder = maxOrder + 1;
+  const newRow = [name, 0, runScore, String(trophy || ""), previewTieOrder];
   deduped.push(newRow);
   deduped.sort((a, b) => {
     const byScore = Number(b[2]) - Number(a[2]);
     if (byScore !== 0) return byScore;
     return Number(a[4]) - Number(b[4]);
   });
-  const next = deduped.slice(0, 10).map((r) => r.slice(0, 4));
+  const next = deduped.slice(0, 10).map((r) => {
+    const four = [r[0], r[1], r[2], r[3]];
+    if (tagLiveRunPreview && Number(r[4]) === previewTieOrder) {
+      four.push(LEADERBOARD_META_LIVE_PREVIEW);
+    }
+    return four;
+  });
   while (next.length < 10) {
     next.push(["", 0, "", ""]);
   }
