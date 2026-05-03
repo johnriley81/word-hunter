@@ -403,6 +403,11 @@ export function initGame(ctx) {
   }
 
   function refreshPerfectHuntHint() {
+    if (!isGameActive) {
+      clearPerfectHuntHintVisual();
+      return;
+    }
+
     const nSq = GRID_SIZE * GRID_SIZE;
 
     let nextFlat;
@@ -661,7 +666,6 @@ export function initGame(ctx) {
 
     ensureShiftPreviewElements(ctx);
     syncLineOverlaySize();
-    refreshPerfectHuntHint();
     scheduleSyncLineOverlaySize();
     requestAnimationFrame(lockGridSizeForSwipe);
   }

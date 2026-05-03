@@ -33,7 +33,24 @@ function indexMod(i, n) {
   return ((i % n) + n) % n;
 }
 
-/** Two rAF hops so styles flush before assigning `transition` (snap/rejoin). */
+function starterFlatForShiftPreview(host, ctx) {
+  if (typeof host.getIsGameActive === "function" && !host.getIsGameActive())
+    return null;
+  if (ctx.state.perfectHuntOnPace && ctx.state.perfectHuntHintStickyFlat != null) {
+    return ctx.state.perfectHuntHintStickyFlat;
+  }
+  const n = GRID_SIZE;
+  return computePerfectHuntStarterFlatWithRowHints(
+    ctx.state.gameBoard,
+    ctx.state.perfectHunt,
+    ctx.state.perfectHuntOrderIndex,
+    ctx.state.perfectHuntOnPace,
+    n,
+    ctx.state.perfectHuntStarterFlats,
+    ctx.state.perfectHuntStarterTorNeighbors
+  );
+}
+
 function deferTwoAnimationFrames(fn) {
   requestAnimationFrame(() => {
     requestAnimationFrame(fn);
@@ -170,18 +187,7 @@ export function attachShiftGestures(ctx, host) {
     const n = GRID_SIZE;
     const tiles = inner.querySelectorAll(".shift-preview-tile");
     const need = n * k;
-    const starterFlat =
-      ctx.state.perfectHuntOnPace && ctx.state.perfectHuntHintStickyFlat != null
-        ? ctx.state.perfectHuntHintStickyFlat
-        : computePerfectHuntStarterFlatWithRowHints(
-            ctx.state.gameBoard,
-            ctx.state.perfectHunt,
-            ctx.state.perfectHuntOrderIndex,
-            ctx.state.perfectHuntOnPace,
-            n,
-            ctx.state.perfectHuntStarterFlats,
-            ctx.state.perfectHuntStarterTorNeighbors
-          );
+    const starterFlat = starterFlatForShiftPreview(host, ctx);
     for (let i = 0; i < tiles.length; i++) {
       tiles[i].classList.remove(SHIFT_PREVIEW_HUNT_HINT_CLASS);
     }
