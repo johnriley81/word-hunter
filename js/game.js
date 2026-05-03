@@ -543,7 +543,7 @@ export function initGame(ctx) {
       arg && typeof arg === "object" && arg.skipWordmarkInIntro === true;
     const fadeTilesToActive =
       arg && typeof arg === "object" && arg.fadeTilesToActive === true;
-    playSound("button1", isMuted);
+    playSound("click", isMuted);
     clearTapStreak();
     isGameActive = true;
     startButton.disabled = true;

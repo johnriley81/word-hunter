@@ -186,7 +186,6 @@ export const LETTER_WEIGHTS = Object.freeze({
 export const GAME_SOUND_SPEC = [
   { id: "click", src: "sounds/click.wav" },
   { id: "copy", src: "sounds/copy.wav" },
-  { id: "button1", src: "sounds/button1.wav" },
   { id: "bing", src: "sounds/bing.wav" },
   { id: "choir", src: "sounds/choir.wav" },
   { id: "invalid", src: "sounds/invalid.wav" },
