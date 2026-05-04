@@ -1,4 +1,4 @@
-/** Pregen puzzle-pool.json: Σ min_tiles = NEXT_LETTERS_LEN; rows high→low wordTotal; opener = openingLabelLen glyphs. */
+/** Pregen puzzle-pool.json: Σ min_tiles = NEXT_LETTERS_LEN; opener = openingLabelLen glyphs; ranked reuse → letterUnion → wordTotals (see POOL_REUSE_RANK, POOL_RANK_BY_LETTER_UNION). */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname, join } from "path";
