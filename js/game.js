@@ -5,9 +5,6 @@ import {
   UPCOMING_PREVIEW_MAX,
   PRE_START_WORDMARK,
   GRID_SIZE,
-  NEXT_LETTERS_LEN,
-  NEXT_LETTERS_UI_COUNT,
-  PERFECT_HUNT_WORD_COUNT,
   START_TOUCHPAD_FADE_MS,
   TILE_PALETTE_MS,
   TILE_PALETTE_TRANSITION_SETTLE_MS,
@@ -16,7 +13,6 @@ import {
   LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
-  WORD_LETTER_FLIP_MS,
 } from "./config.js";
 import {
   getLiveWordScoreBreakdownFromLabels,
@@ -27,20 +23,14 @@ import {
   remapPerfectHuntHintStickyFlatAfterCommittedShift,
 } from "./board-logic.js";
 import {
-  sounds,
-  soundPlayPools,
-  GAME_SOUND_IDS,
+  preloadGameSoundLayers,
   resetGameOverAudio,
   syncLiveSfxMute,
   playSound,
   scheduleDeferredGameAudioWarmup,
   unlockGameAudio,
 } from "./audio.js";
-import {
-  calculatePuzzleDayIndex,
-  loadWordhunterTextAssets,
-  puzzleListIndex,
-} from "./game-lifecycle.js";
+import { calculatePuzzleDayIndex, puzzleListIndex } from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
   getTileText,
@@ -53,7 +43,6 @@ import {
   clearWordLineTimers,
   crossfadeCopyScoreToCopied,
   crossfadeWordmarkToHappyHunting,
-  fadeInCurrentWordLine,
 } from "./ui-word-line.js";
 import {
   bumpWordReplaceEpoch,
@@ -62,7 +51,7 @@ import {
   resetWordSelectionState,
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
-import { omitEmptyNextLetterSlots } from "./puzzle-export-sim.js";
+import { omitEmptyNextLetterSlots } from "./puzzle-export-sim/next-letters.js";
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
 import {
   createLineOverlayLayoutSync,
@@ -70,6 +59,13 @@ import {
   unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
 } from "./grid-layout.js";
 import { createGameEndgameCoordinator } from "./game-endgame.js";
+import { assignGamePlayerDomRefs } from "./game-player-dom-refs.js";
+import {
+  createPlayerLeaderboardRuntimeState,
+  freezePlayerShellBeforeAssets,
+  hydrateRulesHudCounts,
+  loadPlayerWordhunterAssetBundle,
+} from "./game-player-shell.js";
 
 function cloneBoardSnapshotForLeaderboard(board) {
   return board.map((row) => row.map((cell) => String(cell || "").toLowerCase()));
@@ -83,43 +79,7 @@ let websiteLink = "https://wordhunter.io/";
 const leaderboardLink = LEADERBOARD_API_BASE;
 
 export function initGame(ctx) {
-  Object.assign(ctx.refs, {
-    grid: document.querySelector("#grid"),
-    gridPan: document.getElementById("grid-pan"),
-    gridStage: document.getElementById("grid-stage"),
-    shiftPreviewStrip: document.getElementById("shift-preview-strip"),
-    startButton: document.querySelector("#start"),
-    currentWordElement: document.querySelector("#current-word"),
-    queueNextHeaderElement: document.querySelector("#queue-next-header"),
-    nextLettersElement: document.querySelector("#queue-next-values"),
-    queueSackCountElement: document.querySelector("#queue-sack-count"),
-    scoreElement: document.querySelector("#score"),
-    scoreSwipeSumElement: document.querySelector("#score-swipe-sum"),
-    scoreLengthElement: document.querySelector("#score-length"),
-    scoreWordTotalElement: document.querySelector("#score-word-total"),
-    scoreGameTotalElement: document.querySelector("#score-game-total"),
-    gameInfoContainer: document.querySelector("#game-info-container"),
-    bottomDock: document.querySelector("#bottom-dock"),
-    rules: document.querySelector("#rules"),
-    rulesButton: document.querySelector("#rules-button"),
-    rulesPerfectHuntTotalElement: document.querySelector("#rules-perfect-hunt-total"),
-    rulesPerfectHuntCountElement: document.querySelector("#rules-perfect-hunt-count"),
-    rulesNextLettersCountElement: document.querySelector("#rules-next-letters-count"),
-    muteButton: document.getElementById("mute-button"),
-    doneButton: document.querySelector("#done-button"),
-    boardShiftZone: document.getElementById("board-shift-zone"),
-    boardShiftHints: document.getElementById("board-shift-hints"),
-    buttonContainer: document.getElementById("button-container"),
-    retryButton: document.querySelector("#retry-button"),
-    gridLineContainer: document.querySelector("#line-container"),
-    gridLineWrapper: document.getElementById("grid-line-wrapper"),
-    gridViewport: document.getElementById("grid-viewport"),
-    leaderboardElements: document.getElementById("leaderboard-elements"),
-    leaderboardTable: document.getElementById("leaderboard-table"),
-    playerName: document.getElementById("player-name"),
-    leaderboardButton: document.getElementById("leaderboard-button"),
-    leaderboardDemoAdd: document.getElementById("leaderboard-demo-add"),
-  });
+  assignGamePlayerDomRefs(ctx.refs);
 
   const {
     grid,
@@ -164,39 +124,22 @@ export function initGame(ctx) {
 
   const PERFECT_HUNT_HINT_CLASS = "grid-button--perfect-hunt-hint";
 
-  const leaderboardRtState = {
-    demoLeaderboardRows: null,
-    liveLeaderboardPreviewRows: null,
-    liveLeaderboardEligibilityRows: null,
-    demoLeaderboardSubmitUsed: false,
-    liveLeaderboardSubmitUsed: false,
-    playerPosition: undefined,
-    postgameCopyScoreTimer: null,
-    leaderboardFadeOutTimer: null,
-    endgamePostUiReady: false,
-    endgameUiShown: false,
-    postgameSequenceStarted: false,
-    copyScoreLineUsed: false,
-    deferRetryUntilCopyScoreVisible: false,
-  };
+  const leaderboardRtState = createPlayerLeaderboardRuntimeState();
 
   let resetShiftDragVisualHard = () => {};
 
-  if (rulesNextLettersCountElement) {
-    rulesNextLettersCountElement.textContent = String(NEXT_LETTERS_UI_COUNT);
-  }
-  if (rulesPerfectHuntCountElement) {
-    rulesPerfectHuntCountElement.textContent = String(PERFECT_HUNT_WORD_COUNT);
-  }
+  hydrateRulesHudCounts(rulesNextLettersCountElement, rulesPerfectHuntCountElement);
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const wordState = ctx.state.word;
   /** @type {ReturnType<typeof createLeaderboardController> | undefined} */
   let lbCtl;
 
-  startButton.disabled = true;
-  nextLettersElement.textContent = "";
-  if (queueSackCountElement) queueSackCountElement.textContent = "0";
+  freezePlayerShellBeforeAssets({
+    startButton,
+    nextLettersElement,
+    queueSackCountElement,
+  });
 
   let score = 0;
   let nextLetters = [];
@@ -284,32 +227,17 @@ export function initGame(ctx) {
     unlockGridSizeAfterSwipeCore(ctx.state.shift);
   }
 
-  GAME_SOUND_IDS.forEach((key) => {
-    sounds[key].load();
-    const pool = soundPlayPools[key];
-    if (pool) {
-      for (let i = 1; i < pool.length; i++) {
-        pool[i].load();
-      }
-    }
-  });
+  preloadGameSoundLayers();
 
-  loadWordhunterTextAssets()
-    .then(({ wordSet: ws, puzzles: pl }) => {
-      wordSet = ws;
-      puzzles = pl;
-      if (!puzzles.length) {
-        console.error("text/puzzles.txt has no puzzle rows");
-        return;
-      }
-      generateGrid();
-      nextLetters = generateNextLetters();
-      updateNextLetters();
-      startButton.disabled = false;
-    })
-    .catch((error) => {
-      console.error("Fetch error:", error);
-    });
+  void loadPlayerWordhunterAssetBundle().then((bundle) => {
+    if (!bundle) return;
+    wordSet = bundle.wordSet;
+    puzzles = bundle.puzzles;
+    generateGrid();
+    nextLetters = generateNextLetters();
+    updateNextLetters();
+    startButton.disabled = false;
+  });
 
   startButton.addEventListener("click", () => {
     void startGame();
