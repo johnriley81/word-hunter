@@ -3,6 +3,17 @@ import { wordToTileLabelSequence } from "../board-logic.js";
 /** Lowercase a–z pool tokens only. */
 const POOL_SWAP_WORD_RE = /^[a-z]+$/;
 
+/**
+ * Dedup key across the pool builder: `min_tiles|reuse|wordTotal` (numeric fields).
+ *
+ * @param {number} minTiles
+ * @param {number} reuse
+ * @param {number} wordTotal
+ */
+function bucketKeyForWordStats(minTiles, reuse, wordTotal) {
+  return `${Number(minTiles)}|${Number(reuse)}|${Number(wordTotal)}`;
+}
+
 /** @typedef {{ word: string; min_tiles: number; reuse: number; wordTotal: number }} SwapBucketEntry */
 export function buildSwapBucketsByStats(lists) {
   /** @type {Map<string, Map<string, { word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
@@ -17,7 +28,11 @@ export function buildSwapBucketsByStats(lists) {
         );
       const w = String(e.word || "").toLowerCase();
       if (!POOL_SWAP_WORD_RE.test(w)) continue;
-      const key = `${Number(e.min_tiles)}|${Number(e.reuse)}|${Number(e.wordTotal)}`;
+      const key = bucketKeyForWordStats(
+        Number(e.min_tiles),
+        Number(e.reuse),
+        Number(e.wordTotal)
+      );
       if (!outer.has(key)) outer.set(key, new Map());
       const inner = outer.get(key);
       if (!inner.has(w)) {
@@ -39,10 +54,11 @@ export function buildSwapBucketsByStats(lists) {
 }
 
 /**
- * Alternate pool words at `placementIndex`: not used on other toolbar slots;
- * Σ in [neighborBelow, neighborAbove] for list sorted by `comparePoolWordEntriesDesc`.
+ * Alternate pool words for the toolbar slot at `placementIndex`: same statistical
+ * row as `currentWordsDesc[idx]` (`min_tiles`, `reuse`, `wordTotal` exactly),
+ * lowercase a–z, not the current spelling nor any other spelling on this list.
  */
-export function collectSwapAlternatesBetweenNeighborScores(
+export function collectSwapAlternatesMatchingStats(
   buckets,
   currentWordsDesc,
   placementIndex
@@ -57,6 +73,18 @@ export function collectSwapAlternatesBetweenNeighborScores(
   const glyphsAtLen = wordToTileLabelSequence(curLc).length;
   const minTilesAt = Number(at.min_tiles);
   const reuseAt = Number(at.reuse);
+  const totalAt = Number(at.wordTotal);
+  if (
+    !Number.isFinite(minTilesAt) ||
+    !Number.isFinite(reuseAt) ||
+    !Number.isFinite(totalAt)
+  )
+    return [];
+
+  const key = bucketKeyForWordStats(minTilesAt, reuseAt, totalAt);
+  const arr = buckets.get(key);
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+
   /** @type {Set<string>} */
   const blocked = new Set();
   for (let i = 0; i < list.length; i++) {
@@ -66,37 +94,14 @@ export function collectSwapAlternatesBetweenNeighborScores(
     if (lc && i !== idx) blocked.add(lc);
   }
 
-  /** @param {number} i */
-  const totAt = (i) => {
-    const x = Number(/** @type {{ wordTotal?: unknown }} */ (list[i])?.wordTotal);
-    return Number.isFinite(x) ? x : null;
-  };
-
-  let lowInclusive = idx < list.length - 1 ? totAt(idx + 1) : null;
-  let highInclusive = idx > 0 ? totAt(idx - 1) : null;
-
-  if (lowInclusive != null && highInclusive != null && lowInclusive > highInclusive) {
-    const tmp = lowInclusive;
-    lowInclusive = highInclusive;
-    highInclusive = tmp;
+  /** @type {SwapBucketEntry[]} */
+  const alternates = [];
+  for (const x of arr) {
+    const w = String(x.word || "").toLowerCase();
+    if (!POOL_SWAP_WORD_RE.test(w)) continue;
+    if (w === curLc || blocked.has(w)) continue;
+    if (wordToTileLabelSequence(w).length !== glyphsAtLen) continue;
+    alternates.push(x);
   }
-
-  /** @type {Map<string, SwapBucketEntry>} */
-  const uniq = new Map();
-  for (const arr of buckets.values()) {
-    for (const x of arr) {
-      const w = String(x.word || "").toLowerCase();
-      if (!POOL_SWAP_WORD_RE.test(w)) continue;
-      if (w === curLc || blocked.has(w)) continue;
-      const s = Number(x.wordTotal);
-      if (!Number.isFinite(s)) continue;
-      if (Number(x.min_tiles) !== minTilesAt) continue;
-      if (Number(x.reuse) !== reuseAt) continue;
-      if (wordToTileLabelSequence(w).length !== glyphsAtLen) continue;
-      if (lowInclusive != null && s < lowInclusive) continue;
-      if (highInclusive != null && s > highInclusive) continue;
-      if (!uniq.has(w)) uniq.set(w, x);
-    }
-  }
-  return [...uniq.values()].sort((a, b) => a.word.localeCompare(b.word));
+  return alternates.sort((a, b) => a.word.localeCompare(b.word));
 }

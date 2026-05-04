@@ -33,7 +33,8 @@ for (const [w, rec] of Object.entries(raw.words)) {
 }
 
 const payload = {
-  version: 1,
+  version: typeof raw.version === "number" ? raw.version : 1,
+  ...(raw.stage != null ? { stage: raw.stage } : {}),
   tileLabelLength: [TILE_LABEL_MIN, TILE_LABEL_MAX],
   filter: "wordToTileLabelSequence",
   words,

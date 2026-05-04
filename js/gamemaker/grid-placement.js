@@ -58,13 +58,16 @@ export function buttonFlatIndex(grid, button) {
  *   getBoardSnapshotPreDrag: () => string[][] | null;
  *   setBoardSnapshotPreDrag: (v: string[][] | null) => void;
  *   onToolbarLetterProgress?: () => void;
- *   appendBuildPlay: (play: {
- *     word: string;
- *     min_tiles: number;
- *     pathFlat: number[];
- *     covered: string[];
- *     starter_tor_neighbor_quad: string[];
- *   }) => void;
+ *   appendBuildPlay: (
+ *     play: {
+ *       word: string;
+ *       min_tiles: number;
+ *       pathFlat: number[];
+ *       covered: string[];
+ *       starter_tor_neighbor_quad: string[];
+ *     },
+ *     slotIndex: number
+ *   ) => void;
  *   bumpPlacementStep: () => void;
  *   updateUi: () => void;
  * }} deps
@@ -315,13 +318,16 @@ export function createGridPlacementApi(deps) {
       pathFlat[0],
       GRID_SIZE
     );
-    appendBuildPlay({
-      word: w,
-      min_tiles: minTiles,
-      pathFlat,
-      covered,
-      starter_tor_neighbor_quad: starterTorQuad,
-    });
+    appendBuildPlay(
+      {
+        word: w,
+        min_tiles: minTiles,
+        pathFlat,
+        covered,
+        starter_tor_neighbor_quad: starterTorQuad,
+      },
+      commitIx
+    );
     return true;
   }
 

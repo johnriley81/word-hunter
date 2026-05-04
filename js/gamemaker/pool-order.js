@@ -15,7 +15,7 @@
 /** @typedef {{ word?: string; wordTotal?: number }} PoolWordEntry */
 
 /**
- * Gamemaker list display / WORD swap tail: descending score, then word ascending.
+ * Toolbar list order: descending score, then word ascending.
  * @param {PoolWordEntry} a
  * @param {PoolWordEntry} b
  */
