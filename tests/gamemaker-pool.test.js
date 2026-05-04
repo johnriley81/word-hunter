@@ -65,7 +65,7 @@ function assertPoolRankOrder(assertMod, prev, p, rankReuse, reuseTarget) {
   }
 }
 
-test("puzzle pool: bulk entries, seven words each, Σ min_tiles = 66, Σreuse-led rank, opener labels, scores order", () => {
+test("puzzle pool: bulk entries, seven words each, Σ min_tiles = 66, ranked per poolReuseRank, opener labels, scores order", () => {
   const raw = readFileSync(pathPool, "utf8");
   const j = JSON.parse(raw);
   assert.equal(j.version, 1);
