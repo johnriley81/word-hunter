@@ -8,7 +8,6 @@ import {
   SCORE_SUBMIT_THRESHOLD,
   CURRENT_WORD_BRIEF_FADE_IN_MS,
   happyHuntingColor,
-  goldTextColor,
   leaderboardSubPerfectRowColor,
   redTextColorLeaderboard,
 } from "./config.js";
@@ -93,17 +92,31 @@ export function createLeaderboardController(rt) {
       perfectTarget,
       row
     );
+    const nameTrophyFlashInline = isPerfectHuntScore
+      ? "perfect"
+      : isAbovePerfectHunt
+        ? "over"
+        : null;
+    const hardFlagInline = Number(row[1]) === 1 ? 1 : 0;
+    const rawNameLower = String(row[0] || "")
+      .trim()
+      .toLowerCase();
+    const highlightSelfAllBeigeInline =
+      hardFlagInline !== 1 && rawNameLower !== "doughack" && !nameTrophyFlashInline;
 
     td.textContent = "";
     td.removeAttribute("data-inline-self-name");
     td.classList.add("leaderboard-name-cell--editing-name");
     td.classList.add("leaderboard-name-cell--you-pseudo-select");
-    syncLeaderboardNameCellSubPerfect(td, submittingSubPerfect);
+    syncLeaderboardNameCellSubPerfect(
+      td,
+      submittingSubPerfect || highlightSelfAllBeigeInline
+    );
 
     const input = document.createElement("input");
     input.type = "text";
     const inputClasses = ["leaderboard-inline-name-input"];
-    if (submittingSubPerfect || isPerfectHuntScore || isAbovePerfectHunt) {
+    if (submittingSubPerfect || highlightSelfAllBeigeInline) {
       inputClasses.push("leaderboard-inline-name-input--sub-perfect");
     } else {
       inputClasses.push("leaderboard-inline-name-input--player-gold");
@@ -241,20 +254,6 @@ export function createLeaderboardController(rt) {
         displayPlayer = "doug";
       }
 
-      if (hardFlag === 1) {
-        color = redTextColorLeaderboard;
-      } else if (isDemoSelfRow || isLiveInlineSelfRow || isLiveSubmittedSelfRow) {
-        st.playerPosition = index + 1;
-        color = "white";
-      } else if (playerStr.toLowerCase() === "doughack") {
-        color = "magenta";
-      } else if (nameMatchesHighlight) {
-        st.playerPosition = index + 1;
-        color = "white";
-      }
-
-      tr.style.color = color;
-
       const displayNameCell = displayPlayer || "";
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
       const displayTrophyCell = isPerfectHuntScore ? "PERFECT HUNT" : trophyStr || "";
@@ -263,21 +262,6 @@ export function createLeaderboardController(rt) {
         : isAbovePerfectHunt
           ? "over"
           : null;
-      const submitRowBeigeNameTrophy =
-        submittingSubPerfect &&
-        (isDemoSelfRow ||
-          isLiveInlineSelfRow ||
-          isLiveSubmittedSelfRow ||
-          nameMatchesHighlight);
-      const playerRowGoldNameTrophy =
-        hardFlag !== 1 &&
-        playerStr.toLowerCase() !== "doughack" &&
-        (isDemoSelfRow ||
-          isLiveInlineSelfRow ||
-          isLiveSubmittedSelfRow ||
-          nameMatchesHighlight) &&
-        !submittingSubPerfect &&
-        !nameTrophyFlash;
 
       const useInlineNameCell =
         (isDemoSelfRow && !st.demoLeaderboardSubmitUsed) || isLiveInlineSelfRow;
@@ -288,6 +272,26 @@ export function createLeaderboardController(rt) {
         isLiveSubmittedSelfRow ||
         nameMatchesHighlight;
 
+      const highlightSelfAllBeige =
+        highlightSelfRow &&
+        hardFlag !== 1 &&
+        playerStr.toLowerCase() !== "doughack" &&
+        !nameTrophyFlash;
+
+      if (hardFlag === 1) {
+        color = redTextColorLeaderboard;
+      } else if (isDemoSelfRow || isLiveInlineSelfRow || isLiveSubmittedSelfRow) {
+        st.playerPosition = index + 1;
+        color = highlightSelfAllBeige ? leaderboardSubPerfectRowColor : "white";
+      } else if (playerStr.toLowerCase() === "doughack") {
+        color = "magenta";
+      } else if (nameMatchesHighlight) {
+        st.playerPosition = index + 1;
+        color = highlightSelfAllBeige ? leaderboardSubPerfectRowColor : "white";
+      }
+
+      tr.style.color = color;
+
       const positionDisplay = `${index + 1}.`;
 
       [positionDisplay, displayNameCell, displayScoreCell, displayTrophyCell].forEach(
@@ -295,35 +299,31 @@ export function createLeaderboardController(rt) {
           const td = document.createElement("td");
           if (cellIndex === 0) {
             td.textContent = cellText;
-            td.style.color = highlightSelfRow ? leaderboardSubPerfectRowColor : "white";
+            td.style.color = highlightSelfAllBeige
+              ? leaderboardSubPerfectRowColor
+              : "white";
           } else if (cellIndex === 1 && useInlineNameCell) {
             td.dataset.inlineSelfName = "1";
             td.classList.add("leaderboard-name-cell--you-pseudo-select");
-            syncLeaderboardNameCellSubPerfect(td, submittingSubPerfect);
+            syncLeaderboardNameCellSubPerfect(
+              td,
+              submittingSubPerfect || highlightSelfAllBeige
+            );
             td.style.cursor = "pointer";
-            if (submitRowBeigeNameTrophy) {
+            if (highlightSelfAllBeige) {
               td.style.color = leaderboardSubPerfectRowColor;
-            } else if (playerRowGoldNameTrophy) {
-              td.style.color = goldTextColor;
-            } else if (nameTrophyFlash) {
-              td.style.color = highlightSelfRow
-                ? leaderboardSubPerfectRowColor
-                : "white";
             }
             td.textContent = displayNameCell;
           } else if (cellIndex === 1 || cellIndex === 2) {
-            if (submitRowBeigeNameTrophy) {
+            if (highlightSelfAllBeige) {
               td.style.color = leaderboardSubPerfectRowColor;
-            } else if (playerRowGoldNameTrophy) {
-              td.style.color = goldTextColor;
-            } else if (nameTrophyFlash) {
-              td.style.color = highlightSelfRow
-                ? leaderboardSubPerfectRowColor
-                : "white";
             }
             td.textContent = cellText;
           } else {
             setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
+            if (highlightSelfAllBeige && String(cellText).trim() !== "") {
+              td.style.color = leaderboardSubPerfectRowColor;
+            }
           }
 
           tr.appendChild(td);
