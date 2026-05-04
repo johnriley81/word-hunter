@@ -2,9 +2,7 @@ export const greenTextColor = "#07f03a";
 export const redTextColor = "#f76d6d";
 export const lightGreenPreviewColor = "#8ff7a8";
 export const lightRedPreviewColor = "#ff9b9b";
-export const redTextColorLeaderboard = "red";
 export const goldTextColor = "#e3af02";
-/** Beige for an entire leaderboard row highlighting the player’s current submission when the run is below perfect hunt (and not hard “red” hunt or doughack). Perfect-hunt Σ and above keeps white row base with gold/over flash on 🏆. */
 export const leaderboardSubPerfectRowColor = "#f5e2a2";
 /** Success message / highlights when the submitted word is the next perfect-hunt list word on pace. */
 export const huntPaceSuccessFlashColor = "#ffdd22";

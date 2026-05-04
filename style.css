@@ -2,7 +2,6 @@
   --header-control-size: 32px;
   --page-padding: 5px;
   --logo-rules-padding-y: 2px;
-  --page-background-color: #1c1c1e;
   --page-text-color: #ffffff;
   --page-text-shadow-color: black;
   --box-border-color: #3a1f4d;
@@ -63,7 +62,6 @@
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-accent-drag: #2266ee;
   --board-shift-hint-accent-endgame: #dd3333;
-  --board-shift-zone-border-color: rgba(255, 255, 255, 0.2);
   --grid-size: 4;
   --grid-gap: 13px;
   --grid-max: 400px;
@@ -73,12 +71,9 @@
     calc(100vw - 2 * var(--page-padding))
   );
   --radius-sm: 4px;
-  --radius-md: 10px;
   --radius-lg: 14px;
   --dock-min-height: 74px;
-  --space-2xs: 2px;
   --space-xs: 4px;
-  --space-sm: 8px;
   --z-base: 1;
   --z-dock: 2;
   --z-grid-stage: 3;
@@ -1531,11 +1526,6 @@ body.rules-overlay-open #leaderboard-elements {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.centered-cell {
-  text-align: center;
-  vertical-align: middle;
-}
-
 #player-name {
   max-height: 26px;
   margin: 0;
@@ -1612,7 +1602,6 @@ body.rules-overlay-open #leaderboard-elements {
   padding: 2px 8px 4px;
   font-size: 0.5rem;
   font-family: "Press Start 2P", cursive;
-  border-top: 1px dashed var(--board-shift-zone-border-color);
 }
 
 #board-shift-zone.visibleDisplay {
