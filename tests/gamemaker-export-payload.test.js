@@ -19,6 +19,65 @@ test("buildGamemakerDictExportPayload returns null when play count mismatches wo
   );
 });
 
+test("buildGamemakerDictExportPayload rejects chron misaligned with toolbar slots", () => {
+  const board = [
+    ["a", "b", "c", "d"],
+    ["e", "f", "g", "h"],
+    ["i", "j", "k", "l"],
+    ["m", "n", "o", "p"],
+  ];
+  const currentWords = [
+    { word: "memo", wordTotal: 400 },
+    { word: "able", wordTotal: 100 },
+    { word: "cube", wordTotal: 300 },
+    { word: "apex", wordTotal: 200 },
+    { word: "exit", wordTotal: 250 },
+    { word: "quad", wordTotal: 150 },
+    { word: "gulp", wordTotal: 175 },
+  ];
+  const mk = (/** @type {string} */ word) => ({
+    word,
+    pathFlat: [0, 1, 2, 3],
+    min_tiles: 4,
+    covered: ["", "", "", ""],
+    starter_tor_neighbor_quad: ["0", "0", "0", "0"],
+  });
+
+  const slotAligned = [
+    mk("memo"),
+    mk("able"),
+    mk("cube"),
+    mk("apex"),
+    mk("exit"),
+    mk("quad"),
+    mk("gulp"),
+  ];
+  const ok = buildGamemakerDictExportPayload({
+    gameBoard: board,
+    buildPlaysChron: slotAligned,
+    currentWords: currentWords.slice(),
+    wordCount: 7,
+  });
+  assert.ok(ok);
+
+  const wrongPushOrder = [
+    slotAligned[0],
+    slotAligned[1],
+    slotAligned[2],
+    slotAligned[6],
+    slotAligned[3],
+    slotAligned[4],
+    slotAligned[5],
+  ];
+  const broken = buildGamemakerDictExportPayload({
+    gameBoard: board,
+    buildPlaysChron: wrongPushOrder,
+    currentWords: currentWords.slice(),
+    wordCount: 7,
+  });
+  assert.ok(!broken);
+});
+
 test("buildGamemakerDictExportPayload orders perfect_hunt ascending by wordTotal then word", () => {
   /** Minimal chron: one tile per word so paths stay on-board for replay checks when glyphs length 1 fails — need valid lengths */
 

@@ -16,6 +16,7 @@ import {
  * Gamemaker publishable puzzle row (`starting_grids` → `starting_grid`).
  * Covered stack iteration uses sack order (`comparePoolWordEntriesDescSackRefillOrder`);
  * exported hunt order ascending (`comparePoolWordEntriesAscForwardExport`).
+ * Indices: `buildPlaysChron[i]` matches `currentWords[i]` after each commit.
  *
  * @param {{
  *   gameBoard: string[][];
@@ -34,6 +35,10 @@ import {
 export function buildGamemakerDictExportPayload(input) {
   const { gameBoard, buildPlaysChron, currentWords, wordCount } = input;
 
+  if (!Array.isArray(currentWords) || currentWords.length !== wordCount) {
+    return null;
+  }
+
   const coerceStarterTorNeighborQuadExport = (/** @type {unknown} */ raw) => {
     const a = Array.isArray(raw) ? /** @type {unknown[]} */ (raw).slice(0, 4) : [];
     while (a.length < 4) a.push("0");
@@ -48,28 +53,35 @@ export function buildGamemakerDictExportPayload(input) {
 
   const gEndL = gameBoard.map((r) => r.map((c) => String(c || "").toLowerCase()));
 
-  const playsForExport =
-    buildPlaysChron && buildPlaysChron.length
-      ? buildPlaysChron.map((p) => {
-          const w = String(p.word || "").toLowerCase();
-          const glyphs = wordToTileLabelSequence(w);
-          return {
-            word: w,
-            pathFlat: p.pathFlat ? p.pathFlat.slice() : [],
-            min_tiles:
-              typeof p.min_tiles === "number"
-                ? p.min_tiles
-                : minUniqueTilesForReuseRule(glyphs),
-            covered: (p.covered || []).map((ch) => String(ch || "").toLowerCase()),
-            starter_tor_neighbor_quad: coerceStarterTorNeighborQuadExport(
-              /** @type {{ starter_tor_neighbor_quad?: unknown }} */ (p)
-                .starter_tor_neighbor_quad
-            ),
-          };
-        })
-      : [];
+  if (!Array.isArray(buildPlaysChron) || buildPlaysChron.length < wordCount) {
+    return null;
+  }
+  for (let i = 0; i < wordCount; i++) {
+    const slot = buildPlaysChron[i];
+    if (slot == null || typeof slot.word !== "string") return null;
+    const expectedLc = String(currentWords[i]?.word || "").toLowerCase();
+    if (!expectedLc || String(slot.word || "").toLowerCase() !== expectedLc) {
+      return null;
+    }
+  }
 
-  if (playsForExport.length !== wordCount) return null;
+  const playsForExport = buildPlaysChron.slice(0, wordCount).map((p) => {
+    const w = String(p.word || "").toLowerCase();
+    const glyphs = wordToTileLabelSequence(w);
+    return {
+      word: w,
+      pathFlat: p.pathFlat ? p.pathFlat.slice() : [],
+      min_tiles:
+        typeof p.min_tiles === "number"
+          ? p.min_tiles
+          : minUniqueTilesForReuseRule(glyphs),
+      covered: (p.covered || []).map((ch) => String(ch || "").toLowerCase()),
+      starter_tor_neighbor_quad: coerceStarterTorNeighborQuadExport(
+        /** @type {{ starter_tor_neighbor_quad?: unknown }} */ (p)
+          .starter_tor_neighbor_quad
+      ),
+    };
+  });
 
   const order = currentWords
     .map((w, i) => ({ w, i }))

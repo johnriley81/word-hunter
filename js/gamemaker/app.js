@@ -54,7 +54,7 @@ function createGamemaker() {
   let currentWords = /** @type {any[]} */ ([]);
   let placementStep = 0;
   let buildPlaysChron =
-    /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[], starter_tor_neighbor_quad: string[] }>} */ ([]);
+    /** @type {Array<{ word: string, min_tiles: number, pathFlat: number[], covered: string[], starter_tor_neighbor_quad: string[] } | null>} */ ([]);
   let boardSnapshotPreDrag = /** @type {string[][] | null} */ (null);
   let puzzleBatch = [];
   /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
@@ -112,12 +112,16 @@ function createGamemaker() {
   }
 
   function isPuzzleCompleteForExport() {
-    return buildPlaysChron.length === WORD_COUNT && getCurrentWordIndexAsc() < 0;
+    return (
+      buildPlaysChron.length === WORD_COUNT &&
+      buildPlaysChron.every((p) => p != null) &&
+      getCurrentWordIndexAsc() < 0
+    );
   }
 
-  /** If chron + board produce a payload, clamp step past the hunt so UI shows Next. */
+  /** After the last word, bump step once export payload validates so the toolbar shows next. */
   function reconcilePlacementForExportUi() {
-    if (buildPlaysChron.length !== WORD_COUNT) return;
+    if (!buildPlaysChron.every((p) => p != null)) return;
     if (
       !buildGamemakerDictExportPayload({
         gameBoard: ctx.state.gameBoard,
@@ -157,7 +161,11 @@ function createGamemaker() {
       metaEl.textContent =
         queuedMetaPrefix() +
         (listExhausted
-          ? `List has ${currentWords.length} hunt words (${WORD_COUNT} required). Placed ${buildPlaysChron.length}/${WORD_COUNT}.`
+          ? `List has ${
+              currentWords.length
+            } hunt words (${WORD_COUNT} required). Placed ${
+              buildPlaysChron.filter(Boolean).length
+            }/${WORD_COUNT}.`
           : "Pick a hunt word");
       return;
     }
@@ -211,8 +219,9 @@ function createGamemaker() {
       boardSnapshotPreDrag = v;
     },
     onToolbarLetterProgress: refreshToolbarLetterProgress,
-    appendBuildPlay(play) {
-      buildPlaysChron.push({ ...play });
+    appendBuildPlay(play, slotIndex) {
+      if (slotIndex < 0 || slotIndex >= WORD_COUNT) return;
+      buildPlaysChron[slotIndex] = { ...play };
     },
     bumpPlacementStep() {
       placementStep++;
@@ -297,7 +306,7 @@ function createGamemaker() {
       currentWords = wordsIn;
     }
     placementStep = 0;
-    buildPlaysChron = [];
+    buildPlaysChron = Array(WORD_COUNT).fill(null);
     placement.emptyBoard();
     placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
     placement.resetSelection();
