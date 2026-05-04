@@ -16,6 +16,7 @@ import {
   padNormalizedLeaderboardToTop10,
   LEADERBOARD_META_LIVE_PREVIEW,
 } from "./leaderboard-api.js";
+import { fetchLiveLeaderboardNetworkResult } from "./leaderboard-client.js";
 import {
   buildDemoLeaderboardRows,
   demoRunQualifiesForLeaderboard,
@@ -451,38 +452,16 @@ export function createLeaderboardController(rt) {
     let committed = false;
 
     try {
-      let network;
-      try {
-        const requestURL = `${rt.leaderboardLink}${rt.getLeaderboardPuzzleId()}`;
-        const requestOptions = {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        };
-        if (canPost) {
-          const postBody = {
-            player: nameTrim,
-            score: rt.getScore(),
-            trophy: rt.getTrophyWord(),
-          };
-          if (LEADERBOARD_SUBMIT_SCORE_VALIDATION) {
-            postBody.scoreValidation = rt.getScoreValidationTurns();
-          }
-          requestOptions.method = "POST";
-          requestOptions.body = JSON.stringify(postBody);
-        }
-
-        const response = await fetch(requestURL, requestOptions);
-        let raw = {};
-        try {
-          raw = await response.json();
-        } catch {}
-        network = { ok: response.ok, status: response.status, raw };
-      } catch (err) {
-        leaderboardDebugWarn(err);
-        network = { ok: false, status: 0, raw: {} };
-      }
+      const network = await fetchLiveLeaderboardNetworkResult({
+        leaderboardLink: rt.leaderboardLink,
+        puzzleId: rt.getLeaderboardPuzzleId(),
+        canPost,
+        playerNameTrim: nameTrim,
+        score: rt.getScore(),
+        trophyWord: rt.getTrophyWord(),
+        attachScoreValidation: LEADERBOARD_SUBMIT_SCORE_VALIDATION,
+        scoreValidationTurns: rt.getScoreValidationTurns(),
+      });
 
       const resolved = deriveLiveLeaderboardAfterFetch(network, deriveInput);
       tableRows = resolved.tableRows;

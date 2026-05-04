@@ -1,5 +1,6 @@
 import {
   GAME_SOUND_SPEC,
+  GAME_SOUND_IDS,
   SFX_PLAY_POOL_SIZE,
   BING_PLAYBACK_RATES_FOR_LENGTH,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
@@ -64,6 +65,19 @@ export const soundPlayPools = buildSoundPlayPools(GAME_SOUND_SPEC, sounds);
 export const soundPlayPoolCursor = Object.fromEntries(
   Object.keys(soundPlayPools).map((id) => [id, 0])
 );
+
+/** Eager `.load()` for HTML Audio paths (warm start before unlock). */
+export function preloadGameSoundLayers() {
+  GAME_SOUND_IDS.forEach((key) => {
+    sounds[key].load();
+    const pool = soundPlayPools[key];
+    if (pool) {
+      for (let i = 1; i < pool.length; i++) {
+        pool[i].load();
+      }
+    }
+  });
+}
 
 let gameAudioUnlocked = false;
 let gameAudioUnlockInFlight = null;
