@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSwapBucketsByStats,
-  collectSwapAlternatesBetweenNeighborScores,
+  collectSwapAlternatesMatchingStats,
 } from "../js/gamemaker/swap-buckets.js";
 
 /** Seven toolbar slots (high score → low); pool entries must match /^[a-z]+$/ through `buildSwapBucketsByStats`. */
@@ -16,49 +16,42 @@ const listDesc = [
   { word: "slotsix", wordTotal: 50, min_tiles: 3, reuse: 0 },
 ];
 
-const poolExtras = [
-  { word: "oktwoce", wordTotal: 280, min_tiles: 5, reuse: 0 },
-  { word: "oktwoba", wordTotal: 220, min_tiles: 5, reuse: 0 },
-  { word: "oktwoaa", wordTotal: 200, min_tiles: 5, reuse: 0 },
-  { word: "okthree", wordTotal: 300, min_tiles: 5, reuse: 0 },
-  { word: "badhigh", wordTotal: 310, min_tiles: 3, reuse: 0 },
-  { word: "badlowz", wordTotal: 140, min_tiles: 3, reuse: 0 },
-];
-
-test("swap score window includes any pool Σ between neighbor scores inclusive", () => {
-  const buckets = buildSwapBucketsByStats([{ words: poolExtras }]);
-
-  /** @param {number} idx */
-  const words = (idx) =>
-    collectSwapAlternatesBetweenNeighborScores(buckets, listDesc, idx).map(
-      (e) => e.word
-    );
-
-  const atRep = words(3);
-  assert.deepEqual(
-    new Set(atRep.sort()),
-    new Set(["oktwoaa", "oktwoba", "oktwoce", "okthree"])
+test("alternates match exact min_tiles|reuse|wordTotal bucket; exclude current slot + other toolbar words", () => {
+  const pool = [
+    { word: "altrepa", wordTotal: 250, min_tiles: 5, reuse: 0 },
+    { word: "altrepb", wordTotal: 250, min_tiles: 5, reuse: 0 },
+    { word: "wrongsc", wordTotal: 200, min_tiles: 5, reuse: 0 },
+    { word: "wrongmt", wordTotal: 250, min_tiles: 9, reuse: 0 },
+  ];
+  const buckets = buildSwapBucketsByStats([{ words: pool }]);
+  const alts = collectSwapAlternatesMatchingStats(buckets, listDesc, 3).map(
+    (e) => e.word
   );
+
+  assert.deepEqual(new Set(alts.sort()), new Set(["altrepa", "altrepb"]));
 });
 
-test("top slot: no upper bound — picks pool words at least downward neighbor Σ", () => {
+test("top slot lists only alternates sharing slot’s exact Σ / min_tiles / reuse", () => {
   const pool = [
-    ...poolExtras,
-    { word: "ultraxx", wordTotal: 1200, min_tiles: 6, reuse: 0 },
+    { word: "near900", wordTotal: 850, min_tiles: 6, reuse: 0 },
+    { word: "ultaaax", wordTotal: 900, min_tiles: 6, reuse: 0 },
+    { word: "wrongto", wordTotal: 901, min_tiles: 6, reuse: 0 },
   ];
   const buckets = buildSwapBucketsByStats([{ words: pool }]);
-  const alts = collectSwapAlternatesBetweenNeighborScores(buckets, listDesc, 0);
-  assert.ok(alts.some((e) => e.word === "ultraxx"));
-  assert.ok(!alts.some((e) => e.word === "badlowz"));
+  const alts = collectSwapAlternatesMatchingStats(buckets, listDesc, 0);
+  assert.ok(alts.some((e) => e.word === "ultaaax"));
+  assert.ok(!alts.some((e) => e.word === "near900"));
+  assert.ok(!alts.some((e) => e.word === "wrongto"));
 });
 
-test("bottom slot: no lower bound — picks pool words at most upward neighbor Σ", () => {
+test("bottom slot: same triple only; rejects different Σ bucket", () => {
   const pool = [
-    ...poolExtras,
-    { word: "coldzzz", wordTotal: 40, min_tiles: 3, reuse: 0 },
+    { word: "toocold", wordTotal: 40, min_tiles: 3, reuse: 0 },
+    { word: "coldfit", wordTotal: 50, min_tiles: 3, reuse: 0 },
   ];
   const buckets = buildSwapBucketsByStats([{ words: pool }]);
-  const alts = collectSwapAlternatesBetweenNeighborScores(buckets, listDesc, 6);
-  assert.ok(alts.some((e) => e.word === "coldzzz"));
-  assert.ok(!alts.some((e) => e.word === "ultraxx"));
+  const alts = collectSwapAlternatesMatchingStats(buckets, listDesc, 6).map(
+    (e) => e.word
+  );
+  assert.deepEqual(new Set(alts.sort()), new Set(["coldfit"]));
 });

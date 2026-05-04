@@ -10,6 +10,7 @@
     "gen:extend-metrics": "python3 scripts/build-extended-word-metrics.py",
     "gen:puzzle-pool": "node scripts/generate-puzzle-pool.mjs",
     "gen:puzzle-wordlist": "node scripts/export-puzzle-wordlist-seed.mjs",
+    "gen:gamemaker-pool": "npm run gen:word-rec && npm run gen:puzzle-pool",
     "inventory:hints": "node scripts/inventory-puzzle-hints.mjs",
     "leaderboard-mock": "node scripts/leaderboard-mock-server.mjs",
     "leaderboard-proxy": "node scripts/leaderboard-cors-proxy.mjs",

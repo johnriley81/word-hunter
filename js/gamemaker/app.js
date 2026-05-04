@@ -6,7 +6,7 @@ import { attachShiftGestures } from "../shift-dom.js";
 import { comparePoolWordEntriesDesc } from "./pool-order.js";
 import {
   buildSwapBucketsByStats,
-  collectSwapAlternatesBetweenNeighborScores,
+  collectSwapAlternatesMatchingStats,
 } from "./swap-buckets.js";
 import { buildGamemakerDictExportPayload } from "./build-export-payload.js";
 import { createGridPlacementApi } from "./grid-placement.js";
@@ -103,11 +103,7 @@ function createGamemaker() {
 
   function swapAlternatesForCurrentStep() {
     if (swapBuckets.size === 0 || getCurrentWordIndexAsc() < 0) return [];
-    return collectSwapAlternatesBetweenNeighborScores(
-      swapBuckets,
-      currentWords,
-      placementStep
-    );
+    return collectSwapAlternatesMatchingStats(swapBuckets, currentWords, placementStep);
   }
 
   function refreshWordSwapButton() {

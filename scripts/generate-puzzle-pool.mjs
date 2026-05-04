@@ -13,16 +13,19 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-const POOL_SIZE = Math.max(1, parseInt(process.env.POOL_SIZE || "1000", 10) || 1000);
+const POOL_SIZE = Math.max(1, parseInt(process.env.POOL_SIZE || "10000", 10) || 10000);
 const SEED = parseInt(process.env.SEED || "42", 10) || 42;
 const RECOG_MIN = Math.max(
   1,
-  Math.min(10, parseInt(process.env.RECOG_MIN || "7", 10) || 7)
+  Math.min(10, parseInt(process.env.RECOG_MIN || "1", 10) || 1)
 );
 
+const POOL_OVERSAMPLE_DEFAULT = POOL_SIZE >= 5000 ? "4" : POOL_SIZE >= 2000 ? "3" : "2";
+
+const oversampleSrc = process.env.POOL_OVERSAMPLE ?? POOL_OVERSAMPLE_DEFAULT;
 const POOL_OVERSAMPLE = Math.max(
   1,
-  parseInt(process.env.POOL_OVERSAMPLE || "2", 10) || 2
+  parseInt(oversampleSrc, 10) || parseInt(String(POOL_OVERSAMPLE_DEFAULT), 10)
 );
 
 const POOL_RANK_BY_LETTER_UNION = process.env.POOL_RANK_BY_LETTER_UNION !== "0";
@@ -49,9 +52,10 @@ const TILE_LABEL_MAX = Math.max(
   parseInt(process.env.TILE_LABEL_MAX || "16", 10) || 16
 );
 
-/** Puzzle-generator lexicon path relative to repo root (defaults to text/wordlist.txt). Env: PUZZLE_WORDLIST. */
+/** Relative path passed to PUZZLE_WORDLIST; default full gameplay lexicon (`text/wordlist.txt`). */
+const DEFAULT_PUZZLE_WORDLIST = "text/wordlist.txt";
 const PUZZLE_WORDLIST_REL = (
-  process.env.PUZZLE_WORDLIST || "text/wordlist.txt"
+  process.env.PUZZLE_WORDLIST || DEFAULT_PUZZLE_WORDLIST
 ).replace(/^\//, "");
 
 const TARGET_MIN_SUM = NEXT_LETTERS_LEN;
@@ -98,6 +102,37 @@ function viableMinTilePatterns(byMin) {
   return ok.length > 0 ? ok : [];
 }
 
+/** When canned patterns fit no buckets (sparse high-`rec` lexicon): 7-slot combos from nonempty buckets. */
+function enumeratedMinTilePatternsFromBuckets(byMin) {
+  const keys = [...byMin.keys()]
+    .filter((m) => m >= 6 && m <= 12 && (byMin.get(m)?.length ?? 0) > 0)
+    .sort((a, b) => a - b);
+  if (keys.length === 0) return [];
+
+  /** @type {number[][]} */
+  const combos = [];
+  /** @type {number[]} */
+  const path = [];
+  function dfs(startIx, slotsLeft, sumLeft) {
+    if (slotsLeft === 0) {
+      if (sumLeft === 0) combos.push(path.slice());
+      return;
+    }
+    const lo = slotsLeft * keys[0];
+    const hi = slotsLeft * keys[keys.length - 1];
+    if (sumLeft < lo || sumLeft > hi) return;
+    for (let j = startIx; j < keys.length; j++) {
+      const k = keys[j];
+      if (k > sumLeft) break;
+      path.push(k);
+      dfs(j, slotsLeft - 1, sumLeft - k);
+      path.pop();
+    }
+  }
+  dfs(0, 7, TARGET_MIN_SUM);
+  return combos;
+}
+
 function computeMinOpeningLabelLen(poolWords) {
   let n = Infinity;
   for (const w of poolWords) {
@@ -137,7 +172,10 @@ function loadRecognizabilityMap() {
 function loadCandidateWords(recMap) {
   const wordlistPath = join(root, PUZZLE_WORDLIST_REL);
   if (!existsSync(wordlistPath)) {
-    console.error(`PUZZLE_WORDLIST not found: ${PUZZLE_WORDLIST_REL}`);
+    const hint =
+      `\nNeeds text/gamemaker/pregen/word-recognizability.json — run npm run gen:word-rec\n` +
+      `Trimmed-tier list: PUZZLE_WORDLIST=text/gamemaker/puzzle-wordlist.txt npm run gen:puzzle-wordlist first.\n`;
+    console.error(`Puzzle lexicon not found: ${PUZZLE_WORDLIST_REL}${hint}`);
     process.exit(1);
   }
   const raw = readFileSync(wordlistPath, "utf8");
@@ -266,11 +304,32 @@ function main() {
     byMin.get(m).push(e);
   }
 
-  const patterns = viableMinTilePatterns(byMin);
+  let patterns = viableMinTilePatterns(byMin);
   if (patterns.length === 0) {
+    patterns = enumeratedMinTilePatternsFromBuckets(byMin);
+  }
+  if (patterns.length === 0) {
+    const counts = [...byMin.entries()].filter(([, arr]) => arr.length);
+    const uniq = [...new Set(counts.map(([m]) => m))].sort((a, b) => a - b);
+    const sums = uniq.map((m) => ({
+      m,
+      sum7: 7 * m,
+      cnt: byMin.get(m).length,
+    }));
     console.error(
-      "No min_tiles partition fits non-empty buckets; relax RECOG_MIN or fix word/rec data."
+      `No multiset of seven min_tiles (values 6–12) sums to ${TARGET_MIN_SUM} with your candidate pool.`
     );
+    console.error(
+      `Non-empty min_tiles buckets: ${sums.map((s) => `${s.m}(${s.cnt})`).join(", ")}`
+    );
+    if (sums.length === 1) {
+      const { m, sum7 } = sums[0];
+      console.error(
+        `This pool uses only min_tiles=${m}; seven such words demand Σ=${sum7}, not ${TARGET_MIN_SUM}. ` +
+          "Lower EXPORT_RECOG_MIN (e.g. 9) before `npm run gen:puzzle-wordlist` so candidates include varied min_tiles, " +
+          "or use PUZZLE_WORDLIST=text/wordlist.txt for generation."
+      );
+    }
     process.exit(1);
   }
 
@@ -284,7 +343,7 @@ function main() {
   const puzzles = [];
   const seen = new Set();
   let attempts = 0;
-  const maxAttempts = Math.max(POOL_SIZE * 2000, collectTarget * 4000);
+  const maxAttempts = Math.max(POOL_SIZE * 2500, collectTarget * 5000);
 
   while (puzzles.length < collectTarget && attempts < maxAttempts) {
     attempts++;
@@ -341,35 +400,36 @@ function main() {
   const outDir = join(root, "text/gamemaker/pregen");
   mkdirSync(outDir, { recursive: true });
   const outPath = join(outDir, "puzzle-pool.json");
+  const idPad = Math.max(4, String(finalPuzzles.length).length);
   const numbered = finalPuzzles.map((p, i) => ({
-    id: `pool-${String(i + 1).padStart(4, "0")}`,
+    id: `pool-${String(i + 1).padStart(idPad, "0")}`,
     letterUnionSize: p.letterUnionSize,
     puzzleWordTotalSum: p.puzzleWordTotalSum,
     reuseSum: p.reuseSum,
     words: p.words.slice().reverse(),
   }));
 
-  writeFileSync(
-    outPath,
-    JSON.stringify(
-      {
-        version: 1,
-        openingLabelLen,
-        poolReuseSumTarget: POOL_REUSE_SUM_TARGET,
-        poolReuseRank: POOL_REUSE_RANK,
-        tileLabelLength: [TILE_LABEL_MIN, TILE_LABEL_MAX],
-        count: numbered.length,
-        puzzles: numbered,
-      },
-      null,
-      2
-    ) + "\n",
-    "utf8"
+  const pretty = process.env.POOL_JSON_PRETTY === "1";
+  const jsonBody = JSON.stringify(
+    {
+      version: 1,
+      puzzleWordlistRel: PUZZLE_WORDLIST_REL,
+      openingLabelLen,
+      poolReuseSumTarget: POOL_REUSE_SUM_TARGET,
+      poolReuseRank: POOL_REUSE_RANK,
+      tileLabelLength: [TILE_LABEL_MIN, TILE_LABEL_MAX],
+      recogMin: RECOG_MIN,
+      count: numbered.length,
+      puzzles: numbered,
+    },
+    null,
+    pretty ? 2 : undefined
   );
+  writeFileSync(outPath, jsonBody + "\n", "utf8");
   console.log(
-    `Wrote ${
-      numbered.length
-    } puzzles to ${outPath} (RECOG_MIN=${RECOG_MIN}, openingLabelLen=${openingLabelLen}, tileLabels=${TILE_LABEL_MIN}–${TILE_LABEL_MAX}, rank reuse→letterUnion→ΣwordTotal; reuseRank=${POOL_REUSE_RANK}${
+    `Wrote ${numbered.length} puzzles to ${outPath} (${
+      pretty ? "pretty" : "compact"
+    } JSON; RECOG_MIN=${RECOG_MIN}, lexicon=${PUZZLE_WORDLIST_REL}, openingLabelLen=${openingLabelLen}, tileLabels=${TILE_LABEL_MIN}–${TILE_LABEL_MAX}, rank reuse→letterUnion→ΣwordTotal; reuseRank=${POOL_REUSE_RANK}${
       POOL_REUSE_RANK === "near" ? " targetΣreuse=" + POOL_REUSE_SUM_TARGET : ""
     }, rankByLetterUnion=${POOL_RANK_BY_LETTER_UNION}, wordTotalRank=${POOL_WORD_TOTAL_RANK}${
       POOL_WORD_TOTAL_RANK === "target"
