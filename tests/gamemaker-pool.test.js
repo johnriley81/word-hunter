@@ -65,19 +65,29 @@ function assertPoolRankOrder(assertMod, prev, p, rankReuse, reuseTarget) {
   }
 }
 
-test("puzzle pool: bulk entries, seven words each, Σ min_tiles = 66, Σreuse-led rank, opener labels, scores order", () => {
+test("puzzle pool: bulk entries, seven words each, Σ min_tiles = 66, ranked per poolReuseRank, opener labels, scores order", () => {
   const raw = readFileSync(pathPool, "utf8");
   const j = JSON.parse(raw);
   assert.equal(j.version, 1);
-  const recFloor = typeof j.recogMin === "number" ? j.recogMin : 1;
-  const rankReuse = j.poolReuseRank || "max";
-  const reuseTarget =
-    typeof j.poolReuseSumTarget === "number" ? j.poolReuseSumTarget : 10;
-  const openingExpect = typeof j.openingLabelLen === "number" ? j.openingLabelLen : 8;
   assert.ok(
-    openingExpect >= 8 && openingExpect <= 16,
-    "openingLabelLen sane (or default 8 for legacy pools)"
+    typeof j.poolReuseRank === "string" && j.poolReuseRank,
+    "pool must include poolReuseRank"
   );
+  assert.ok(
+    typeof j.poolReuseSumTarget === "number",
+    "pool must include poolReuseSumTarget"
+  );
+  assert.ok(typeof j.recogMin === "number", "pool must include recogMin");
+  assert.ok(typeof j.openingLabelLen === "number", "pool must include openingLabelLen");
+  const recFloor = j.recogMin;
+  const rankReuse = j.poolReuseRank;
+  assert.ok(
+    rankReuse === "max" || rankReuse === "near" || rankReuse === "ignore",
+    "poolReuseRank must be max, near, or ignore"
+  );
+  const reuseTarget = j.poolReuseSumTarget;
+  const openingExpect = j.openingLabelLen;
+  assert.ok(openingExpect >= 8 && openingExpect <= 16, "openingLabelLen sane");
   assert.ok(
     j.puzzles.length >= PUZZLES_MIN_ROWS,
     `expected at least ${PUZZLES_MIN_ROWS} puzzle lists (POOL_SIZE)`

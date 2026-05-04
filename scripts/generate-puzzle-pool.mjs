@@ -1,4 +1,4 @@
-/** Pregen puzzle-pool.json: Σ min_tiles = NEXT_LETTERS_LEN; rows high→low wordTotal; opener = openingLabelLen glyphs. */
+/** Pregen puzzle-pool.json: Σ min_tiles = NEXT_LETTERS_LEN; opener = openingLabelLen glyphs; ranked reuse → letterUnion → wordTotals (see POOL_REUSE_RANK, POOL_RANK_BY_LETTER_UNION). */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname, join } from "path";
@@ -38,9 +38,9 @@ const POOL_WORD_TOTAL_TARGET =
 /** Σreuse = Σ(labelLength − min_tiles). Rank: reuse (max | near target | ignore), then letterUnion, then wordTotals. */
 const POOL_REUSE_SUM_TARGET = Math.max(
   0,
-  parseInt(process.env.POOL_REUSE_SUM_TARGET || "10", 10) || 10
+  parseInt(process.env.POOL_REUSE_SUM_TARGET || "13", 10) || 13
 );
-const POOL_REUSE_RANK = process.env.POOL_REUSE_RANK || "max";
+const POOL_REUSE_RANK = process.env.POOL_REUSE_RANK || "near";
 
 /** Defaults must match filter-word-recogniz-by-tile-length.mjs. */
 const TILE_LABEL_MIN = Math.max(
