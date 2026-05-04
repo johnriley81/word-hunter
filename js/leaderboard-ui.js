@@ -88,21 +88,7 @@ export function createLeaderboardController(rt) {
       perfectTarget,
       runScoreNum
     );
-    const { isPerfectHuntScore, isAbovePerfectHunt } = rowPerfectOverFlags(
-      perfectTarget,
-      row
-    );
-    const nameTrophyFlashInline = isPerfectHuntScore
-      ? "perfect"
-      : isAbovePerfectHunt
-        ? "over"
-        : null;
-    const hardFlagInline = Number(row[1]) === 1 ? 1 : 0;
-    const rawNameLower = String(row[0] || "")
-      .trim()
-      .toLowerCase();
-    const highlightSelfAllBeigeInline =
-      hardFlagInline !== 1 && rawNameLower !== "doughack" && !nameTrophyFlashInline;
+    const highlightSelfAllBeigeInline = Number(row[1]) !== 1;
 
     td.textContent = "";
     td.removeAttribute("data-inline-self-name");
@@ -249,12 +235,7 @@ export function createLeaderboardController(rt) {
             (st.liveLeaderboardSubmitUsed ||
               row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
 
-      let displayPlayer = playerStr;
-      if (playerStr.toLowerCase() === "doughack") {
-        displayPlayer = "doug";
-      }
-
-      const displayNameCell = displayPlayer || "";
+      const displayNameCell = playerStr || "";
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
       const displayTrophyCell = isPerfectHuntScore ? "PERFECT HUNT" : trophyStr || "";
       const nameTrophyFlash = isPerfectHuntScore
@@ -272,20 +253,16 @@ export function createLeaderboardController(rt) {
         isLiveSubmittedSelfRow ||
         nameMatchesHighlight;
 
-      const highlightSelfAllBeige =
-        highlightSelfRow &&
-        hardFlag !== 1 &&
-        playerStr.toLowerCase() !== "doughack" &&
-        !nameTrophyFlash;
+      const highlightSelfAllBeige = highlightSelfRow && hardFlag !== 1;
 
       if (hardFlag === 1) {
         color = redTextColorLeaderboard;
-      } else if (isDemoSelfRow || isLiveInlineSelfRow || isLiveSubmittedSelfRow) {
-        st.playerPosition = index + 1;
-        color = highlightSelfAllBeige ? leaderboardSubPerfectRowColor : "white";
-      } else if (playerStr.toLowerCase() === "doughack") {
-        color = "magenta";
-      } else if (nameMatchesHighlight) {
+      } else if (
+        isDemoSelfRow ||
+        isLiveInlineSelfRow ||
+        isLiveSubmittedSelfRow ||
+        nameMatchesHighlight
+      ) {
         st.playerPosition = index + 1;
         color = highlightSelfAllBeige ? leaderboardSubPerfectRowColor : "white";
       }
