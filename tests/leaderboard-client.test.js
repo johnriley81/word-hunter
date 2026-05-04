@@ -202,6 +202,11 @@ test("normalizeLeaderboardRows: API 3-tuple to internal 4-field row", () => {
   assert.deepEqual(r, ["Ada", 0, 88, "star"]);
 });
 
+test("normalizeLeaderboardRows: legacy 4-tuple hard slot coerced to 0", () => {
+  const [r] = normalizeLeaderboardRows([["Ada", 1, 88, "star"]]);
+  assert.deepEqual(r, ["Ada", 0, 88, "star"]);
+});
+
 test("normalizeLeaderboardRows: preserves live-preview meta when present", () => {
   const [r] = normalizeLeaderboardRows([
     ["Ada", 0, 88, "star", LEADERBOARD_META_LIVE_PREVIEW],

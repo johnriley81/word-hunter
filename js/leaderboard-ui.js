@@ -9,7 +9,6 @@ import {
   CURRENT_WORD_BRIEF_FADE_IN_MS,
   happyHuntingColor,
   leaderboardSubPerfectRowColor,
-  redTextColorLeaderboard,
 } from "./config.js";
 import {
   normalizeLeaderboardRows,
@@ -34,7 +33,6 @@ import { mergeDemoLeaderboardPreviewRows } from "./leaderboard-ui-demo-merge.js"
 import { applyLeaderboardSubmitButtonVisibility } from "./leaderboard-ui-submit-visibility.js";
 import {
   leaderboardNumericScore,
-  submittingSubPerfectFromRun,
   rowPerfectOverFlags,
   setLeaderboardCellFlash,
   syncLeaderboardNameCellSubPerfect,
@@ -81,33 +79,17 @@ export function createLeaderboardController(rt) {
     }
     if (idx < 0 || !rows) return;
     const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
-    const row = rows[idx];
-    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
-    const runScoreNum = Number(rt.getScore());
-    const submittingSubPerfect = submittingSubPerfectFromRun(
-      perfectTarget,
-      runScoreNum
-    );
-    const highlightSelfAllBeigeInline = Number(row[1]) !== 1;
 
     td.textContent = "";
     td.removeAttribute("data-inline-self-name");
     td.classList.add("leaderboard-name-cell--editing-name");
     td.classList.add("leaderboard-name-cell--you-pseudo-select");
-    syncLeaderboardNameCellSubPerfect(
-      td,
-      submittingSubPerfect || highlightSelfAllBeigeInline
-    );
+    syncLeaderboardNameCellSubPerfect(td, true);
 
     const input = document.createElement("input");
     input.type = "text";
-    const inputClasses = ["leaderboard-inline-name-input"];
-    if (submittingSubPerfect || highlightSelfAllBeigeInline) {
-      inputClasses.push("leaderboard-inline-name-input--sub-perfect");
-    } else {
-      inputClasses.push("leaderboard-inline-name-input--player-gold");
-    }
-    input.className = inputClasses.join(" ");
+    input.className =
+      "leaderboard-inline-name-input leaderboard-inline-name-input--sub-perfect";
     input.maxLength = DEMO_LEADERBOARD_NAME_MAX;
     input.setAttribute("inputmode", "text");
     input.setAttribute("pattern", "[A-Za-z]*");
@@ -166,23 +148,19 @@ export function createLeaderboardController(rt) {
     });
     thead.appendChild(headerRow);
 
-    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
-    const runScoreNum = Number(rt.getScore());
-    const submittingSubPerfect = submittingSubPerfectFromRun(
-      perfectTarget,
-      runScoreNum
-    );
     const typedPlayerName = String(playerName.value || "").trim();
     const typedCanonical = String(
       sanitizeDemoLeaderboardName(typedPlayerName) || typedPlayerName
     ).trim();
     const previewNameKey = leaderboardPreviewNameKey(playerName.value);
 
+    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
+    const runScoreNum = Number(rt.getScore());
+
     rows.forEach((row, index) => {
-      let [playerRaw, rowHardFlag, , rowTrophy] = row;
+      let [playerRaw, , , rowTrophy] = row;
       const tr = document.createElement("tr");
       let color = "white";
-      const hardFlag = Number(rowHardFlag) === 1 ? 1 : 0;
 
       const playerStr = String(playerRaw || "").trim();
       const scoreNum = leaderboardNumericScore(row);
@@ -253,18 +231,14 @@ export function createLeaderboardController(rt) {
         isLiveSubmittedSelfRow ||
         nameMatchesHighlight;
 
-      const highlightSelfAllBeige = highlightSelfRow && hardFlag !== 1;
-
-      if (hardFlag === 1) {
-        color = redTextColorLeaderboard;
-      } else if (
+      if (
         isDemoSelfRow ||
         isLiveInlineSelfRow ||
         isLiveSubmittedSelfRow ||
         nameMatchesHighlight
       ) {
         st.playerPosition = index + 1;
-        color = highlightSelfAllBeige ? leaderboardSubPerfectRowColor : "white";
+        color = leaderboardSubPerfectRowColor;
       }
 
       tr.style.color = color;
@@ -276,29 +250,24 @@ export function createLeaderboardController(rt) {
           const td = document.createElement("td");
           if (cellIndex === 0) {
             td.textContent = cellText;
-            td.style.color = highlightSelfAllBeige
-              ? leaderboardSubPerfectRowColor
-              : "white";
+            td.style.color = highlightSelfRow ? leaderboardSubPerfectRowColor : "white";
           } else if (cellIndex === 1 && useInlineNameCell) {
             td.dataset.inlineSelfName = "1";
             td.classList.add("leaderboard-name-cell--you-pseudo-select");
-            syncLeaderboardNameCellSubPerfect(
-              td,
-              submittingSubPerfect || highlightSelfAllBeige
-            );
+            syncLeaderboardNameCellSubPerfect(td, true);
             td.style.cursor = "pointer";
-            if (highlightSelfAllBeige) {
+            if (highlightSelfRow) {
               td.style.color = leaderboardSubPerfectRowColor;
             }
             td.textContent = displayNameCell;
           } else if (cellIndex === 1 || cellIndex === 2) {
-            if (highlightSelfAllBeige) {
+            if (highlightSelfRow) {
               td.style.color = leaderboardSubPerfectRowColor;
             }
             td.textContent = cellText;
           } else {
             setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
-            if (highlightSelfAllBeige && String(cellText).trim() !== "") {
+            if (highlightSelfRow && String(cellText).trim() !== "") {
               td.style.color = leaderboardSubPerfectRowColor;
             }
           }

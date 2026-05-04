@@ -2,7 +2,6 @@ export const greenTextColor = "#07f03a";
 export const redTextColor = "#f76d6d";
 export const lightGreenPreviewColor = "#8ff7a8";
 export const lightRedPreviewColor = "#ff9b9b";
-export const redTextColorLeaderboard = "red";
 export const goldTextColor = "#e3af02";
 export const leaderboardSubPerfectRowColor = "#f5e2a2";
 /** Success message / highlights when the submitted word is the next perfect-hunt list word on pace. */

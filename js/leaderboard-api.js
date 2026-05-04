@@ -1,15 +1,11 @@
 /** Client-only row tag for the current-run preview (never from the API). */
 export const LEADERBOARD_META_LIVE_PREVIEW = "live-preview";
 
+/** Wire rows become `[player, 0, score, trophy]`; index 1 is a legacy slot (formerly hard mode), always zero. */
 export function normalizeLeaderboardRow(row) {
   if (!Array.isArray(row)) return ["", 0, "", ""];
   if (row.length >= 4) {
-    const out = [
-      String(row[0] ?? ""),
-      Number(row[1]) === 1 ? 1 : 0,
-      row[2],
-      String(row[3] ?? ""),
-    ];
+    const out = [String(row[0] ?? ""), 0, row[2], String(row[3] ?? "")];
     if (row[4] === LEADERBOARD_META_LIVE_PREVIEW) {
       out.push(LEADERBOARD_META_LIVE_PREVIEW);
     }

@@ -8,15 +8,6 @@ export function leaderboardNumericScore(row) {
   return Number(raw);
 }
 
-export function submittingSubPerfectFromRun(perfectTarget, runScoreNum) {
-  return (
-    perfectTarget != null &&
-    Number.isFinite(perfectTarget) &&
-    Number.isFinite(runScoreNum) &&
-    runScoreNum < perfectTarget
-  );
-}
-
 export function rowPerfectOverFlags(perfectTarget, row) {
   const scoreNum = leaderboardNumericScore(row);
   const hasScore = scoreNum !== null;

@@ -136,7 +136,7 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpt
   const filled = baseRows.map((r, idx) => {
     return [
       String(r[0] || ""),
-      Number(r[1]) === 1 ? 1 : 0,
+      0,
       r[2] === "" || r[2] === null || r[2] === undefined ? "" : Number(r[2]),
       String(r[3] || ""),
       idx,
