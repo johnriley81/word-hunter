@@ -16,6 +16,17 @@ import { loadGamemakerPuzzlePool } from "./load-pool.js";
 
 const WORD_COUNT = PERFECT_HUNT_WORD_COUNT;
 
+/** Fisher–Yates shuffle (mutates array in place). */
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
+  return arr;
+}
+
 function createGamemaker() {
   const ctx = createGameContext();
   const el = (id) => document.getElementById(id);
@@ -59,6 +70,12 @@ function createGamemaker() {
   let puzzleBatch = [];
   /** @type {Map<string, Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>>} */
   let swapBuckets = new Map();
+
+  /**
+   * Shuffled swap alternates + cursor; invalidated when step, hunt list, or alt set changes.
+   * @type {{ key: string, order: Array<{ word: string, min_tiles: number, reuse: number, wordTotal: number }>, cursor: number } | null}
+   */
+  let swapAlternateCycle = null;
 
   function getCurrentWordIndexAsc() {
     return placementStep >= WORD_COUNT ? -1 : placementStep;
@@ -106,9 +123,29 @@ function createGamemaker() {
     return collectSwapAlternatesMatchingStats(swapBuckets, currentWords, placementStep);
   }
 
+  function getSwapAlternateCycleState() {
+    const raw = swapAlternatesForCurrentStep();
+    const listKey = currentWords
+      .map((e) => String(e.word || "").toLowerCase())
+      .join("|");
+    const altSigSorted = raw
+      .map((a) => a.word)
+      .sort()
+      .join("\0");
+    const key = `${placementStep}|${listKey}|${altSigSorted}`;
+    if (!swapAlternateCycle || swapAlternateCycle.key !== key) {
+      swapAlternateCycle = {
+        key,
+        order: shuffleInPlace([...raw]),
+        cursor: 0,
+      };
+    }
+    return swapAlternateCycle;
+  }
+
   function refreshWordSwapButton() {
     if (!btnWordSwap) return;
-    btnWordSwap.disabled = swapAlternatesForCurrentStep().length === 0;
+    btnWordSwap.disabled = getSwapAlternateCycleState().order.length === 0;
   }
 
   function isPuzzleCompleteForExport() {
@@ -248,12 +285,14 @@ function createGamemaker() {
   document.addEventListener("touchend", () => placement.onPointerUp());
 
   function swapCurrentWord() {
-    const alts = swapAlternatesForCurrentStep();
-    if (!getTargetEntry() || alts.length === 0) {
+    const cycle = getSwapAlternateCycleState();
+    const order = cycle.order;
+    if (!getTargetEntry() || order.length === 0) {
       showExportMetaMessage("No swap", 1800);
       return;
     }
-    const picked = alts[Math.floor(Math.random() * alts.length)];
+    const picked = order[cycle.cursor % order.length];
+    cycle.cursor++;
     const start = placementStep;
     const tail = currentWords.slice(start).map((e) => ({
       word: String(e.word || "").toLowerCase(),
@@ -306,6 +345,7 @@ function createGamemaker() {
       currentWords = wordsIn;
     }
     placementStep = 0;
+    swapAlternateCycle = null;
     buildPlaysChron = Array(WORD_COUNT).fill(null);
     placement.emptyBoard();
     placement.syncBuildDomFromBoardFixed(grid, ctx.state.gameBoard);
