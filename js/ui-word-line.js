@@ -6,6 +6,8 @@ import {
   PRE_START_WORDMARK,
   INTRO_MESSAGE_TEXT,
   happyHuntingColor,
+  huntPaceSuccessFlashColor,
+  currentWordNeutralTextColor,
 } from "./config.js";
 
 export const SHOW_MESSAGE_CHAIN_GAP_MS = 380;
@@ -73,7 +75,8 @@ export function crossfadeCopyScoreToCopied(ctx) {
     el.style.transition = "none";
     el.classList.add("current-word--soft-hidden");
     el.textContent = "Score copied";
-    el.style.color = "#ffffff";
+    el.classList.remove("current-word--hunt-pace-line");
+    el.style.color = currentWordNeutralTextColor();
     void el.offsetHeight;
     el.style.transition = `opacity ${fadeInMs}ms ease-out`;
     requestAnimationFrame(() => {
@@ -96,6 +99,10 @@ export function fadeInCurrentWordLine(ctx, text, color, options = {}) {
   currentWordElement.classList.add("current-word--soft-hidden");
   currentWordElement.textContent = text;
   currentWordElement.style.color = color;
+  currentWordElement.classList.toggle(
+    "current-word--hunt-pace-line",
+    color === huntPaceSuccessFlashColor
+  );
   void currentWordElement.offsetHeight;
   currentWordElement.style.transition = `opacity ${fadeMs}ms ease-out`;
 
@@ -113,7 +120,10 @@ export function beginCurrentWordOpacityFade(ctx, myEpoch) {
   const currentWordElement = ctx.refs.currentWordElement;
   const wl = ctx.state.wordLine;
   currentWordElement.style.transition = `opacity ${CURRENT_WORD_FADE_MS}ms ease-out`;
-  currentWordElement.classList.remove("current-word--valid-solve");
+  currentWordElement.classList.remove(
+    "current-word--valid-solve",
+    "current-word--hunt-pace-line"
+  );
   requestAnimationFrame(() => {
     if (myEpoch !== wl.epoch) return;
     currentWordElement.classList.add("current-word--soft-hidden");
@@ -132,7 +142,10 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
 
   const skipWordmark = options.skipWordmark === true;
   const myEpoch = beginCurrentWordMessageSession(ctx);
-  currentWordElement.classList.remove("current-word--valid-solve");
+  currentWordElement.classList.remove(
+    "current-word--valid-solve",
+    "current-word--hunt-pace-line"
+  );
 
   const fadeInMs = CURRENT_WORD_BRIEF_FADE_IN_MS;
   const half = Math.max(1, Math.floor(START_TOUCHPAD_FADE_MS / 2));
@@ -163,7 +176,7 @@ export function crossfadeWordmarkToHappyHunting(ctx, options = {}) {
   }
 
   currentWordElement.textContent = PRE_START_WORDMARK;
-  currentWordElement.style.color = "white";
+  currentWordElement.style.color = currentWordNeutralTextColor();
   currentWordElement.classList.remove("current-word--soft-hidden");
 
   currentWordElement.style.transition = `opacity ${half}ms ease`;
@@ -250,7 +263,10 @@ export function showMessage(
   }
 
   const myEpoch = beginCurrentWordMessageSession(ctx);
-  currentWordElement.classList.remove("current-word--valid-solve");
+  currentWordElement.classList.remove(
+    "current-word--valid-solve",
+    "current-word--hunt-pace-line"
+  );
 
   const fadeInMs = CURRENT_WORD_BRIEF_FADE_IN_MS;
   fadeInCurrentWordLine(ctx, message, color, {

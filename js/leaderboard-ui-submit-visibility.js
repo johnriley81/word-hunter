@@ -1,3 +1,5 @@
+import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
+
 /**
  * Live submit / demo-add visibility (score threshold vs board eligibility).
  */
@@ -10,7 +12,8 @@ export function applyLeaderboardSubmitButtonVisibility({
   liveSubmitUsed,
   demoSubmitUsed,
 }) {
-  const { leaderboardButton, leaderboardDemoAdd } = refs;
+  const { leaderboardButton, leaderboardDemoAdd, playerName } = refs;
+  const nameReady = leaderboardNameHasLetters(playerName?.value);
 
   if (leaderboardUseDemoData) {
     leaderboardButton.classList.add("hiddenDisplay");
@@ -27,11 +30,11 @@ export function applyLeaderboardSubmitButtonVisibility({
 
       leaderboardDemoAdd.classList.remove("hiddenDisplay");
       leaderboardDemoAdd.classList.remove("leaderboard-action--concealed");
-      leaderboardDemoAdd.disabled = false;
+      leaderboardDemoAdd.disabled = !nameReady;
       leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
       leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
 
-      if (qualifiesForBoardSlot) {
+      if (qualifiesForBoardSlot && nameReady) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             leaderboardDemoAdd.classList.add("leaderboard-demo-add--eligible");
@@ -65,7 +68,7 @@ export function applyLeaderboardSubmitButtonVisibility({
     "leaderboard-action--concealed",
     !qualifiesForBoardSlot
   );
-  leaderboardButton.disabled = liveSubmitUsed;
+  leaderboardButton.disabled = liveSubmitUsed || !nameReady;
   if (liveSubmitUsed) {
     leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";
   } else {

@@ -2,20 +2,24 @@
   --header-control-size: 32px;
   --page-padding: 5px;
   --logo-rules-padding-y: 2px;
+  --color-shared-white: #f5ecdf;
+  --tile-glyph-white: #ffffff;
   --page-text-color: #ffffff;
   --page-text-shadow-color: black;
   --box-border-color: #3a1f4d;
+  --game-panel-border-color: var(--box-border-color);
+  --leaderboard-panel-border-color: var(--game-panel-border-color);
   --box-background-color: black;
-  --next-letters-text-color: white;
+  --next-letters-text-color: var(--color-shared-white);
   --next-letters-shadow-color: black;
-  --grid-button-border-color: #8c8594;
+  --grid-button-border-color: #56565b;
   --grid-button-shadow-color: transparent;
   --grid-button-inactive-color: #505050;
   --grid-button-inactive-text-color: #000000;
-  --grid-button-inactive-border-color: #000000;
+  --grid-button-inactive-border-color: #3a3a3e;
   --grid-button-active-color: hwb(44 91% 2%);
   --grid-button-active-text-color: #1f3165;
-  --grid-button-active-border-color: #000000;
+  --grid-button-active-border-color: #3a3a3e;
   --hunt-pace-highlight-bg: #f5e2a2;
   --hunt-pace-highlight-text: #3d2800;
   --perfect-hunt-starter-hint-orange-solid: #fc8a09;
@@ -40,9 +44,9 @@
     color-mix(in srgb, var(--perfect-hunt-starter-hint-orange-solid) 97%, transparent);
   --perfect-hunt-starter-hint-ring-shadow-static: inset 0 0 0 2px
     color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 58%, transparent);
-  --grid-button-text-color: white;
-  --leaderboard-button-background-color: #8e8e93;
-  --leaderboard-button-text-color: white;
+  --grid-button-text-color: var(--tile-glyph-white);
+  --leaderboard-button-background-color: #353559;
+  --leaderboard-button-text-color: var(--color-shared-white);
   --button-background-color: #ffffff;
   --button-text-color: hwb(275 16% 5%);
   --selected-tile-color: #cbe6ff;
@@ -62,6 +66,12 @@
   --board-shift-hint-color: #ffffff;
   --board-shift-hint-accent-drag: #2266ee;
   --board-shift-hint-accent-endgame: #dd3333;
+  --rules-controls-drag-color: var(--board-shift-hint-accent-drag);
+  --rules-controls-endgame-color: color-mix(
+    in srgb,
+    var(--board-shift-hint-accent-endgame) 62%,
+    #ffffff
+  );
   --grid-size: 4;
   --grid-gap: 13px;
   --grid-max: 400px;
@@ -87,6 +97,82 @@
   --word-connector-valid-stroke: #478461;
   --word-connector-valid-hunt-pace-stroke: #ffcc00;
   --word-connector-invalid-stroke: #c23a3a;
+  --word-connector-hunt-pace-drop-shadow: 0 0 3px rgba(255, 221, 34, 0.75);
+
+  --logo-filter: brightness(0);
+  --score-muted-label-color: color-mix(
+    in srgb,
+    var(--color-shared-white) 90%,
+    transparent
+  );
+  --score-accent-gold: #e3af02;
+  --primary-dock-button-bg: var(--button-background-color);
+  --primary-dock-button-text: var(--button-text-color);
+  --leaderboard-table-text-color: var(--color-shared-white);
+  --tile-word-release-green-end-bg: #bff9d5;
+  --tile-word-release-green-end-fg: #1a4530;
+  --tile-invalid-shake-12-bg: #f0a0a0;
+  --tile-invalid-shake-12-fg: #5c1212;
+  --tile-invalid-shake-18-bg: #ff8f8f;
+  --tile-invalid-shake-18-fg: #4a0f0f;
+  --tile-invalid-shake-36-bg: #f59b9b;
+  --tile-invalid-shake-36-fg: #521010;
+  --tile-invalid-shake-54-bg: #ff9494;
+  --tile-invalid-shake-54-fg: #4a0f0f;
+  --tile-invalid-shake-72-bg: #eba6a6;
+  --tile-invalid-shake-72-fg: #561212;
+}
+
+[data-theme="night"] {
+  --body-background-image: url("images/background2.png");
+  --logo-filter: brightness(0) invert(1);
+  --header-icon-button-background-color: #000000;
+  --box-background-color: #16161c;
+  --game-panel-border-color: #723e49;
+  --leaderboard-panel-border-color: color-mix(
+    in srgb,
+    var(--game-panel-border-color) 58%,
+    black
+  );
+  --primary-dock-button-bg: #5a4960;
+  --primary-dock-button-text: var(--color-shared-white);
+  --grid-button-active-color: var(--box-background-color);
+  --grid-button-active-text-color: var(--color-shared-white);
+  --grid-button-text-color: var(--color-shared-white);
+  --selected-tile-color: #0a3a63;
+  --selected-tile-text-color: var(--color-shared-white);
+  --selected-tile-visit2-color: #0d4d7a;
+  --selected-tile-visit2-text-color: var(--color-shared-white);
+  --selected-tile-visit3-color: #12619e;
+  --selected-tile-visit3-text-color: var(--color-shared-white);
+  --hunt-pace-highlight-bg: #957110;
+  --hunt-pace-highlight-text: var(--color-shared-white);
+  --perfect-hunt-starter-hint-orange-solid: #8ecae6;
+  --word-connector-valid-stroke: #2d5a3f;
+  --word-connector-valid-hunt-pace-stroke: #9a7a00;
+  --word-connector-invalid-stroke: #7a2828;
+  --word-connector-hunt-pace-drop-shadow: 0 0 4px rgba(140, 110, 20, 0.45);
+  --tile-word-release-green-end-bg: #006d45;
+  --tile-word-release-green-end-fg: var(--color-shared-white);
+  --tile-invalid-shake-12-bg: #b87a78;
+  --tile-invalid-shake-12-fg: var(--color-shared-white);
+  --tile-invalid-shake-18-bg: #c0665c;
+  --tile-invalid-shake-18-fg: var(--color-shared-white);
+  --tile-invalid-shake-36-bg: #b76d60;
+  --tile-invalid-shake-36-fg: var(--color-shared-white);
+  --tile-invalid-shake-54-bg: #bf5e52;
+  --tile-invalid-shake-54-fg: var(--color-shared-white);
+  --tile-invalid-shake-72-bg: #a87870;
+  --tile-invalid-shake-72-fg: var(--color-shared-white);
+  --board-shift-hint-accent-drag: #87c4ff;
+  --board-shift-hint-accent-endgame: #ff8181;
+  --board-shift-hint-color: var(--color-shared-white);
+  --rules-controls-endgame-color: var(--board-shift-hint-accent-endgame);
+  --page-text-color: var(--color-shared-white);
+  --grid-button-inactive-text-color: var(--color-shared-white);
+  --rules-accent-red: var(--color-shared-white);
+  --rules-section-heading-color: var(--color-shared-white);
+  --rules-dismiss-red: var(--color-shared-white);
 }
 
 @media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
@@ -249,7 +335,7 @@ html {
   max-height: 72px;
   max-width: min(288px, 78vw);
   object-fit: contain;
-  filter: brightness(0);
+  filter: var(--logo-filter);
 }
 
 #rules-button {
@@ -261,6 +347,12 @@ html {
 #mute-button {
   position: absolute;
   right: calc(var(--header-control-size) + 8px);
+  top: 0px;
+}
+
+#theme-toggle {
+  position: absolute;
+  right: calc(2 * var(--header-control-size) + 16px);
   top: 0px;
 }
 
@@ -384,13 +476,29 @@ html {
 }
 
 .rules-shell .rules-gesture-phrase {
-  color: var(--selected-tile-visit2-color);
+  color: var(--rules-controls-drag-color);
   font-style: italic;
 }
 
 .rules-shell .rules-endgame-gesture {
-  color: var(--rules-accent-red);
+  color: var(--rules-controls-endgame-color);
   font-style: italic;
+}
+
+.rules-perfect-hunt-pulse-label {
+  color: var(--perfect-hunt-starter-hint-orange-solid);
+}
+
+.rules-perfect-hunt-pulse-label--night {
+  display: none;
+}
+
+html[data-theme="night"] .rules-perfect-hunt-pulse-label--day {
+  display: none;
+}
+
+html[data-theme="night"] .rules-perfect-hunt-pulse-label--night {
+  display: inline;
 }
 
 .rules-list {
@@ -448,7 +556,7 @@ html {
 
 #score {
   border-style: outset;
-  border-color: var(--box-border-color);
+  border-color: var(--game-panel-border-color);
   background-color: var(--box-background-color);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-sizing: border-box;
@@ -490,7 +598,7 @@ html {
 }
 
 #score .score-header {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--score-muted-label-color);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   font-size: clamp(0.56rem, 2.25vw, 0.78rem);
@@ -518,7 +626,7 @@ html {
 
 #score .score-header-total {
   grid-column: 6;
-  color: #e3af02;
+  color: var(--score-accent-gold);
 }
 
 #score .score-value-sum {
@@ -543,12 +651,12 @@ html {
 
 #score .score-value-total {
   grid-column: 6;
-  color: #e3af02;
+  color: var(--score-accent-gold);
 }
 
 #score .score-operator {
   text-align: center;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--score-muted-label-color);
   font-size: clamp(0.58rem, 2.55vw, 0.82rem);
   line-height: 1;
 }
@@ -566,18 +674,18 @@ html {
   column-gap: 8px;
   min-height: 28px;
   font-size: clamp(0.46rem, 2vw, 0.66rem);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--score-muted-label-color);
   text-shadow: 1px 1px 2px var(--page-text-shadow-color);
-  background-color: #000000;
+  background-color: var(--box-background-color);
   border-style: outset;
-  border-color: var(--box-border-color);
+  border-color: var(--game-panel-border-color);
   border-top: none;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 #queue-ribbon .queue-ribbon-label,
 #queue-ribbon .queue-ribbon-value {
-  color: #ffffff;
+  color: var(--color-shared-white);
   line-height: 1;
 }
 
@@ -645,6 +753,7 @@ html {
   overflow: visible;
   text-overflow: ellipsis;
   -webkit-font-smoothing: antialiased;
+  color: var(--color-shared-white);
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.45),
     0 0 1px rgba(0, 0, 0, 0.35);
@@ -959,32 +1068,32 @@ html {
     filter: brightness(1);
   }
   12% {
-    background-color: #f0a0a0;
-    color: #5c1212;
+    background-color: var(--tile-invalid-shake-12-bg);
+    color: var(--tile-invalid-shake-12-fg);
   }
   18% {
     transform: translateX(-5px);
     filter: brightness(1.06) saturate(1.12);
-    background-color: #ff8f8f;
-    color: #4a0f0f;
+    background-color: var(--tile-invalid-shake-18-bg);
+    color: var(--tile-invalid-shake-18-fg);
   }
   36% {
     transform: translateX(5px);
     filter: brightness(1.04) saturate(1.1);
-    background-color: #f59b9b;
-    color: #521010;
+    background-color: var(--tile-invalid-shake-36-bg);
+    color: var(--tile-invalid-shake-36-fg);
   }
   54% {
     transform: translateX(-4px);
     filter: brightness(1.03);
-    background-color: #ff9494;
-    color: #4a0f0f;
+    background-color: var(--tile-invalid-shake-54-bg);
+    color: var(--tile-invalid-shake-54-fg);
   }
   72% {
     transform: translateX(3px);
     filter: brightness(1.02);
-    background-color: #eba6a6;
-    color: #561212;
+    background-color: var(--tile-invalid-shake-72-bg);
+    color: var(--tile-invalid-shake-72-fg);
   }
   100% {
     transform: translateX(0);
@@ -1020,7 +1129,7 @@ html {
 
 #line-container line.grid-line--result-valid.grid-line--result-hunt-pace {
   stroke: var(--word-connector-valid-hunt-pace-stroke);
-  filter: drop-shadow(0 0 3px rgba(255, 221, 34, 0.75));
+  filter: drop-shadow(var(--word-connector-hunt-pace-drop-shadow));
 }
 
 #line-container line.grid-line--result-invalid {
@@ -1055,8 +1164,8 @@ line.grid-line--fade-out {
   }
   100% {
     filter: brightness(1.04) saturate(1.03);
-    background-color: #bff9d5;
-    color: #1a4530;
+    background-color: var(--tile-word-release-green-end-bg);
+    color: var(--tile-word-release-green-end-fg);
   }
 }
 
@@ -1218,7 +1327,7 @@ body.rules-overlay-open #leaderboard-elements {
   align-items: stretch;
   border-radius: 16px;
   border-style: outset;
-  border-color: var(--box-border-color);
+  border-color: var(--leaderboard-panel-border-color);
   background: rgba(0, 0, 0, 0.68);
   overflow: hidden;
 }
@@ -1254,7 +1363,7 @@ body.rules-overlay-open #leaderboard-elements {
   top: 0;
   z-index: 1;
   background-color: black;
-  color: white;
+  color: var(--leaderboard-table-text-color);
 }
 
 #leaderboard-table th:nth-child(1),
@@ -1316,11 +1425,17 @@ body.rules-overlay-open #leaderboard-elements {
 
 #leaderboard-table td {
   padding: 5px 4px;
+  color: var(--leaderboard-table-text-color);
   text-shadow: 1px 1px 3px var(--page-text-shadow-color);
   overflow: hidden;
   text-overflow: ellipsis;
   background-color: transparent;
   vertical-align: middle;
+}
+
+html[data-theme="night"] #leaderboard-table tbody tr,
+html[data-theme="night"] #leaderboard-table tbody td {
+  color: var(--color-shared-white) !important;
 }
 
 #leaderboard-table tbody tr {
@@ -1710,8 +1825,8 @@ body.rules-overlay-open #leaderboard-elements {
   text-align: center;
   margin: 0;
   border: none;
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
+  background-color: var(--primary-dock-button-bg);
+  color: var(--primary-dock-button-text);
   border-radius: 20px;
   align-items: center;
   justify-content: center;

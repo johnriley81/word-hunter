@@ -1,6 +1,8 @@
 import {
   lightGreenPreviewColor,
   lightRedPreviewColor,
+  currentWordNeutralTextColor,
+  happyHuntingColor,
   UPCOMING_LABEL,
   UPCOMING_PREVIEW_MAX,
   PRE_START_WORDMARK,
@@ -30,6 +32,7 @@ import {
   scheduleDeferredGameAudioWarmup,
   unlockGameAudio,
 } from "./audio.js";
+import { persistMuted, readStoredMuted } from "./sfx-pref.js";
 import { calculatePuzzleDayIndex, puzzleListIndex } from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import {
@@ -149,7 +152,7 @@ export function initGame(ctx) {
   let leaderboardPuzzleId = 0;
   let scoreValidationTurns = [];
   let isPaused = false;
-  let isMuted = false;
+  let isMuted = readStoredMuted();
 
   const { setRulesOverlayVisible } = attachRulesDock({
     refs: { rules, gameInfoContainer, bottomDock, grid },
@@ -160,11 +163,15 @@ export function initGame(ctx) {
     getIsMuted: () => isMuted,
     setIsMuted: (v) => {
       isMuted = v;
+      persistMuted(v);
     },
     onPausedChange: (v) => {
       isPaused = v;
     },
   });
+
+  muteButton.textContent = isMuted ? "🔕" : "🔔";
+  syncLiveSfxMute(isMuted);
 
   let startUiTransitionTimer = null;
   let tilePaletteTransitionTimer = null;
@@ -292,7 +299,8 @@ export function initGame(ctx) {
   });
   updateCurrentWord();
   currentWordElement.textContent = PRE_START_WORDMARK;
-  currentWordElement.style.color = "white";
+  currentWordElement.style.color = currentWordNeutralTextColor();
+  playerName.value = "";
 
   function commitBoardShift(kind, signedSteps) {
     if (kind === "col") {
@@ -638,18 +646,35 @@ export function initGame(ctx) {
     updateScoreStrip();
   }
 
+  function currentWordMatchesExpectedPerfectHunt(word) {
+    if (!ctx.state.perfectHuntOnPace) return false;
+    const hunt = ctx.state.perfectHunt;
+    if (!hunt?.length) return false;
+    const idx = ctx.state.perfectHuntOrderIndex;
+    if (idx >= hunt.length) return false;
+    const key = String(word || "").toLowerCase();
+    return key === String(hunt[idx]).toLowerCase();
+  }
+
   function updateCurrentWord() {
     if (ctx.state.wordLine.active) return;
     if (leaderboardRtState.endgameUiShown) return;
-    currentWordElement.classList.remove("current-word--soft-hidden");
+    currentWordElement.classList.remove(
+      "current-word--soft-hidden",
+      "current-word--hunt-pace-line"
+    );
     if (!wordState.currentWord) {
       currentWordElement.textContent = "";
-      currentWordElement.style.color = "white";
+      currentWordElement.style.color = currentWordNeutralTextColor();
       return;
     }
     currentWordElement.textContent = wordState.currentWord.toUpperCase();
+    if (currentWordMatchesExpectedPerfectHunt(wordState.currentWord)) {
+      currentWordElement.style.color = happyHuntingColor;
+      return;
+    }
     if (wordState.currentWord.length < 3) {
-      currentWordElement.style.color = "white";
+      currentWordElement.style.color = currentWordNeutralTextColor();
       return;
     }
     currentWordElement.style.color = validateWord(wordState.currentWord)
@@ -786,13 +811,7 @@ export function initGame(ctx) {
       updateNextLetters();
     },
     isWordKeepingPerfectHuntPace(word) {
-      if (!ctx.state.perfectHuntOnPace) return false;
-      const hunt = ctx.state.perfectHunt;
-      if (!hunt?.length) return false;
-      const idx = ctx.state.perfectHuntOrderIndex;
-      if (idx >= hunt.length) return false;
-      const key = String(word || "").toLowerCase();
-      return key === String(hunt[idx]).toLowerCase();
+      return currentWordMatchesExpectedPerfectHunt(word);
     },
     refreshPerfectHuntHint,
     clearPerfectHuntHintVisual,
@@ -991,9 +1010,12 @@ export function initGame(ctx) {
       startButton.classList.remove("dock-fade-out");
     }
 
-    currentWordElement.classList.remove("current-word--soft-hidden");
-    currentWordElement.classList.remove("current-word--valid-solve");
-    currentWordElement.style.color = "white";
+    currentWordElement.classList.remove(
+      "current-word--soft-hidden",
+      "current-word--valid-solve",
+      "current-word--hunt-pace-line"
+    );
+    currentWordElement.style.color = currentWordNeutralTextColor();
     if (!forImmediateStart) {
       currentWordElement.textContent = PRE_START_WORDMARK;
     }

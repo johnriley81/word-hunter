@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 import { deriveLiveLeaderboardAfterFetch } from "../js/leaderboard-live-flow.js";
-import { normalizeLeaderboardRows } from "../js/leaderboard-api.js";
+import {
+  normalizeLeaderboardRows,
+  LEADERBOARD_META_LIVE_PREVIEW,
+} from "../js/leaderboard-api.js";
 import { demoRunQualifiesForLeaderboard } from "../js/leaderboard-lifecycle.js";
 
 const EMPTY_PAD = ["", 0, "", ""];
@@ -26,7 +29,7 @@ test("GET [] + qualifying run: preview merge shows player at row 1", () => {
   );
   assert.equal(canPost, false);
   assert.equal(committed, false);
-  assert.equal(tableRows[0][0], "Ada");
+  assert.equal(tableRows[0][0], "ADA");
   assert.equal(tableRows[0][2], 88);
 });
 
@@ -56,11 +59,11 @@ test("GET [] + score 1: preview merge shows player (above minimum)", () => {
     }
   );
   assert.equal(canPost, false);
-  assert.equal(tableRows[0][0], "Ada");
+  assert.equal(tableRows[0][0], "ADA");
   assert.equal(tableRows[0][2], 1);
 });
 
-test("clicked but empty name: canPost false, preview merge", () => {
+test("clicked but empty name: canPost false, preview row without name", () => {
   const { canPost, committed, tableRows } = deriveLiveLeaderboardAfterFetch(
     { ok: true, raw: [] },
     {
@@ -72,7 +75,11 @@ test("clicked but empty name: canPost false, preview merge", () => {
   );
   assert.equal(canPost, false);
   assert.equal(committed, false);
-  assert.equal(tableRows[0][2], 88);
+  assert.equal(tableRows.length, 10);
+  const preview = tableRows.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
+  assert.ok(preview);
+  assert.equal(preview[2], 88);
+  assert.equal(String(preview[0] ?? "").trim(), "");
 });
 
 test("POST success + commit message: rows from top_10, committed", () => {
@@ -130,7 +137,7 @@ test("POST !ok with empty payload: preview fallback, not committed", () => {
   );
   assert.equal(committed, false);
   assert.equal(tableRows.length, 10);
-  assert.equal(tableRows[0][0], "Ada");
+  assert.equal(tableRows[0][0], "ADA");
 });
 
 test("POST 200 root JSON array (same as GET): populates table from response only", () => {
@@ -199,7 +206,7 @@ test("derive: submit cutoff uses GET board before preview merge", () => {
       ...baseInput,
       clicked: false,
       score: 115,
-      nameTrim: "",
+      nameTrim: "A",
       trophyWord: "STAR",
     }
   );
