@@ -1,6 +1,7 @@
 import {
   ENDGAME_GRID_BATCH_FADE_MS,
   ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS,
+  ENDGAME_RETRY_REVEAL_DELAY_MS,
   ENDGAME_SOUND_FALLBACK_MS,
   ENDGAME_TILE_TO_INACTIVE_MS,
   GAME_OVER_FLASH_HOLD_EXTRA_MS,
@@ -22,6 +23,7 @@ export function createGameEndgameCoordinator(deps) {
   let endgameTileStartTimer = null;
   let endgamePostgameRevealDelayTimer = null;
   let perfectGameOverDeferTimer = null;
+  let retryRevealDelayTimer = null;
 
   function clearInternalEndgameTimers() {
     if (endgameBlankRestoreFallbackTimer !== null) {
@@ -39,6 +41,10 @@ export function createGameEndgameCoordinator(deps) {
     if (perfectGameOverDeferTimer !== null) {
       window.clearTimeout(perfectGameOverDeferTimer);
       perfectGameOverDeferTimer = null;
+    }
+    if (retryRevealDelayTimer !== null) {
+      window.clearTimeout(retryRevealDelayTimer);
+      retryRevealDelayTimer = null;
     }
   }
 
@@ -176,10 +182,6 @@ export function createGameEndgameCoordinator(deps) {
         el.classList.add("grid-button--inactive");
       }
     });
-    if (endgameBlankRestoreFallbackTimer !== null) {
-      window.clearTimeout(endgameBlankRestoreFallbackTimer);
-      endgameBlankRestoreFallbackTimer = null;
-    }
     if (!isPerfectStinger) {
       deps.playSound("gameOver", deps.getIsMuted(), {
         onEnded: onGameOverSoundEndedPostGameUi,
@@ -203,14 +205,16 @@ export function createGameEndgameCoordinator(deps) {
     startButton.classList.add("hiddenDisplay");
     startButton.classList.remove("visibleDisplay");
     st.deferRetryUntilCopyScoreVisible = isPerfectStinger;
-    if (isPerfectStinger) {
-      retryButton.classList.add("hiddenDisplay");
-      retryButton.classList.remove("visibleDisplay", "dock-fade-in");
-      retryButton.disabled = true;
-    } else {
-      retryButton.classList.remove("dock-fade-in", "hiddenDisplay");
-      retryButton.classList.add("visibleDisplay");
-      retryButton.disabled = false;
+    retryButton.classList.add("hiddenDisplay");
+    retryButton.classList.remove("visibleDisplay", "dock-fade-in");
+    retryButton.disabled = true;
+    if (!isPerfectStinger) {
+      retryRevealDelayTimer = window.setTimeout(() => {
+        retryRevealDelayTimer = null;
+        retryButton.classList.remove("hiddenDisplay", "dock-fade-in");
+        retryButton.classList.add("visibleDisplay", "dock-fade-in");
+        retryButton.disabled = false;
+      }, ENDGAME_RETRY_REVEAL_DELAY_MS);
     }
 
     const gameOverFlashText = isPerfectStinger
