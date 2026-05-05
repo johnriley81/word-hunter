@@ -64,7 +64,7 @@
   --rules-section-heading-color: #cab8ea;
   --rules-dismiss-red: #c94a4a;
   --board-shift-hint-color: #ffffff;
-  --board-shift-hint-accent-drag: #2266ee;
+  --board-shift-hint-accent-drag: #5294f2;
   --board-shift-hint-accent-endgame: #dd3333;
   --rules-controls-drag-color: var(--board-shift-hint-accent-drag);
   --rules-controls-endgame-color: color-mix(
@@ -171,8 +171,8 @@
   --page-text-color: var(--color-shared-white);
   --grid-button-inactive-text-color: var(--color-shared-white);
   --rules-accent-red: var(--color-shared-white);
-  --rules-section-heading-color: var(--color-shared-white);
-  --rules-dismiss-red: var(--color-shared-white);
+  --score-muted-label-color: #cab8ea;
+  --rules-section-heading-color: var(--score-muted-label-color);
 }
 
 @media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
