@@ -124,6 +124,7 @@
   --tile-invalid-shake-72-fg: #561212;
 }
 
+/* Night: token overrides; prefer new theme colors as --vars in :root or here. */
 [data-theme="night"] {
   --body-background-image: url("images/background2.png");
   --logo-filter: brightness(0) invert(1);
@@ -494,11 +495,11 @@ html {
   display: none;
 }
 
-html[data-theme="night"] .rules-perfect-hunt-pulse-label--day {
+[data-theme="night"] .rules-perfect-hunt-pulse-label--day {
   display: none;
 }
 
-html[data-theme="night"] .rules-perfect-hunt-pulse-label--night {
+[data-theme="night"] .rules-perfect-hunt-pulse-label--night {
   display: inline;
 }
 

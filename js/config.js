@@ -1,3 +1,5 @@
+import { isNightTheme } from "./app-theme.js";
+
 export const greenTextColor = "#07f03a";
 export const redTextColor = "#f76d6d";
 export const lightGreenPreviewColor = "#8ff7a8";
@@ -5,10 +7,7 @@ export const lightRedPreviewColor = "#ff9b9b";
 export const colorSharedWhite = "#f5ecdf";
 
 export function currentWordNeutralTextColor() {
-  if (typeof document === "undefined") return "#ffffff";
-  return document.documentElement.getAttribute("data-theme") === "night"
-    ? colorSharedWhite
-    : "#ffffff";
+  return isNightTheme() ? colorSharedWhite : "#ffffff";
 }
 
 export const goldTextColor = "#e3af02";
