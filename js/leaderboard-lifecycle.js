@@ -9,10 +9,15 @@ export function sanitizeDemoLeaderboardName(raw) {
     .slice(0, DEMO_LEADERBOARD_NAME_MAX);
 }
 
-/** Empty #player-name matches display YOU. */
+/** True when the player has typed at least one letter (A–Z after sanitize). */
+export function leaderboardNameHasLetters(raw) {
+  return sanitizeDemoLeaderboardName(String(raw ?? "")) !== "";
+}
+
+/** Stable key for matching preview/inline rows; empty input is "" (no default name). */
 export function leaderboardPreviewNameKey(raw) {
   const t = String(raw ?? "").trim();
-  if (!t) return "YOU";
+  if (!t) return "";
   return sanitizeDemoLeaderboardName(t) || t;
 }
 
@@ -65,20 +70,15 @@ export function leaderboardLiveSubmitNameFallbackRaw(
       leaderboardPreviewNameKey(r[0]) === previewKey
   );
   if (keyedTagged) {
-    const raw = String(keyedTagged[0] ?? "").trim();
-    return raw || "YOU";
+    return String(keyedTagged[0] ?? "").trim();
   }
   const keyed = matches.find((r) => leaderboardPreviewNameKey(r[0]) === previewKey);
   if (keyed) {
-    const raw = String(keyed[0] ?? "").trim();
-    return raw || "YOU";
+    return String(keyed[0] ?? "").trim();
   }
   if (matches.length === 1) {
     const raw = String(matches[0][0] ?? "").trim();
-    if (raw) return raw;
-    const n = leaderboardNumericScore(matches[0]);
-    if (n != null && Number.isFinite(n) && n > 0) return "YOU";
-    return "";
+    return raw;
   }
   return "";
 }
@@ -114,6 +114,9 @@ export function applyLiveLeaderboardPreviewMerge(
   { useDemoData, liveSubmitUsed }
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
+  const displayName = sanitizeDemoLeaderboardName(
+    String(trimmedPlayerName || "").trim()
+  );
   const run = Number(runScore);
   if (
     !(Number.isFinite(run) && run > SCORE_SUBMIT_THRESHOLD) ||
@@ -123,7 +126,7 @@ export function applyLiveLeaderboardPreviewMerge(
   }
   return mergeDemoRunIntoTop10(
     normalizedApiRows,
-    trimmedPlayerName || "YOU",
+    displayName,
     run,
     String(trophyWord || "").trim(),
     { dedupeNameScoreTrophy: false, tagLiveRunPreview: true }

@@ -40,6 +40,7 @@ import {
 } from "./leaderboard-ui-helpers.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
+import { persistLeaderboardSubmitName } from "./leaderboard-name-pref.js";
 
 function trimLeaderboardSubmitName(raw) {
   return String(sanitizeDemoLeaderboardName(raw) || String(raw ?? "").trim()).trim();
@@ -48,6 +49,18 @@ function trimLeaderboardSubmitName(raw) {
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
   const st = rt.state;
+
+  function applySubmitButtonVisibility() {
+    applyLeaderboardSubmitButtonVisibility({
+      leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
+      refs: refs(),
+      qualifiesForBoardSlot: st.qualifiesForBoardSlot ?? false,
+      score: rt.getScore(),
+      scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
+      liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      demoSubmitUsed: st.demoLeaderboardSubmitUsed,
+    });
+  }
 
   function findDemoSelfRowIndex() {
     const rows = st.demoLeaderboardRows;
@@ -79,7 +92,7 @@ export function createLeaderboardController(rt) {
       idx = findLiveSelfRowIndex();
     }
     if (idx < 0 || !rows) return;
-    const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
+    const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "";
 
     td.textContent = "";
     td.removeAttribute("data-inline-self-name");
@@ -105,9 +118,8 @@ export function createLeaderboardController(rt) {
       const v = sanitizeDemoLeaderboardName(input.value);
       input.value = v;
       rows[idx][0] = v;
-      if (!LEADERBOARD_USE_DEMO_DATA) {
-        refs().playerName.value = v;
-      }
+      refs().playerName.value = v;
+      applySubmitButtonVisibility();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -117,10 +129,8 @@ export function createLeaderboardController(rt) {
     });
     input.addEventListener("blur", () => {
       const v = sanitizeDemoLeaderboardName(input.value);
-      rows[idx][0] = v || "YOU";
-      if (!LEADERBOARD_USE_DEMO_DATA) {
-        refs().playerName.value = v || "";
-      }
+      rows[idx][0] = v || "";
+      refs().playerName.value = v || "";
       renderLeaderboardTable(rows);
     });
   }
@@ -295,16 +305,8 @@ export function createLeaderboardController(rt) {
           st.liveLeaderboardEligibilityRows ?? rows,
           rt.getScore()
         ) && !st.liveLeaderboardSubmitUsed;
-
-    applyLeaderboardSubmitButtonVisibility({
-      leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
-      refs: refs(),
-      qualifiesForBoardSlot,
-      score: rt.getScore(),
-      scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
-      liveSubmitUsed: st.liveLeaderboardSubmitUsed,
-      demoSubmitUsed: st.demoLeaderboardSubmitUsed,
-    });
+    st.qualifiesForBoardSlot = qualifiesForBoardSlot;
+    applySubmitButtonVisibility();
   }
 
   function finalizeDemoLeaderboardSubmit() {
@@ -313,17 +315,19 @@ export function createLeaderboardController(rt) {
     if (Number(rt.getScore()) <= 0) return;
     const idx = findDemoSelfRowIndex();
     if (idx < 0 || !rows) return;
-    rt.playSound("submit", rt.getIsMuted());
     const { leaderboardTable } = refs();
     const input = leaderboardTable.querySelector(".leaderboard-inline-name-input");
     let name;
     if (input) {
-      name = sanitizeDemoLeaderboardName(input.value) || "YOU";
+      name = sanitizeDemoLeaderboardName(input.value);
     } else {
-      name = sanitizeDemoLeaderboardName(rows[idx][0]) || "YOU";
+      name = sanitizeDemoLeaderboardName(rows[idx][0]);
     }
+    if (!name) return;
+    rt.playSound("submit", rt.getIsMuted());
     rows[idx][0] = name;
     st.demoLeaderboardSubmitUsed = true;
+    persistLeaderboardSubmitName(name);
     renderLeaderboardTable(rows);
   }
 
@@ -450,6 +454,7 @@ export function createLeaderboardController(rt) {
     };
     let tableRows;
     let committed = false;
+    let rendered = false;
 
     try {
       const network = await fetchLiveLeaderboardNetworkResult({
@@ -472,6 +477,7 @@ export function createLeaderboardController(rt) {
         rt.playSound("submit", rt.getIsMuted());
         st.liveLeaderboardSubmitUsed = true;
         playerName.value = nameTrim;
+        if (nameTrim) persistLeaderboardSubmitName(nameTrim);
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
       }
@@ -489,15 +495,12 @@ export function createLeaderboardController(rt) {
       }
 
       renderLeaderboardTable(tableRows);
+      rendered = true;
     } finally {
       if (clicked) {
         playerName.disabled = false;
-        if (st.liveLeaderboardSubmitUsed) {
-          leaderboardButton.disabled = true;
-          leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";
-        } else {
-          leaderboardButton.disabled = false;
-          leaderboardButton.style.removeProperty("background-color");
+        if (!rendered) {
+          applySubmitButtonVisibility();
         }
       }
     }
@@ -520,7 +523,7 @@ export function createLeaderboardController(rt) {
         const run = Number(rt.getScore());
         let rows = [];
         if (demoRunQualifiesForLeaderboard([], run) && run > 0) {
-          rows = mergeDemoRunIntoTop10([], "YOU", run, rt.getTrophyWord() || "");
+          rows = mergeDemoRunIntoTop10([], "", run, rt.getTrophyWord() || "");
         }
         st.demoLeaderboardRows = rows;
         renderLeaderboardTable(rows);
@@ -529,7 +532,7 @@ export function createLeaderboardController(rt) {
         if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
           st.demoLeaderboardRows = mergeDemoRunIntoTop10(
             base,
-            "YOU",
+            "",
             rt.getScore(),
             rt.getTrophyWord() || ""
           );
@@ -574,6 +577,12 @@ export function createLeaderboardController(rt) {
         revealPostGameCopyScoreLine();
       }, DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS);
     })();
+  }
+
+  const pn = refs().playerName;
+  if (pn && !pn.dataset.whNameSubmitSync) {
+    pn.dataset.whNameSubmitSync = "1";
+    pn.addEventListener("input", applySubmitButtonVisibility);
   }
 
   async function getLeaderboard(clicked = false) {

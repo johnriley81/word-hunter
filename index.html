@@ -27,6 +27,15 @@
         🔚
       </button>
       <img id="logo" src="images/logo.png" alt="logo" />
+      <button
+        type="button"
+        id="theme-toggle"
+        class="header-icon-button"
+        aria-label="Enable night mode"
+        aria-pressed="false"
+      >
+        🌛
+      </button>
       <button type="button" id="mute-button" class="header-icon-button">🔔</button>
       <button type="button" id="rules-button" class="header-icon-button">❓</button>
     </div>
@@ -214,7 +223,16 @@
               perfect hunt words, each with 8+ letters
             </li>
             <li>each perfect word scores higher than the last</li>
-            <li>each perfect word start tile is pulsing orange</li>
+            <li>
+              each perfect word start tile is pulsing
+              <span
+                class="rules-perfect-hunt-pulse-label rules-perfect-hunt-pulse-label--day"
+                >orange</span
+              ><span
+                class="rules-perfect-hunt-pulse-label rules-perfect-hunt-pulse-label--night"
+                >blue</span
+              >
+            </li>
             <li>
               today's perfect hunt total is
               <strong id="rules-perfect-hunt-total" class="rules-perfect-hunt-total"

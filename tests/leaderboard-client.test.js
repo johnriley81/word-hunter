@@ -134,22 +134,22 @@ test("leaderboardLiveSubmitNameFallbackRaw: single matching row when field empty
 test("leaderboardLiveSubmitNameFallbackRaw: disambiguate by preview key when field empty", () => {
   const rows = normalizeLeaderboardRows([
     ["TOMMY", 0, 50, "Z"],
-    ["YOU", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
+    ["", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
   ]);
-  assert.equal(leaderboardLiveSubmitNameFallbackRaw(rows, "", 50, "Z"), "YOU");
+  assert.equal(leaderboardLiveSubmitNameFallbackRaw(rows, "", 50, "Z"), "");
 });
 
 test("leaderboardLiveSelfRowIndex: prefers tagged current-run preview row", () => {
   const rows = normalizeLeaderboardRows([
-    ["YOU", 0, 50, "Z"],
-    ["TOMMY", 0, 50, "Z"],
-    ["YOU", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
+    ["ALICE", 0, 50, "Z"],
+    ["BOB", 0, 50, "Z"],
+    ["", 0, 50, "Z", LEADERBOARD_META_LIVE_PREVIEW],
   ]);
   assert.equal(leaderboardLiveSelfRowIndex(rows, "", 50, "Z"), 2);
-  assert.equal(leaderboardLiveSelfRowIndex(rows, "TOMMY", 50, "Z"), 1);
+  assert.equal(leaderboardLiveSelfRowIndex(rows, "BOB", 50, "Z"), 1);
 });
 
-test("applyLiveLeaderboardPreviewMerge: keeps API row; adds preview below on same name/score/trophy", () => {
+test("applyLiveLeaderboardPreviewMerge: empty player name still adds preview row", () => {
   const norm = normalizeLeaderboardRows([
     ["YOU", 88, "blinders"],
     ["TOMMY", 88, "blinders"],
@@ -158,15 +158,11 @@ test("applyLiveLeaderboardPreviewMerge: keeps API row; adds preview below on sam
     useDemoData: false,
     liveSubmitUsed: false,
   });
-  const youRows = merged.filter(
-    (r) => String(r[0]).toUpperCase() === "YOU" && r[2] === 88
-  );
-  assert.equal(youRows.length, 2);
-  const previewIdx = merged.findIndex((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
-  const firstYouIdx = merged.findIndex(
-    (r) => String(r[0]).toUpperCase() === "YOU" && r[2] === 88 && r.length < 5
-  );
-  assert.ok(firstYouIdx >= 0 && previewIdx > firstYouIdx);
+  const preview = merged.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
+  assert.ok(preview);
+  assert.equal(String(preview[0] ?? "").trim(), "");
+  assert.equal(preview[2], 88);
+  assert.equal(String(preview[3] ?? "").toLowerCase(), "blinders");
 });
 
 test("demoRunQualifiesForLeaderboard: beat 10th score only (tie does not qualify)", () => {
@@ -184,7 +180,7 @@ test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows playe
     useDemoData: false,
     liveSubmitUsed: false,
   });
-  assert.equal(merged[0][0], "Ada");
+  assert.equal(merged[0][0], "ADA");
   assert.equal(merged[0][2], 88);
   assert.equal(merged.length, 10);
 });
