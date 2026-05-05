@@ -1,3 +1,5 @@
+import { isNightTheme } from "./app-theme.js";
+
 export const greenTextColor = "#07f03a";
 export const redTextColor = "#f76d6d";
 export const lightGreenPreviewColor = "#8ff7a8";
@@ -5,14 +7,10 @@ export const lightRedPreviewColor = "#ff9b9b";
 export const colorSharedWhite = "#f5ecdf";
 
 export function currentWordNeutralTextColor() {
-  if (typeof document === "undefined") return "#ffffff";
-  return document.documentElement.getAttribute("data-theme") === "night"
-    ? colorSharedWhite
-    : "#ffffff";
+  return isNightTheme() ? colorSharedWhite : "#ffffff";
 }
 
 export const goldTextColor = "#e3af02";
-export const leaderboardSubPerfectRowColor = "#f5e2a2";
 /** Success message / highlights when the submitted word is the next perfect-hunt list word on pace. */
 export const huntPaceSuccessFlashColor = "#ffdd22";
 export const happyHuntingColor = "gold";
@@ -113,7 +111,7 @@ export const WORD_RELEASE_GREEN_MS = 255;
 export const WORD_LETTER_FLIP_MS = 416;
 /** Whole-grid exit: `#grid` opacity to 0 (`gridEndgameBatchFade`). Same for regular and perfect hunt. */
 export const ENDGAME_GRID_BATCH_FADE_MS = 1000;
-/** Non-perfect endgame: milliseconds before RETRY is shown (then dock-fade-in). */
+/** Delay before RETRY after non-perfect endgame. */
 export const ENDGAME_RETRY_REVEAL_DELAY_MS = 500;
 export const WORD_REPLACE_FLIP_OVERLAP_MS = Math.floor(WORD_LETTER_FLIP_MS / 2);
 export const WORD_COMMIT_AFTER_PULSE_MS = 300;

@@ -1,13 +1,4 @@
-function useNightDragStrokePalette() {
-  try {
-    return (
-      typeof document !== "undefined" &&
-      document.documentElement?.getAttribute("data-theme") === "night"
-    );
-  } catch {
-    return false;
-  }
-}
+import { isNightTheme } from "./app-theme.js";
 
 /**
  * Rainbow gradient for word-drag connector lines. Night mode uses a darker ramp
@@ -20,7 +11,7 @@ export function wordPathDragStrokeColorAt(p) {
   const rRed = 4 / 11;
   const rPink = 7 / 11;
   const rBlue = 9 / 11;
-  const night = useNightDragStrokePalette();
+  const night = isNightTheme();
   const am = night ? { r: 178, g: 128, b: 18 } : { r: 255, g: 175, b: 0 };
   const rd = night ? { r: 168, g: 40, b: 55 } : { r: 255, g: 0, b: 0 };
   const pk = night ? { r: 188, g: 88, b: 148 } : { r: 255, g: 125, b: 195 };

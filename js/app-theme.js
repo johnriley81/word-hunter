@@ -3,6 +3,9 @@
 /**
  * Toggles `data-theme` on `<html>`. Night visuals (dock, tiles, background, etc.) live in
  * style.css under `[data-theme="night"]`, not here — keep new theme chrome as CSS overrides.
+ *
+ * Prefer theme-bound colors as CSS custom properties in :root / `[data-theme="night"]`, and
+ * read them via `var(--token)` in styles or inline `style` (see leaderboard self-row).
  */
 
 export const THEME_STORAGE_KEY = "wordhunter_theme";
@@ -19,6 +22,20 @@ export function readStoredTheme() {
     if (raw === "night") return "night";
   } catch (_) {}
   return "default";
+}
+
+/**
+ * @param {HTMLElement | null} [root] Defaults to `document.documentElement`.
+ * @returns {boolean}
+ */
+export function isNightTheme(root = null) {
+  try {
+    const el = root ?? globalThis.document?.documentElement;
+    if (!el) return false;
+    return el.getAttribute("data-theme") === "night";
+  } catch {
+    return false;
+  }
 }
 
 /** @param {HTMLElement | null} root */
@@ -41,7 +58,7 @@ export function applyTheme(theme, opts = {}) {
 
   const btn = opts.toggleButton ?? null;
   if (btn) {
-    const isNight = theme === "night";
+    const isNight = isNightTheme(root);
     btn.textContent = isNight ? THEME_ICON_NIGHT : THEME_ICON_LIGHT;
     btn.setAttribute("aria-pressed", isNight ? "true" : "false");
     btn.setAttribute(
