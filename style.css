@@ -109,6 +109,7 @@
   --primary-dock-button-bg: var(--button-background-color);
   --primary-dock-button-text: var(--button-text-color);
   --leaderboard-table-text-color: var(--color-shared-white);
+  --leaderboard-self-row-highlight-color: var(--hunt-pace-highlight-bg);
   --tile-word-release-green-end-bg: #bff9d5;
   --tile-word-release-green-end-fg: #1a4530;
   --tile-invalid-shake-12-bg: #f0a0a0;
@@ -171,8 +172,8 @@
   --page-text-color: var(--color-shared-white);
   --grid-button-inactive-text-color: var(--color-shared-white);
   --rules-accent-red: var(--color-shared-white);
-  --score-muted-label-color: #cab8ea;
-  --rules-section-heading-color: var(--score-muted-label-color);
+  --leaderboard-self-row-highlight-color: #cab8ea;
+  --rules-section-heading-color: var(--leaderboard-self-row-highlight-color);
 }
 
 @media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
@@ -1431,11 +1432,6 @@ body.rules-overlay-open #leaderboard-elements {
   text-overflow: ellipsis;
   background-color: transparent;
   vertical-align: middle;
-}
-
-html[data-theme="night"] #leaderboard-table tbody tr,
-html[data-theme="night"] #leaderboard-table tbody td {
-  color: var(--color-shared-white) !important;
 }
 
 #leaderboard-table tbody tr {

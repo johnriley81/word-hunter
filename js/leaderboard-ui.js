@@ -8,7 +8,6 @@ import {
   SCORE_SUBMIT_THRESHOLD,
   CURRENT_WORD_BRIEF_FADE_IN_MS,
   happyHuntingColor,
-  leaderboardSubPerfectRowColor,
 } from "./config.js";
 import {
   normalizeLeaderboardRows,
@@ -40,6 +39,8 @@ import {
 } from "./leaderboard-ui-helpers.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
+
+const LB_SELF_ROW_FG = "var(--leaderboard-self-row-highlight-color)";
 
 function trimLeaderboardSubmitName(raw) {
   return String(sanitizeDemoLeaderboardName(raw) || String(raw ?? "").trim()).trim();
@@ -248,7 +249,7 @@ export function createLeaderboardController(rt) {
         nameMatchesHighlight
       ) {
         st.playerPosition = index + 1;
-        color = leaderboardSubPerfectRowColor;
+        color = LB_SELF_ROW_FG;
       }
 
       tr.style.color = color;
@@ -260,25 +261,25 @@ export function createLeaderboardController(rt) {
           const td = document.createElement("td");
           if (cellIndex === 0) {
             td.textContent = cellText;
-            td.style.color = highlightSelfRow ? leaderboardSubPerfectRowColor : "white";
+            td.style.color = highlightSelfRow ? LB_SELF_ROW_FG : "white";
           } else if (cellIndex === 1 && useInlineNameCell) {
             td.dataset.inlineSelfName = "1";
             td.classList.add("leaderboard-name-cell--you-pseudo-select");
             syncLeaderboardNameCellSubPerfect(td, true);
             td.style.cursor = "pointer";
             if (highlightSelfRow) {
-              td.style.color = leaderboardSubPerfectRowColor;
+              td.style.color = LB_SELF_ROW_FG;
             }
             td.textContent = displayNameCell;
           } else if (cellIndex === 1 || cellIndex === 2) {
             if (highlightSelfRow) {
-              td.style.color = leaderboardSubPerfectRowColor;
+              td.style.color = LB_SELF_ROW_FG;
             }
             td.textContent = cellText;
           } else {
             setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
             if (highlightSelfRow && String(cellText).trim() !== "") {
-              td.style.color = leaderboardSubPerfectRowColor;
+              td.style.color = LB_SELF_ROW_FG;
             }
           }
 
