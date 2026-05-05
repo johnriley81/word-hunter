@@ -40,7 +40,6 @@ import {
 } from "./leaderboard-ui-helpers.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
-import { persistLeaderboardSubmitName } from "./leaderboard-name-pref.js";
 
 function trimLeaderboardSubmitName(raw) {
   return String(sanitizeDemoLeaderboardName(raw) || String(raw ?? "").trim()).trim();
@@ -327,7 +326,6 @@ export function createLeaderboardController(rt) {
     rt.playSound("submit", rt.getIsMuted());
     rows[idx][0] = name;
     st.demoLeaderboardSubmitUsed = true;
-    persistLeaderboardSubmitName(name);
     renderLeaderboardTable(rows);
   }
 
@@ -477,7 +475,6 @@ export function createLeaderboardController(rt) {
         rt.playSound("submit", rt.getIsMuted());
         st.liveLeaderboardSubmitUsed = true;
         playerName.value = nameTrim;
-        if (nameTrim) persistLeaderboardSubmitName(nameTrim);
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
       }
