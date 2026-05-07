@@ -41,6 +41,7 @@ import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
 
 const LB_SELF_ROW_FG = "var(--leaderboard-self-row-highlight-color)";
+const LB_TABLE_DEFAULT_FG = "var(--leaderboard-table-text-color)";
 
 function trimLeaderboardSubmitName(raw) {
   return String(sanitizeDemoLeaderboardName(raw) || String(raw ?? "").trim()).trim();
@@ -171,7 +172,7 @@ export function createLeaderboardController(rt) {
     rows.forEach((row, index) => {
       let [playerRaw, , , rowTrophy] = row;
       const tr = document.createElement("tr");
-      let color = "white";
+      let color = LB_TABLE_DEFAULT_FG;
 
       const playerStr = String(playerRaw || "").trim();
       const scoreNum = leaderboardNumericScore(row);
@@ -261,7 +262,7 @@ export function createLeaderboardController(rt) {
           const td = document.createElement("td");
           if (cellIndex === 0) {
             td.textContent = cellText;
-            td.style.color = highlightSelfRow ? LB_SELF_ROW_FG : "white";
+            td.style.color = highlightSelfRow ? LB_SELF_ROW_FG : LB_TABLE_DEFAULT_FG;
           } else if (cellIndex === 1 && useInlineNameCell) {
             td.dataset.inlineSelfName = "1";
             td.classList.add("leaderboard-name-cell--you-pseudo-select");
