@@ -1,18 +1,12 @@
 /** @typedef {"default" | "night"} AppTheme */
 
-/**
- * Toggles `data-theme` on `<html>`. Night visuals (dock, tiles, background, etc.) live in
- * style.css under `[data-theme="night"]`, not here — keep new theme chrome as CSS overrides.
- *
- * Prefer theme-bound colors as CSS custom properties in :root / `[data-theme="night"]`, and
- * read them via `var(--token)` in styles or inline `style` (see leaderboard self-row).
- */
+/** `data-theme` = day/night (CSS in style.css); `data-visual-scheme="og"` = OG overlay; storage keys stay separate. */
 
 export const THEME_STORAGE_KEY = "wordhunter_theme";
+export const OG_VISUAL_STORAGE_KEY = "wordhunter_visual_og";
 
-/** Default / light theme icon (tap → night). */
+const OG_LONG_PRESS_MS = 1000;
 const THEME_ICON_LIGHT = "\u{1F31B}";
-/** Night mode active (tap → default). */
 const THEME_ICON_NIGHT = "\u{1F338}";
 
 /** @returns {AppTheme} */
@@ -24,8 +18,52 @@ export function readStoredTheme() {
   return "default";
 }
 
+/** @returns {boolean} */
+export function readStoredOgVisual() {
+  try {
+    return globalThis.localStorage?.getItem(OG_VISUAL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
- * @param {HTMLElement | null} [root] Defaults to `document.documentElement`.
+ * @param {HTMLElement | null} [root]
+ * @returns {boolean}
+ */
+export function isOgVisualScheme(root = null) {
+  try {
+    const el = root ?? globalThis.document?.documentElement;
+    if (!el) return false;
+    return el.getAttribute("data-visual-scheme") === "og";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {boolean} enabled
+ * @param {{ root?: HTMLElement | null }} [opts]
+ */
+export function applyOgVisual(enabled, opts = {}) {
+  const root = opts.root ?? globalThis.document?.documentElement;
+  if (!root) return;
+  if (enabled) {
+    root.setAttribute("data-visual-scheme", "og");
+  } else {
+    root.removeAttribute("data-visual-scheme");
+  }
+  try {
+    if (enabled) {
+      globalThis.localStorage?.setItem(OG_VISUAL_STORAGE_KEY, "1");
+    } else {
+      globalThis.localStorage?.removeItem(OG_VISUAL_STORAGE_KEY);
+    }
+  } catch (_) {}
+}
+
+/**
+ * @param {HTMLElement | null} [root]
  * @returns {boolean}
  */
 export function isNightTheme(root = null) {
@@ -49,24 +87,35 @@ function setRootTheme(root, theme) {
 }
 
 /**
+ * @param {HTMLButtonElement | null} toggleButton
+ * @param {HTMLElement | null} root
+ */
+function syncThemeToggleButton(toggleButton, root) {
+  if (!toggleButton) return;
+  const isNight = isNightTheme(root);
+  const og = isOgVisualScheme(root);
+  toggleButton.textContent = isNight ? THEME_ICON_NIGHT : THEME_ICON_LIGHT;
+  toggleButton.setAttribute("aria-pressed", isNight ? "true" : "false");
+  toggleButton.setAttribute(
+    "aria-label",
+    og
+      ? isNight
+        ? "Switch to day mode (exits OG visuals)"
+        : "Switch to night mode (exits OG visuals)"
+      : isNight
+        ? "Disable night mode"
+        : "Enable night mode"
+  );
+}
+
+/**
  * @param {AppTheme} theme
  * @param {{ root?: HTMLElement | null; toggleButton?: HTMLButtonElement | null }} [opts]
  */
 export function applyTheme(theme, opts = {}) {
   const root = opts.root ?? globalThis.document?.documentElement;
   setRootTheme(root, theme);
-
-  const btn = opts.toggleButton ?? null;
-  if (btn) {
-    const isNight = isNightTheme(root);
-    btn.textContent = isNight ? THEME_ICON_NIGHT : THEME_ICON_LIGHT;
-    btn.setAttribute("aria-pressed", isNight ? "true" : "false");
-    btn.setAttribute(
-      "aria-label",
-      isNight ? "Disable night mode" : "Enable night mode"
-    );
-  }
-
+  syncThemeToggleButton(opts.toggleButton ?? null, root);
   try {
     globalThis.localStorage?.setItem(THEME_STORAGE_KEY, theme);
   } catch (_) {}
@@ -74,17 +123,57 @@ export function applyTheme(theme, opts = {}) {
 
 /**
  * @param {HTMLButtonElement | null} toggleButton
- * @param {{ getInitialTheme?: () => AppTheme }} [opts]
+ * @param {{ getInitialTheme?: () => AppTheme; root?: HTMLElement | null }} [opts]
  */
 export function initThemeToggle(toggleButton, opts = {}) {
   if (!toggleButton) return;
 
-  const initial = opts.getInitialTheme ? opts.getInitialTheme() : readStoredTheme();
-  applyTheme(initial, { toggleButton });
+  const root = opts.root ?? globalThis.document?.documentElement ?? null;
 
-  toggleButton.addEventListener("click", () => {
+  const initial = opts.getInitialTheme ? opts.getInitialTheme() : readStoredTheme();
+  applyTheme(initial, { toggleButton, root });
+  applyOgVisual(readStoredOgVisual(), { root });
+  syncThemeToggleButton(toggleButton, root);
+
+  let longPressTimer = null;
+  let suppressThemeClick = false;
+
+  function clearLongPressTimer() {
+    if (longPressTimer != null) {
+      globalThis.clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  toggleButton.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    clearLongPressTimer();
+    if (root && isOgVisualScheme(root)) return;
+    longPressTimer = globalThis.setTimeout(() => {
+      longPressTimer = null;
+      applyOgVisual(true, { root });
+      const logical = root && isNightTheme(root) ? "night" : "default";
+      applyTheme(logical, { toggleButton, root });
+      suppressThemeClick = true;
+    }, OG_LONG_PRESS_MS);
+  });
+
+  toggleButton.addEventListener("pointerup", clearLongPressTimer);
+  toggleButton.addEventListener("pointercancel", clearLongPressTimer);
+  toggleButton.addEventListener("pointerleave", clearLongPressTimer);
+
+  toggleButton.addEventListener("click", (e) => {
+    if (suppressThemeClick) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      suppressThemeClick = false;
+      return;
+    }
+    if (root && isOgVisualScheme(root)) {
+      applyOgVisual(false, { root });
+    }
     const next =
       toggleButton.getAttribute("aria-pressed") === "true" ? "default" : "night";
-    applyTheme(next, { toggleButton });
+    applyTheme(next, { toggleButton, root });
   });
 }

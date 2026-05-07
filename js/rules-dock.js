@@ -1,35 +1,38 @@
 import { syncLiveSfxMute } from "./audio.js";
 
-export function setRulesOverlayVisible(refs, gridPan, onPausedChange, isVisible) {
-  const { rules, gameInfoContainer, bottomDock, grid } = refs;
+function setRulesOverlayVisible(
+  refs,
+  onPausedChange,
+  scheduleLineOverlayResize,
+  isVisible
+) {
+  const { rules, gameInfoContainer, bottomDock, gridLineWrapper } = refs;
   rules.classList.toggle("hidden", !isVisible);
   rules.classList.toggle("visible", isVisible);
   document.body.classList.toggle("rules-overlay-open", isVisible);
   gameInfoContainer.classList.toggle("hiddenDisplay", isVisible);
   bottomDock.classList.toggle("hiddenDisplay", isVisible);
-  grid.classList.toggle("hidden", isVisible);
-  grid.classList.toggle("visible", !isVisible);
-  if (gridPan) {
-    gridPan.classList.toggle("hidden", isVisible);
-    gridPan.classList.toggle("visible", !isVisible);
-  }
+  gridLineWrapper?.classList.toggle("rules-hide-playing-surface", isVisible);
   onPausedChange(isVisible);
+  if (!isVisible && typeof scheduleLineOverlayResize === "function") {
+    scheduleLineOverlayResize();
+  }
 }
 
 export function attachRulesDock(opts) {
   const {
     refs,
-    gridPan,
-    rules,
     rulesButton,
     muteButton,
     getIsMuted,
     setIsMuted,
     onPausedChange,
+    scheduleLineOverlayResize,
   } = opts;
+  const { rules } = refs;
 
   function setVisible(isVisible) {
-    setRulesOverlayVisible(refs, gridPan, onPausedChange, isVisible);
+    setRulesOverlayVisible(refs, onPausedChange, scheduleLineOverlayResize, isVisible);
   }
 
   rules.addEventListener("click", (event) => {

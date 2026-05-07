@@ -22,10 +22,19 @@
   --grid-button-active-border-color: #3a3a3e;
   --hunt-pace-highlight-bg: #f5e2a2;
   --hunt-pace-highlight-text: #3d2800;
-  --perfect-hunt-starter-hint-orange-solid: #fc8a09;
+  --board-shift-hint-color: #ffffff;
+  --board-shift-hint-accent-drag: #5294f2;
+  --board-shift-hint-accent-endgame: #dd3333;
+  --rules-controls-drag-color: var(--board-shift-hint-accent-drag);
+  --rules-controls-endgame-color: color-mix(
+    in srgb,
+    var(--board-shift-hint-accent-endgame) 62%,
+    #ffffff
+  );
+  --perfect-hunt-starter-hint-blue-solid: #52bcfa;
   --perfect-hunt-starter-hint-ring-dim: color-mix(
     in srgb,
-    var(--perfect-hunt-starter-hint-orange-solid) 82%,
+    var(--perfect-hunt-starter-hint-blue-solid) 82%,
     black
   );
   --perfect-hunt-starter-hint-ring-soft: color-mix(
@@ -41,7 +50,7 @@
     color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 38%, transparent);
   --perfect-hunt-starter-hint-ring-shadow-peak: inset 0 0 0
     var(--perfect-hunt-starter-hint-ring-width-peak)
-    color-mix(in srgb, var(--perfect-hunt-starter-hint-orange-solid) 97%, transparent);
+    color-mix(in srgb, var(--perfect-hunt-starter-hint-blue-solid) 97%, transparent);
   --perfect-hunt-starter-hint-ring-shadow-static: inset 0 0 0 2px
     color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 58%, transparent);
   --grid-button-text-color: var(--tile-glyph-white);
@@ -60,18 +69,9 @@
   --header-icon-button-background-color: #ffffff;
   --rules-overlay-background-color: rgba(0, 0, 0, 0.85);
   --rules-accent-gold: #e3af02;
-  --rules-accent-red: #f76d6d;
-  --rules-section-heading-color: #cab8ea;
+  --rules-accent-red: var(--color-shared-white);
+  --rules-section-heading-color: #edcc97;
   --rules-dismiss-red: #c94a4a;
-  --board-shift-hint-color: #ffffff;
-  --board-shift-hint-accent-drag: #5294f2;
-  --board-shift-hint-accent-endgame: #dd3333;
-  --rules-controls-drag-color: var(--board-shift-hint-accent-drag);
-  --rules-controls-endgame-color: color-mix(
-    in srgb,
-    var(--board-shift-hint-accent-endgame) 62%,
-    #ffffff
-  );
   --grid-size: 4;
   --grid-gap: 13px;
   --grid-max: 400px;
@@ -124,23 +124,22 @@
   --tile-invalid-shake-72-fg: #561212;
 }
 
-/* Night: token overrides; prefer new theme colors as --vars in :root or here. */
 [data-theme="night"] {
   --body-background-image: url("images/background2.png");
   --logo-filter: brightness(0) invert(1);
   --header-icon-button-background-color: #000000;
-  --box-background-color: #16161c;
   --game-panel-border-color: #723e49;
   --leaderboard-panel-border-color: color-mix(
     in srgb,
     var(--game-panel-border-color) 58%,
     black
   );
-  --primary-dock-button-bg: #5a4960;
+  --primary-dock-button-bg: #794f8b;
   --primary-dock-button-text: var(--color-shared-white);
-  --grid-button-active-color: var(--box-background-color);
+  --grid-button-active-color: #000000;
   --grid-button-active-text-color: var(--color-shared-white);
   --grid-button-text-color: var(--color-shared-white);
+  --grid-button-inactive-color: #2a2a2a;
   --selected-tile-color: #0a3a63;
   --selected-tile-text-color: var(--color-shared-white);
   --selected-tile-visit2-color: #0d4d7a;
@@ -149,7 +148,6 @@
   --selected-tile-visit3-text-color: var(--color-shared-white);
   --hunt-pace-highlight-bg: #957110;
   --hunt-pace-highlight-text: var(--color-shared-white);
-  --perfect-hunt-starter-hint-orange-solid: #8ecae6;
   --word-connector-valid-stroke: #2d5a3f;
   --word-connector-valid-hunt-pace-stroke: #9a7a00;
   --word-connector-invalid-stroke: #7a2828;
@@ -172,9 +170,91 @@
   --rules-controls-endgame-color: var(--board-shift-hint-accent-endgame);
   --page-text-color: var(--color-shared-white);
   --grid-button-inactive-text-color: var(--color-shared-white);
-  --rules-accent-red: var(--color-shared-white);
   --leaderboard-self-row-highlight-color: #cab8ea;
-  --rules-section-heading-color: var(--leaderboard-self-row-highlight-color);
+}
+
+html[data-visual-scheme="og"] {
+  --body-background-image: url("images/background3.png");
+  --board-shift-hint-accent-drag: #87c4ff;
+  --board-shift-hint-accent-endgame: #ff8181;
+  --board-shift-hint-color: var(--color-shared-white);
+  --rules-controls-endgame-color: var(--board-shift-hint-accent-endgame);
+  --box-background-color: #000000;
+  --game-panel-border-color: #8b0000;
+  --leaderboard-panel-border-color: color-mix(
+    in srgb,
+    var(--game-panel-border-color) 58%,
+    black
+  );
+  --page-text-color: #ffffff;
+  --leaderboard-self-row-highlight-color: #ffecd4;
+  --header-icon-button-background-color: #ffffff;
+  --primary-dock-button-bg: #fcebc7;
+  --primary-dock-button-text: #000000;
+  --leaderboard-button-background-color: var(--primary-dock-button-bg);
+  --leaderboard-button-text-color: var(--primary-dock-button-text);
+  --grid-button-inactive-color: #808080;
+  --grid-button-active-color: #fae8d9;
+  --grid-button-inactive-text-color: #8b0000;
+  --grid-button-active-text-color: #8b0000;
+  --grid-button-text-color: #8b0000;
+  --logo-filter: brightness(0);
+  --leaderboard-table-text-color: #000000;
+}
+
+html[data-visual-scheme="og"] #score,
+html[data-visual-scheme="og"] #queue-ribbon {
+  border-color: #451313;
+}
+
+html[data-visual-scheme="og"] .leaderboard-panel {
+  border: none;
+  background: transparent;
+  border-radius: 0 0 16px 16px;
+}
+
+html[data-visual-scheme="og"] #leaderboard-table thead th {
+  background-color: #000000;
+  color: var(--color-shared-white);
+}
+
+html[data-visual-scheme="og"] #leaderboard-table thead th,
+html[data-visual-scheme="og"] #leaderboard-table td {
+  text-shadow: none;
+}
+
+html[data-visual-scheme="og"] .leaderboard-actions-row {
+  background: transparent;
+  border-top: none;
+}
+
+/* OG + logical night: day-style board interaction colors */
+html[data-visual-scheme="og"][data-theme="night"] {
+  --selected-tile-color: #cbe6ff;
+  --selected-tile-text-color: #1a2d42;
+  --selected-tile-visit2-color: #9ec9f2;
+  --selected-tile-visit2-text-color: #142433;
+  --selected-tile-visit3-color: #6fabdf;
+  --selected-tile-visit3-text-color: #0f1822;
+  --hunt-pace-highlight-bg: #f5e2a2;
+  --hunt-pace-highlight-text: #3d2800;
+
+  --word-connector-valid-stroke: #478461;
+  --word-connector-valid-hunt-pace-stroke: #ffcc00;
+  --word-connector-invalid-stroke: #c23a3a;
+  --word-connector-hunt-pace-drop-shadow: 0 0 3px rgba(255, 221, 34, 0.75);
+  --tile-word-release-green-end-bg: #bff9d5;
+  --tile-word-release-green-end-fg: #1a4530;
+  --tile-invalid-shake-12-bg: #f0a0a0;
+  --tile-invalid-shake-12-fg: #5c1212;
+  --tile-invalid-shake-18-bg: #ff8f8f;
+  --tile-invalid-shake-18-fg: #4a0f0f;
+  --tile-invalid-shake-36-bg: #f59b9b;
+  --tile-invalid-shake-36-fg: #521010;
+  --tile-invalid-shake-54-bg: #ff9494;
+  --tile-invalid-shake-54-fg: #4a0f0f;
+  --tile-invalid-shake-72-bg: #eba6a6;
+  --tile-invalid-shake-72-fg: #561212;
 }
 
 @media screen and (orientation: landscape) and (hover: none) and (max-width: 960px) {
@@ -358,6 +438,13 @@ html {
   top: 0px;
 }
 
+#theme-toggle,
+#mute-button,
+#rules-button {
+  border: 1px solid #000000;
+  background-color: #ffffff;
+}
+
 .header-icon-button,
 .header-bar-button {
   box-sizing: border-box;
@@ -396,14 +483,20 @@ html {
 
 #rules {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: 200;
-  width: 100vw;
-  height: 100vh;
-  background-color: var(--rules-overlay-background-color);
-  color: var(--page-text-color);
   box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100svh;
+  max-height: 100dvh;
+  background-color: var(--rules-overlay-background-color);
+  color: var(--color-shared-white);
 }
 
 #rules.hidden {
@@ -413,20 +506,20 @@ html {
 
 #rules.visible {
   display: flex !important;
-  flex-direction: row;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   pointer-events: auto;
 }
 
 .rules-shell {
   position: relative;
+  box-sizing: border-box;
+  flex: 1 1 auto;
   width: 100%;
   max-width: var(--app-shell-max-width);
-  max-height: 100dvh;
   min-height: 0;
   margin: 0 auto;
-  box-sizing: border-box;
   padding: clamp(1rem, 4dvh, 2rem) var(--page-padding);
   display: flex;
   flex-direction: column;
@@ -443,7 +536,7 @@ html {
     Arial,
     sans-serif;
   font-size: clamp(0.8rem, 2.8vw, 0.95rem);
-  line-height: 1.5;
+  line-height: 1.42;
   text-transform: none;
   text-align: center;
 }
@@ -460,7 +553,7 @@ html {
 }
 
 .rules-shell h2 {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.26rem;
 }
 
 .rules-section {
@@ -470,37 +563,29 @@ html {
 }
 
 .rules-section:first-of-type {
-  margin-top: 0.35rem;
+  margin-top: 0.22rem;
 }
 
 .rules-shell h3 {
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.32rem;
 }
 
 .rules-shell .rules-gesture-phrase {
   color: var(--rules-controls-drag-color);
   font-style: italic;
+  font-weight: 700;
 }
 
 .rules-shell .rules-endgame-gesture {
   color: var(--rules-controls-endgame-color);
   font-style: italic;
+  font-weight: 700;
 }
 
 .rules-perfect-hunt-pulse-label {
-  color: var(--perfect-hunt-starter-hint-orange-solid);
-}
-
-.rules-perfect-hunt-pulse-label--night {
-  display: none;
-}
-
-[data-theme="night"] .rules-perfect-hunt-pulse-label--day {
-  display: none;
-}
-
-[data-theme="night"] .rules-perfect-hunt-pulse-label--night {
-  display: inline;
+  color: var(--perfect-hunt-starter-hint-blue-solid);
+  font-weight: 700;
+  animation: leaderboardSharedPulse 0.42s ease-in-out infinite;
 }
 
 .rules-list {
@@ -510,23 +595,33 @@ html {
   list-style-position: inside;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.28rem;
   align-items: center;
   text-align: center;
   width: 100%;
   box-sizing: border-box;
 }
 
+.rules-list li {
+  margin: 0;
+  padding: 0;
+  line-height: 1.32;
+}
+
 .rules-section p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.38rem;
 }
 
 .rules-section p:last-child {
   margin-bottom: 0;
 }
 
+.rules-section--meta > p:first-of-type {
+  margin-bottom: 0.2rem;
+}
+
 .rules-section--meta .rules-dismiss {
-  margin-top: 1.5rem;
+  margin-top: 0.35rem;
 }
 
 .rules-dismiss {
@@ -730,7 +825,11 @@ html {
   }
 
   #rules.visible {
-    padding-bottom: clamp(1.75rem, 6dvh, 2.75rem);
+    padding-top: max(clamp(0.75rem, 4dvh, 2rem), env(safe-area-inset-top, 0px));
+    padding-bottom: max(
+      clamp(0.75rem, 6dvh, 2.75rem),
+      env(safe-area-inset-bottom, 0px)
+    );
   }
 }
 
@@ -1269,6 +1368,12 @@ line.grid-line--fade-out {
   align-items: center;
 }
 
+#grid-line-wrapper.rules-hide-playing-surface #grid-pan,
+#grid-line-wrapper.rules-hide-playing-surface #line-container {
+  opacity: 0;
+  pointer-events: none;
+}
+
 #grid-line-wrapper.grid-line-wrapper--shift-clipping {
   overflow: hidden;
 }
@@ -1310,6 +1415,11 @@ line.grid-line--fade-out {
   transition:
     opacity var(--leaderboard-postgame-fade-ms) ease,
     visibility 0s;
+}
+
+#leaderboard-elements[aria-hidden="true"] .leaderboard-perfect-hunt-flash,
+#leaderboard-elements[aria-hidden="true"] .leaderboard-over-perfect-glow {
+  animation: none !important;
 }
 
 body.rules-overlay-open #leaderboard-elements {
@@ -1464,7 +1574,7 @@ body.rules-overlay-open #leaderboard-elements {
 @keyframes leaderboardOverPerfectPulse {
   0%,
   100% {
-    color: var(--perfect-hunt-starter-hint-orange-solid);
+    color: var(--perfect-hunt-starter-hint-blue-solid);
     filter: brightness(1) saturate(1.02);
   }
   50% {
@@ -1476,7 +1586,8 @@ body.rules-overlay-open #leaderboard-elements {
 @media (prefers-reduced-motion: reduce) {
   #leaderboard-table .leaderboard-perfect-hunt-flash,
   #leaderboard-table .leaderboard-over-perfect-glow,
-  .rules-perfect-hunt-total {
+  .rules-perfect-hunt-total,
+  .rules-perfect-hunt-pulse-label {
     animation: none;
   }
 

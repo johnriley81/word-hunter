@@ -154,22 +154,6 @@ export function initGame(ctx) {
   let isPaused = false;
   let isMuted = readStoredMuted();
 
-  const { setRulesOverlayVisible } = attachRulesDock({
-    refs: { rules, gameInfoContainer, bottomDock, grid },
-    gridPan,
-    rules,
-    rulesButton,
-    muteButton,
-    getIsMuted: () => isMuted,
-    setIsMuted: (v) => {
-      isMuted = v;
-      persistMuted(v);
-    },
-    onPausedChange: (v) => {
-      isPaused = v;
-    },
-  });
-
   muteButton.textContent = isMuted ? "🔕" : "🔔";
   syncLiveSfxMute(isMuted);
 
@@ -225,6 +209,21 @@ export function initGame(ctx) {
       gridLineContainer,
       beforeMeasure: syncGridViewportSize,
     });
+
+  const { setRulesOverlayVisible } = attachRulesDock({
+    refs: { rules, gameInfoContainer, bottomDock, gridLineWrapper },
+    rulesButton,
+    muteButton,
+    getIsMuted: () => isMuted,
+    setIsMuted: (v) => {
+      isMuted = v;
+      persistMuted(v);
+    },
+    onPausedChange: (v) => {
+      isPaused = v;
+    },
+    scheduleLineOverlayResize: scheduleSyncLineOverlaySize,
+  });
 
   function lockGridSizeForSwipe() {
     lockGridSizeForSwipeCore(grid, ctx.state.shift);
