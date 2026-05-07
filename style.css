@@ -31,10 +31,10 @@
     var(--board-shift-hint-accent-endgame) 62%,
     #ffffff
   );
-  --perfect-hunt-starter-hint-blue-solid: #52bcfa;
+  --perfect-hunt-starter-hint-gold-solid: var(--rules-accent-gold);
   --perfect-hunt-starter-hint-ring-dim: color-mix(
     in srgb,
-    var(--perfect-hunt-starter-hint-blue-solid) 82%,
+    var(--perfect-hunt-starter-hint-gold-solid) 82%,
     black
   );
   --perfect-hunt-starter-hint-ring-soft: color-mix(
@@ -50,7 +50,7 @@
     color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 38%, transparent);
   --perfect-hunt-starter-hint-ring-shadow-peak: inset 0 0 0
     var(--perfect-hunt-starter-hint-ring-width-peak)
-    color-mix(in srgb, var(--perfect-hunt-starter-hint-blue-solid) 97%, transparent);
+    color-mix(in srgb, var(--perfect-hunt-starter-hint-gold-solid) 97%, transparent);
   --perfect-hunt-starter-hint-ring-shadow-static: inset 0 0 0 2px
     color-mix(in srgb, var(--perfect-hunt-starter-hint-ring-soft) 58%, transparent);
   --grid-button-text-color: var(--tile-glyph-white);
@@ -583,7 +583,7 @@ html {
 }
 
 .rules-perfect-hunt-pulse-label {
-  color: var(--perfect-hunt-starter-hint-blue-solid);
+  color: var(--perfect-hunt-starter-hint-gold-solid);
   font-weight: 700;
   animation: leaderboardSharedPulse 0.42s ease-in-out infinite;
 }
@@ -1574,7 +1574,7 @@ body.rules-overlay-open #leaderboard-elements {
 @keyframes leaderboardOverPerfectPulse {
   0%,
   100% {
-    color: var(--perfect-hunt-starter-hint-blue-solid);
+    color: var(--perfect-hunt-starter-hint-gold-solid);
     filter: brightness(1) saturate(1.02);
   }
   50% {
