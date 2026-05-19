@@ -28,6 +28,11 @@ export function createGameContext() {
       perfectHuntStarterFlats: null,
       /** @type {string[] | null} */
       perfectHuntStarterTorNeighbors: null,
+      /** @type {Array<Array<{ t: "row" | "col"; s: number }>> | null} */
+      perfectHuntShiftsBefore: null,
+      /** Snapshot of `starting_grid` at load — restored before each new run. */
+      /** @type {string[][] | null} */
+      puzzleInitialGrid: null,
       wordLine: {
         active: false,
         /** @type {ReturnType<typeof setTimeout> | null} */

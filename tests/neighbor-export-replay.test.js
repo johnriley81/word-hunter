@@ -4,6 +4,7 @@ import { GRID_SIZE, NEXT_LETTERS_LEN } from "../js/config.js";
 import {
   replacementTilesFirstVisitFlatOrder,
   verifyForwardPuzzle,
+  verifyForwardPuzzleWithShifts,
   stripTrailingEmptyNextLetters,
   padNextLettersToLen,
   computePerfectHuntStarterHints,
@@ -155,6 +156,27 @@ test("computeShiftAwareStarterHints with empty shift rows matches computePerfect
     pathsAsc
   );
   assert.deepStrictEqual(shiftAware, legacy);
+});
+
+test("verifyForwardPuzzleWithShifts empty shift rows agrees with verifyForwardPuzzle", () => {
+  const { pathsAsc, wordsAsc, grid0, fifoTrim } = replayVsTerminalFixture;
+  const nextTrim = stripTrailingEmptyNextLetters(padNextLettersToLen(fifoTrim.slice()));
+  const noop = pathsAsc.map(() => []);
+  const a = verifyForwardPuzzle(
+    grid0.map((row) => row.slice()),
+    nextTrim,
+    wordsAsc,
+    pathsAsc
+  );
+  const b = verifyForwardPuzzleWithShifts(
+    grid0.map((row) => row.slice()),
+    nextTrim,
+    wordsAsc,
+    pathsAsc,
+    noop
+  );
+  assert.equal(a.ok, b.ok);
+  assert.equal(a.reason, b.reason);
 });
 
 test("gamemaker dict export packs only core fields plus tor_neighbor ring (sack-aligned)", () => {

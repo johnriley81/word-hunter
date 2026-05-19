@@ -6,7 +6,10 @@ import {
   getLiveWordScoreBreakdownFromLabels,
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
+  minTileLikeBudgetMultisetFromLabels,
   wordReuseStats,
+  analyzeTileReusePairing,
+  canReuseLabelPair,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
   remapFlatAfterColumnShiftSigned,
@@ -31,6 +34,29 @@ import {
 test("word success showMessage total duration is reasonable for tile counts", () => {
   assert.ok(getWordSuccessShowMessageTotalMs(4) > 500);
   assert.ok(getWordSuccessShowMessageTotalMs(7) > getWordSuccessShowMessageTotalMs(4));
+});
+
+test("analyzeTileReusePairing matches minTiles and exposes consistent partner endpoints", () => {
+  const w = "binging";
+  const g = wordToTileLabelSequence(w);
+  const a = analyzeTileReusePairing(w);
+  assert.deepEqual(a.labelsNormalized, g);
+  assert.equal(a.minTiles, minUniqueTilesForReuseRule(g));
+  assert.equal(a.reuseCount, a.pairCount);
+  assert.equal(a.pairCount, g.length - a.minTiles);
+  assert.equal(a.partnerAtStep.length, g.length);
+  let secondEndpoints = 0;
+  for (let j = 0; j < g.length; j++) {
+    if (a.partnerAtStep[j] != null) secondEndpoints++;
+    assert.equal(a.secondVisitReuseStep[j], a.partnerAtStep[j] != null);
+  }
+  assert.equal(secondEndpoints, a.pairCount);
+  for (const [i, j] of a.pairs) {
+    assert.ok(i < j);
+    assert.ok(canReuseLabelPair(g, i, j));
+    assert.equal(a.partnerAtStep[j], i);
+    assert.equal(a.partnerAtStep[i], null);
+  }
 });
 
 test("normalizeTileText trims and maps q to qu", () => {
@@ -58,6 +84,23 @@ test("minUniqueTilesForReuseRule: two distinct between same labels", () => {
   assert.equal(wordReuseStats("binging").minTiles, 4);
   assert.equal(wordReuseStats("binging").reuse, 3);
   assert.equal(minUniqueTilesForReuseRule("aardvark"), 6);
+});
+
+test("minTileLikeBudgetMultisetFromLabels sums to minTiles (binging, see)", () => {
+  const gB = wordToTileLabelSequence("binging");
+  const budgetB = minTileLikeBudgetMultisetFromLabels(gB);
+  let sB = 0;
+  for (const [, c] of budgetB) sB += c;
+  assert.equal(sB, minUniqueTilesForReuseRule(gB));
+  assert.equal(sB, 4);
+
+  const gSee = wordToTileLabelSequence("see");
+  const budgetSee = minTileLikeBudgetMultisetFromLabels(gSee);
+  assert.equal(budgetSee.get("s"), 1);
+  assert.equal(budgetSee.get("e"), 2);
+  let sSee = 0;
+  for (const [, c] of budgetSee) sSee += c;
+  assert.equal(sSee, minUniqueTilesForReuseRule(gSee));
 });
 
 test("getLiveWordScoreBreakdownFromLabels multiplies sum by string length", () => {

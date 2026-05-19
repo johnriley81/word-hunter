@@ -8,6 +8,11 @@ import {
   minUniqueTilesForReuseRule,
   torNeighborQuadExportTokensFromBoard,
 } from "../board-logic.js";
+import {
+  pathFlatReuseMatchesGlyphPerFlat,
+  buildBoardForUniquenessFromSnapshot,
+  countGamemakerWordPathsOnBoard,
+} from "../puzzle-export-sim/word-path-search.js";
 import { getTileButtonFromEvent, setTileTextAllowEmpty } from "../grid-tiles.js";
 import { isAdjacentGridTiles, syncSelectionVisitDepthOnGrid } from "../word-play.js";
 import { clearWordSubmitFeedbackTimer } from "../word-drag.js";
@@ -267,8 +272,33 @@ export function createGridPlacementApi(deps) {
     if (word.selectedButtons.length !== glyphs.length) {
       return { ok: false, reason: "path length" };
     }
+    const pathFlatEarly = word.selectedButtons.map((b) => buttonFlatIndex(grid, b));
+    if (pathFlatEarly.some((f) => f < 0)) {
+      return { ok: false, reason: "path flat" };
+    }
+    if (!pathFlatReuseMatchesGlyphPerFlat(pathFlatEarly, glyphs)) {
+      return { ok: false, reason: "tile_glyph_reuse" };
+    }
     if (new Set(word.selectedButtons).size !== minTiles) {
       return { ok: false, reason: "min_tiles" };
+    }
+    const snap = getBoardSnapshotPreDrag();
+    const uniqBoard = buildBoardForUniquenessFromSnapshot(
+      snap || null,
+      pathFlatEarly,
+      glyphs,
+      GRID_SIZE
+    );
+    if (!uniqBoard) {
+      return { ok: false, reason: "board_letter_conflict" };
+    }
+    if (
+      countGamemakerWordPathsOnBoard(w, uniqBoard, {
+        gridSize: GRID_SIZE,
+        stopAfter: 2,
+      }) !== 1
+    ) {
+      return { ok: false, reason: "ambiguous_spelling" };
     }
     if (!getWordSet().has(w)) {
       return { ok: false, reason: "dict" };

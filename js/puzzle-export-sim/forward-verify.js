@@ -1,46 +1,43 @@
-import { NEXT_LETTERS_LEN, GRID_SIZE, GRID_CELL_COUNT } from "../config.js";
-import { wordToTileLabelSequence, normalizeTileText } from "../board-logic.js";
+import { NEXT_LETTERS_LEN } from "../config.js";
 import { canonicalNextLettersFromJsonArray } from "./next-letters.js";
+import {
+  replacementTilesFirstVisitFlatOrder,
+  tryApplyFifoLetterRefillsAfterWordSubmission,
+} from "./refill-fifo.js";
+import { shiftAwareStarterHintsReplay } from "./shift-starter.js";
+import { pathFlatConflictsPenultimateUndoStroke } from "./word-path-search.js";
 
-/** Unique path flats in first-visit order (FIFO refill slots). */
-export function replacementTilesFirstVisitFlatOrder(pathFlat) {
-  const out = [];
-  const seen = new Set();
-  for (const f of pathFlat) {
-    if (!seen.has(f)) {
-      seen.add(f);
-      out.push(f);
-    }
-  }
-  return out;
-}
+export {
+  replacementTilesFirstVisitFlatOrder,
+  tryApplyFifoLetterRefillsAfterWordSubmission,
+} from "./refill-fifo.js";
 
-/** Apply refills after a word (`shift()` per replacementTilesFirstVisitFlatOrder flat). Returns false if sack too short. */
-export function tryApplyFifoLetterRefillsAfterWordSubmission(
-  board,
-  fifoQueue,
-  pathFlat,
-  gridSize = GRID_SIZE
-) {
-  const n = Math.max(1, Math.floor(Number(gridSize)) || GRID_SIZE);
-  const order = replacementTilesFirstVisitFlatOrder(pathFlat);
-  if (order.length > fifoQueue.length) return false;
-  for (const f of order) {
-    const rep = normalizeTileText(String(fifoQueue.shift() ?? "").toLowerCase());
-    const r = Math.floor(f / n);
-    const c = f % n;
-    board[r][c] = rep;
-  }
-  return true;
+/** @param {unknown} q */
+function emptyQueueSnapshot(q) {
+  return Array.isArray(q) ? q.slice() : [];
 }
 
 /**
- * Replay ascending hunt paths on `grid0` with FIFO refills; board must solve with empty sack after.
+ * Forward replay with optional row/column shifts before each ascending hunt word
+ * (`perfect_hunt_shifts_before`). Empty rows = legacy behavior.
+ *
+ * @param {string[][]} grid0
+ * @param {unknown} nextIn
+ * @param {string[]} wordsAsc
+ * @param {number[][]} pathFlatByWordAsc
+ * @param {unknown[] | null | undefined} shiftsBeforeByWordAsc aligned with ascending hunt index
+ * @param {{ fillEmptyPathCells?: boolean }} [replayOpts] forwarded to {@link shiftAwareStarterHintsReplay}
  */
-export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
-  const n = GRID_SIZE;
-  const b = grid0.map((row) => row.slice());
-  let q;
+export function verifyForwardPuzzleWithShifts(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc,
+  shiftsBeforeByWordAsc,
+  replayOpts = {}
+) {
+  /** @type {string[]} */
+  let q = [];
   try {
     q = canonicalNextLettersFromJsonArray(Array.isArray(nextIn) ? nextIn : []);
   } catch (e) {
@@ -59,60 +56,74 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
       queueLeft: q,
     };
   }
+
   for (let wi = 0; wi < nw; wi++) {
-    const w = (wordsAsc[wi] || "").toLowerCase();
-    const path = pathFlatByWordAsc[wi];
-    if (!w || !path || !path.length) {
-      return { ok: false, reason: "missing word or path at index " + wi, queueLeft: q };
-    }
-    const glyphs = wordToTileLabelSequence(w);
-    if (glyphs.length !== path.length) {
-      return { ok: false, reason: "glyphs vs path at word " + wi, queueLeft: q };
-    }
-    for (let i = 0; i < path.length; i++) {
-      const f = path[i];
-      if (f < 0 || f >= GRID_CELL_COUNT) {
-        return { ok: false, reason: "path index oob " + f, queueLeft: q };
-      }
-      const r = Math.floor(f / n);
-      const c = f % n;
-      const g = normalizeTileText(b[r][c]);
-      const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
-      if (g !== need) {
-        return {
-          ok: false,
-          reason: "word " + wi + " at step " + i + " want " + need + " got " + g,
-          queueLeft: q,
-        };
-      }
-    }
-    if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) {
+    const path = pathFlatByWordAsc[wi] || [];
+    if (pathFlatConflictsPenultimateUndoStroke(path)) {
       return {
         ok: false,
-        reason: "not enough next letters for word " + wi,
+        reason:
+          "path_penultimate_undo_collision word " +
+          wi +
+          " (⋯A,B,A⋯ selection order is undo on main-site drag)",
         queueLeft: q,
       };
     }
   }
-  if (q.length !== 0) {
+
+  const r = shiftAwareStarterHintsReplay(
+    grid0,
+    nextIn,
+    wordsAsc,
+    pathFlatByWordAsc,
+    shiftsBeforeByWordAsc,
+    replayOpts
+  );
+  if (!r.ok)
     return {
       ok: false,
-      reason: "next letters not fully consumed, left: " + q.length,
-      queueLeft: q,
+      reason: r.reason || "replay failed",
+      queueLeft: emptyQueueSnapshot(q),
     };
-  }
-  return { ok: true, reason: "ok", queueLeft: q };
+  return { ok: true, reason: "ok", queueLeft: [] };
+}
+
+/**
+ * Replay ascending hunt paths on `grid0` with FIFO refills; board must solve with empty sack after.
+ * Equivalent to verifyForwardPuzzleWithShifts with no inter-word shifts.
+ *
+ * Placement ambiguity gates (**`geometry`** vs **`fifo_equivalence`**) belong to **`findRandomLegalPathFlat`** /
+ * automated builds — forward verify assumes exported paths already satisfied whatever uniqueness policy the builder used.
+ */
+export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  const noop = Array.from({ length: nw }, () => []);
+  return verifyForwardPuzzleWithShifts(
+    grid0,
+    nextIn,
+    wordsAsc,
+    pathFlatByWordAsc,
+    noop,
+    {}
+  );
 }
 
 /**
  * Run forward verify only if sum of `covered` lengths matches `NEXT_LETTERS_LEN`.
+ *
+ * When **`shiftsBeforeByWordAsc`** includes any nonempty row, replay uses shift-aware FIFO on **`grid0`**
+ * (the shipped **`starting_grid`**, i.e. end-of-generation board state).
+ *
+ * @param {{ fillEmptyPathCells?: boolean }} [replayOpts] merged after defaults when shift replay runs
  */
 export function verifyForwardPuzzleIfCoveredChain(
   grid0,
   nextIn,
   wordsAsc,
   pathFlatByWordAsc,
-  playsChron
+  playsChron,
+  shiftsBeforeByWordAsc,
+  replayOpts
 ) {
   const n = coveredFirstVisitCountTotal(playsChron);
   if (n !== NEXT_LETTERS_LEN) {
@@ -122,7 +133,24 @@ export function verifyForwardPuzzleIfCoveredChain(
       queueLeft: Array.isArray(nextIn) ? nextIn.slice() : [],
     };
   }
-  return verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc);
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  const useShiftReplay =
+    Array.isArray(shiftsBeforeByWordAsc) &&
+    shiftsBeforeByWordAsc.length === nw &&
+    shiftsBeforeByWordAsc.some((row) => Array.isArray(row) && row.length > 0);
+
+  if (!useShiftReplay) {
+    return verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc);
+  }
+  const merged = typeof replayOpts === "object" && replayOpts != null ? replayOpts : {};
+  return verifyForwardPuzzleWithShifts(
+    grid0,
+    nextIn,
+    wordsAsc,
+    pathFlatByWordAsc,
+    shiftsBeforeByWordAsc,
+    { fillEmptyPathCells: true, ...merged }
+  );
 }
 
 /** Sum of `covered` lengths — must equal `NEXT_LETTERS_LEN` for a valid run. */

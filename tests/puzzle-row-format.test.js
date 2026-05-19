@@ -10,7 +10,11 @@ import {
   serializePuzzleRow,
 } from "../js/puzzle-row-format.js";
 import { canonicalNextLettersFromJsonArray } from "../js/puzzle-export-sim.js";
-import { PERFECT_HUNT_WORD_COUNT, NEXT_LETTERS_LEN } from "../js/config.js";
+import {
+  PERFECT_HUNT_WORD_COUNT,
+  NEXT_LETTERS_LEN,
+  GRID_CELL_COUNT,
+} from "../js/config.js";
 
 const HUNT_PLACEHOLDERS = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
   String.fromCharCode("a".charCodeAt(0) + i)
@@ -46,6 +50,22 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
     assert.equal(p.starting_grid.length, 4);
     assert.equal(p.next_letters.length, NEXT_LETTERS_LEN);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
+  }
+});
+
+test("compact next_letters in JSON pad to NEXT_LETTERS_LEN on load (50 letter tiles)", () => {
+  const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
+  const rawLines = text.split("\n").filter((line) => line.trim().length > 0);
+  for (let i = 0; i < rawLines.length; i++) {
+    const compact = /** @type {{ next_letters: string[] }} */ (JSON.parse(rawLines[i]))
+      .next_letters;
+    assert.ok(compact.length >= 50 && compact.length <= NEXT_LETTERS_LEN);
+    assert.equal(
+      compact.filter((c) => c !== "").length,
+      NEXT_LETTERS_LEN - GRID_CELL_COUNT
+    );
+    const parsed = parsePuzzlesFileText(rawLines[i]);
+    assert.equal(parsed[0].next_letters.length, NEXT_LETTERS_LEN);
   }
 });
 
@@ -149,4 +169,36 @@ test("parsePuzzlesFileText parses multiple JSON lines", () => {
   assert.equal(puzzles.length, 2);
   assert.equal(puzzles[0].next_letters[0], "1");
   assert.equal(puzzles[1].next_letters[0], "2");
+});
+
+test("serializePuzzleRow round-trip preserves perfect_hunt_shifts_before", () => {
+  const sg = [
+    ["a", "a", "a", "a"],
+    ["a", "a", "a", "a"],
+    ["a", "a", "a", "a"],
+    ["a", "a", "a", "a"],
+  ];
+  const shiftsBefore = [
+    [],
+    [{ t: "col", s: -1 }],
+    [],
+    [{ t: "row", s: 2 }],
+    [],
+    [],
+    [],
+  ];
+  const row = dictExportToCanonicalRow({
+    starting_grids: [sg],
+    next_letters: Array(NEXT_LETTERS_LEN).fill("z"),
+    perfect_hunt: HUNT_PLACEHOLDERS.slice(),
+    perfect_hunt_shifts_before: shiftsBefore,
+  });
+  assert.ok(row.perfect_hunt_shifts_before);
+  const line = serializePuzzleRow(row);
+  const again = parsePuzzlesFileText(line);
+  assert.equal(again.length, 1);
+  assert.deepStrictEqual(
+    again[0].perfect_hunt_shifts_before,
+    row.perfect_hunt_shifts_before
+  );
 });
