@@ -336,25 +336,73 @@ export function canReuseLabelPair(labels, i, j) {
 }
 
 /**
- * Max number of non-overlapping reuses: each pair of indices shares one tile.
- * A position appears in at most one pair. Greedy is wrong; n ≤ ~11 for normal words.
- * @param {string[]} labels
- * @returns {number}
+ * Normalize arrays from {@link wordToTileLabelSequence} (`q`/`qu`).
+ *
+ * @param {string[] | string} labelsOrWord
  */
-export function maxDisjointReusePairs(labels) {
+function normalizedTileLabelsArray(labelsOrWord) {
+  const raw = Array.isArray(labelsOrWord)
+    ? labelsOrWord
+    : wordToTileLabelSequence(String(labelsOrWord || "").toLowerCase());
+  return raw.map((g) => normalizeTileText(String(g ?? "")));
+}
+
+/** Lex order on flattened pair endpoints — tie-break maximal reuse pair lists. */
+function reusePairStacksLexLt(stackA, stackB) {
+  /** @type {number[]} */
+  const aa = [];
+  /** @type {number[]} */
+  const bb = [];
+  for (let u = 0; u < stackA.length; u++) {
+    aa.push(stackA[u][0], stackA[u][1]);
+  }
+  for (let v = 0; v < stackB.length; v++) {
+    bb.push(stackB[v][0], stackB[v][1]);
+  }
+  const ln = Math.min(aa.length, bb.length);
+  for (let k = 0; k < ln; k++) {
+    if (aa[k] !== bb[k]) return aa[k] < bb[k];
+  }
+  return aa.length < bb.length;
+}
+
+/**
+ * Disjoint reuse pairing maximizing count (same DFS as legacy `maxDisjointReusePairs`, but labels
+ * should already be canonical via {@link normalizedTileLabelsArray}).
+ *
+ * @param {string[]} labelsNormalized
+ * @returns {{ pairCount: number; pairs: Array<[number, number]> }}
+ */
+export function maximalDisjointReusePairingNormalizedLabels(labelsNormalized) {
+  const labels = labelsNormalized;
   const n = Array.isArray(labels) ? labels.length : 0;
-  if (n < 2) return 0;
+  if (n < 2) {
+    return { pairCount: 0, pairs: [] };
+  }
   const used = new Array(n).fill(false);
   let best = 0;
+  /** @type {Array<[number, number]>} */
+  let bestStk = [];
   let pairCount = 0;
+  /** @type {Array<[number, number]>} */
+  const stk = [];
+
   function go() {
     let i = 0;
     while (i < n && used[i]) {
       i++;
     }
     if (i >= n) {
-      if (pairCount > best) {
+      if (
+        pairCount > best ||
+        (pairCount === best && reusePairStacksLexLt(stk, bestStk))
+      ) {
         best = pairCount;
+        bestStk = stk.map(
+          (row) =>
+            /** @type {[number, number]} */
+            ([row[0], row[1]])
+        );
       }
       return;
     }
@@ -366,7 +414,9 @@ export function maxDisjointReusePairs(labels) {
         used[i] = true;
         used[j] = true;
         pairCount++;
+        stk.push([i, j]);
         go();
+        stk.pop();
         pairCount--;
         used[i] = false;
         used[j] = false;
@@ -377,7 +427,101 @@ export function maxDisjointReusePairs(labels) {
     used[i] = false;
   }
   go();
-  return best;
+
+  /** @type {Array<[number, number]>} */
+  const pairs = [...bestStk];
+  pairs.sort((a, b) => (a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]));
+  return { pairCount: pairs.length, pairs };
+}
+
+/**
+ * Disjoint reuse pairing chosen exactly like {@link maximalDisjointReusePairingNormalizedLabels}
+ * (maximum cardinality + deterministic lex tie-break). Fields **`minTiles`** and **`reuseCount`** align with
+ * {@link minUniqueTilesForReuseRule} / {@link wordReuseStats}.
+ *
+ * Words may admit multiple maximal disjoint pairings; this returns **one** canonical optimum — callers
+ * must not treat {@link maximalDisjointReusePairingNormalizedLabels} pairs as globally forced without
+ * enumerating alternatives (see guided DFS / optional hard prune).
+ *
+ * @param {string[] | string} wordOrLabels Tile labels / lowercase word (`wordToTileLabelSequence`).
+ * @returns {{
+ *   labelsNormalized: string[];
+ *   pairs: Array<[number, number]>;
+ *   partnerAtStep: (number | null)[];
+ *   secondVisitReuseStep: boolean[];
+ *   pairCount: number;
+ *   minTiles: number;
+ *   reuseCount: number;
+ * }}
+ */
+export function analyzeTileReusePairing(wordOrLabels) {
+  const labelsNormalized = normalizedTileLabelsArray(wordOrLabels);
+  const L = labelsNormalized.length;
+  const { pairs, pairCount } =
+    maximalDisjointReusePairingNormalizedLabels(labelsNormalized);
+  /** @type {(number | null)[]} */
+  const partnerAtStep = Array.from({ length: L }, () => null);
+  for (const [i, j] of pairs) {
+    const lo = i < j ? i : j;
+    const hi = i < j ? j : i;
+    partnerAtStep[hi] = lo;
+  }
+  const secondVisitReuseStep = partnerAtStep.map((p) => p != null);
+  const minTiles = L - pairCount;
+  return {
+    labelsNormalized,
+    pairs,
+    partnerAtStep,
+    secondVisitReuseStep,
+    pairCount,
+    minTiles,
+    reuseCount: pairCount,
+  };
+}
+
+/**
+ * Max number of non-overlapping reuses (tile labels canonicalized via `normalizeTileText`).
+ * A position appears in at most one pair. Greedy is wrong; n ≤ ~11 for normal words.
+ *
+ * @param {string[]} labels Tile labels (`wordToTileLabelSequence`).
+ * @returns {number}
+ */
+export function maxDisjointReusePairs(labels) {
+  const norm = normalizedTileLabelsArray(labels);
+  return maximalDisjointReusePairingNormalizedLabels(norm).pairCount;
+}
+
+/**
+ * Budget per normalized label for puzzle-builder placement “likes”: multiplicity on **distinct**
+ * minimal tiles (`glyphs.length − maxDisjointReusePairs`). Only letters in this budget count
+ * toward preference bonus (QU normalized as `qu`).
+ *
+ * @param {string[] | string | null | undefined} labelsOrWord
+ * @returns {Map<string, number>}
+ */
+export function minTileLikeBudgetMultisetFromLabels(labelsOrWord) {
+  const labels = normalizedTileLabelsArray(labelsOrWord);
+  if (!labels.length) return new Map();
+
+  const { pairs } = maximalDisjointReusePairingNormalizedLabels(labels);
+  /** @type {Map<string, number>} */
+  const freq = new Map();
+  for (const L of labels) {
+    freq.set(L, (freq.get(L) ?? 0) + 1);
+  }
+  /** @type {Map<string, number>} */
+  const pairPerLetter = new Map();
+  for (const [bi, _bj] of pairs) {
+    const L = labels[bi];
+    pairPerLetter.set(L, (pairPerLetter.get(L) ?? 0) + 1);
+  }
+
+  /** @type {Map<string, number>} */
+  const budget = new Map();
+  for (const [L, c] of freq) {
+    budget.set(L, Math.max(0, c - (pairPerLetter.get(L) ?? 0)));
+  }
+  return budget;
 }
 
 /**

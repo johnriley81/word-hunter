@@ -3,8 +3,14 @@ import {
   wordToTileLabelSequence,
   minUniqueTilesForReuseRule,
   torNeighborQuadExportTokensFromBoard,
+  normalizeTileText,
 } from "../board-logic.js";
-import { replacementTilesFirstVisitFlatOrder } from "./forward-verify.js";
+import { comparePoolWordEntriesDescSackRefillOrder } from "../gamemaker/pool-order.js";
+import {
+  replacementTilesFirstVisitFlatOrder,
+  tryApplyFifoLetterRefillsAfterWordSubmission,
+} from "./refill-fifo.js";
+import { padNextLettersToLen } from "./next-letters.js";
 
 /**
  * Build `next_letters` from per-play `covered`: for each play prepend that play's `covered`
@@ -30,6 +36,106 @@ export function buildNextLettersFromCoveredInBuildOrder(playsChron, options) {
   }
   while (flat.length < len) flat.push(fillEmpty);
   return flat.slice(0, len);
+}
+
+/**
+ * Derive per-word `covered[]` for export / `next_letters` stacking by walking forward FIFO
+ * replay on the shipped `starting_grid` (final board). Placement-time snapshots from an empty
+ * board are wrong for that model; this records letters on first-visit cells before each refill.
+ *
+ * @param {string[][]} finalGrid
+ * @param {string[]} wordsAsc hunt words ascending (`comparePoolWordEntriesAscForwardExport`)
+ * @param {number[][]} pathsAsc paths aligned with `wordsAsc`
+ * @param {Array<{ word?: string; wordTotal?: number }>} poolEntriesAsc same order as `wordsAsc`
+ * @returns {Array<{ word: string; pathFlat: number[]; covered: string[]; min_tiles: number }> | null}
+ */
+export function deriveCoveredPlaysForFinalGridFifo(
+  finalGrid,
+  wordsAsc,
+  pathsAsc,
+  poolEntriesAsc
+) {
+  const n = GRID_SIZE;
+  const nw = wordsAsc.length;
+  if (nw === 0 || pathsAsc.length !== nw || poolEntriesAsc.length !== nw) return null;
+
+  const empty = Array.from({ length: n }, () => Array(n).fill(""));
+  const chronBare = wordsAsc.map((w, i) => ({
+    word: w,
+    pathFlat: pathsAsc[i] || [],
+  }));
+  const harnessReco = recomputeCoveredChronFromHarness(empty, chronBare);
+  /** @type {Array<{ word: string; pathFlat: number[]; covered: string[]; min_tiles: number }>} */
+  let plays = harnessReco.map((p) => ({
+    word: p.word,
+    pathFlat: p.pathFlat.slice(),
+    covered: p.covered.slice(),
+    min_tiles: p.min_tiles,
+  }));
+
+  const orderDesc = poolEntriesAsc
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => comparePoolWordEntriesDescSackRefillOrder(a.e, b.e));
+
+  for (let iter = 0; iter < 5; iter++) {
+    const fifoGuess = padNextLettersToLen(
+      buildNextLettersFromCoveredInBuildOrder(
+        orderDesc.map((x) => ({ covered: plays[x.i].covered })),
+        { fillEmpty: "" }
+      )
+    );
+    const b = finalGrid.map((row) => row.map((c) => String(c || "").toLowerCase()));
+    const q = fifoGuess.slice();
+    /** @type {Array<{ word: string; pathFlat: number[]; covered: string[]; min_tiles: number }>} */
+    const nextPlays = [];
+    let ok = true;
+    for (let wi = 0; wi < nw; wi++) {
+      const path = pathsAsc[wi] || [];
+      const w = String(wordsAsc[wi] || "").toLowerCase();
+      const glyphs = wordToTileLabelSequence(w);
+      if (glyphs.length !== path.length) {
+        ok = false;
+        break;
+      }
+      for (let i = 0; i < path.length; i++) {
+        const f = path[i];
+        if (f < 0 || f >= GRID_CELL_COUNT) {
+          ok = false;
+          break;
+        }
+        const r = Math.floor(f / n);
+        const c = f % n;
+        if (normalizeTileText(b[r][c]) !== normalizeTileText(glyphs[i])) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) break;
+      const order = replacementTilesFirstVisitFlatOrder(path);
+      const covered = order.map((f) => {
+        const r = Math.floor(f / n);
+        const c = f % n;
+        return normalizeTileText(b[r][c]);
+      });
+      nextPlays.push({
+        word: w,
+        pathFlat: path.slice(),
+        covered,
+        min_tiles: minUniqueTilesForReuseRule(glyphs),
+      });
+      if (!tryApplyFifoLetterRefillsAfterWordSubmission(b, q, path, n)) {
+        ok = false;
+        break;
+      }
+    }
+    if (!ok) return plays;
+    const stable = nextPlays.every(
+      (p, wi) => p.covered.join("\0") === plays[wi].covered.join("\0")
+    );
+    plays = nextPlays;
+    if (stable) break;
+  }
+  return plays;
 }
 
 /**

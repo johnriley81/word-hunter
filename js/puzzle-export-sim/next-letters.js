@@ -20,6 +20,18 @@ export function stripTrailingEmptyNextLetters(tokens) {
   return out;
 }
 
+/** Strip leading sack padding (shift FIFO stacks may leave inactive head slots). */
+export function stripLeadingEmptyNextLetters(tokens) {
+  const out = Array.isArray(tokens) ? tokens.slice() : [];
+  while (out.length > 0 && out[0] === "") out.shift();
+  return out;
+}
+
+/** Trim inactive head and tail padding while preserving internal `""` slots. */
+export function stripEmptyPaddingNextLetters(tokens) {
+  return stripTrailingEmptyNextLetters(stripLeadingEmptyNextLetters(tokens));
+}
+
 /** Drops every `""` — sack counting must use canonical/padded arrays instead. */
 export function omitEmptyNextLetterSlots(tokens) {
   return (Array.isArray(tokens) ? tokens : []).filter((t) => t !== "");

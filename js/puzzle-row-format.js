@@ -4,7 +4,8 @@ import { PERFECT_HUNT_WORD_COUNT } from "./config.js";
 import {
   stripTrailingEmptyNextLetters,
   canonicalNextLettersFromJsonArray,
-} from "./puzzle-export-sim.js";
+} from "./puzzle-export-sim/next-letters.js";
+import { normalizeShiftsBeforeOps } from "./puzzle-export-sim/shift-starter.js";
 import {
   PERFECT_HUNT_TOR_NEIGHBOR_LEN,
   normalizedExportedTorNeighborToken,
@@ -51,6 +52,24 @@ function validateStarterFlatsArray(flatsRaw, label) {
   }
 }
 
+function coercePerfectHuntShiftsBefore(raw, label = "perfect_hunt_shifts_before") {
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) throw new Error(label + " must be an array or omit");
+  if (raw.length !== HUNT_LEN) {
+    throw new Error(label + " must have length " + HUNT_LEN);
+  }
+  /** @type {Array<Array<{ t: "row" | "col"; s: number }>>} */
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    const row = raw[i];
+    if (!Array.isArray(row)) {
+      throw new Error(label + " index " + i + " must be an array");
+    }
+    out.push(normalizeShiftsBeforeOps(row));
+  }
+  return out;
+}
+
 export function normalizePuzzleRow(raw) {
   if (!raw || typeof raw !== "object") throw new Error("puzzle row must be an object");
   const o = /** @type {Record<string, unknown>} */ (raw);
@@ -62,12 +81,20 @@ export function normalizePuzzleRow(raw) {
   ) {
     starting_grid = o.starting_grids[0];
   }
+  let perfect_hunt_shifts_before = null;
+  if (o.perfect_hunt_shifts_before != null) {
+    perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
+      o.perfect_hunt_shifts_before,
+      "perfect_hunt_shifts_before"
+    );
+  }
   return {
     starting_grid,
     next_letters: o.next_letters,
     perfect_hunt: o.perfect_hunt,
     perfect_hunt_starter_flats: o.perfect_hunt_starter_flats,
     perfect_hunt_starter_tor_neighbors: o.perfect_hunt_starter_tor_neighbors,
+    perfect_hunt_shifts_before,
   };
 }
 
@@ -96,6 +123,9 @@ export function validatePuzzleRow(row) {
   if (hasTorNeighbors) {
     coerceStarterTorNeighborsForRow(row.perfect_hunt_starter_tor_neighbors);
   }
+  const sh = /** @type {{ perfect_hunt_shifts_before?: unknown }} */ (row)
+    .perfect_hunt_shifts_before;
+  if (sh != null) coercePerfectHuntShiftsBefore(sh, "perfect_hunt_shifts_before");
 }
 
 export function serializePuzzleRow(row) {
@@ -117,6 +147,12 @@ export function serializePuzzleRow(row) {
       ext.perfect_hunt_starter_tor_neighbors,
       "serialize perfect_hunt_starter_tor_neighbors"
     );
+  }
+  if (ext.perfect_hunt_shifts_before != null) {
+    packed.perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
+      ext.perfect_hunt_shifts_before,
+      "serialize perfect_hunt_shifts_before"
+    ).map((ops) => ops.map((o) => ({ t: o.t, s: o.s })));
   }
   return JSON.stringify(packed);
 }
@@ -160,6 +196,12 @@ export function parsePuzzlesFileText(text, opts = {}) {
         fileLabel + " line " + lineNo + ": perfect_hunt_starter_tor_neighbors"
       );
     }
+    if (norm.perfect_hunt_shifts_before != null) {
+      entry.perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
+        norm.perfect_hunt_shifts_before,
+        fileLabel + " line " + lineNo + ": perfect_hunt_shifts_before"
+      );
+    }
     puzzles.push(entry);
   }
   return puzzles;
@@ -175,6 +217,7 @@ export function dictExportToCanonicalRow(d) {
     perfect_hunt: d.perfect_hunt,
     perfect_hunt_starter_flats: dr.perfect_hunt_starter_flats,
     perfect_hunt_starter_tor_neighbors: dr.perfect_hunt_starter_tor_neighbors,
+    perfect_hunt_shifts_before: dr.perfect_hunt_shifts_before,
   });
   validatePuzzleRow(row);
   /** @type {Record<string, unknown>} */
@@ -197,6 +240,12 @@ export function dictExportToCanonicalRow(d) {
     out.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
       rf.perfect_hunt_starter_tor_neighbors,
       "dict_export perfect_hunt_starter_tor_neighbors"
+    );
+  }
+  if (rf.perfect_hunt_shifts_before != null) {
+    out.perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
+      rf.perfect_hunt_shifts_before,
+      "dict_export perfect_hunt_shifts_before"
     );
   }
   return out;

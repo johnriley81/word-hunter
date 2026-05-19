@@ -56,6 +56,7 @@ import {
 import { attachRulesDock } from "./rules-dock.js";
 import { omitEmptyNextLetterSlots } from "./puzzle-export-sim/next-letters.js";
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
+import { cloneGameGrid } from "./perfect-hunt-shifts.js";
 import {
   createLineOverlayLayoutSync,
   lockGridSizeForSwipe as lockGridSizeForSwipeCore,
@@ -147,7 +148,7 @@ export function initGame(ctx) {
   let score = 0;
   let nextLetters = [];
   let wordSet = new Set();
-  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[] }>} */
+  /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[]; perfect_hunt_shifts_before?: Array<Array<{ t: "row" | "col"; s: number }>> }>} */
   let puzzles = [];
   let leaderboardPuzzleId = 0;
   let scoreValidationTurns = [];
@@ -235,14 +236,36 @@ export function initGame(ctx) {
 
   preloadGameSoundLayers();
 
+  function showPregameAssetLoadFailure(message) {
+    const msg = String(
+      message || "Could not load puzzles. Serve the repo over HTTP (see README)."
+    );
+    console.error("[word-hunter]", msg);
+    currentWordElement.textContent = "PUZZLE LOAD FAILED";
+    currentWordElement.style.color = lightRedPreviewColor;
+    currentWordElement.classList.remove("hidden");
+    currentWordElement.classList.add("visible");
+    nextLettersElement.textContent = msg;
+    if (queueSackCountElement) queueSackCountElement.textContent = "!";
+    startButton.disabled = true;
+  }
+
   void loadPlayerWordhunterAssetBundle().then((bundle) => {
-    if (!bundle) return;
+    if (!bundle || "error" in bundle) {
+      showPregameAssetLoadFailure(bundle && "error" in bundle ? bundle.error : "");
+      return;
+    }
     wordSet = bundle.wordSet;
     puzzles = bundle.puzzles;
-    generateGrid();
-    nextLetters = generateNextLetters();
-    updateNextLetters();
-    startButton.disabled = false;
+    try {
+      generateGrid();
+      nextLetters = generateNextLetters();
+      updateNextLetters();
+      startButton.disabled = false;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      showPregameAssetLoadFailure(detail);
+    }
   });
 
   startButton.addEventListener("click", () => {
@@ -568,6 +591,10 @@ export function initGame(ctx) {
     )
       ? coerceStarterTorNeighborsForRow(p.perfect_hunt_starter_tor_neighbors)
       : null;
+    ctx.state.perfectHuntShiftsBefore = Array.isArray(p.perfect_hunt_shifts_before)
+      ? p.perfect_hunt_shifts_before
+      : null;
+    ctx.state.puzzleInitialGrid = cloneGameGrid(gridLetters, GRID_SIZE);
     ctx.state.perfectHuntWordsSubmitted = new Set();
     ctx.state.perfectHuntOrderIndex = 0;
     ctx.state.perfectHuntHintFlat = null;
@@ -798,7 +825,8 @@ export function initGame(ctx) {
       const expected = hunt[idx];
       if (key === String(expected).toLowerCase()) {
         ctx.state.perfectHuntHintStickyFlat = null;
-        ctx.state.perfectHuntOrderIndex = idx + 1;
+        const nextIdx = idx + 1;
+        ctx.state.perfectHuntOrderIndex = nextIdx;
         return { brokePace: false };
       }
       ctx.state.perfectHuntOnPace = false;

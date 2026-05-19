@@ -7,7 +7,8 @@ import {
   applyRowShiftInPlace,
 } from "../board-logic.js";
 import { canonicalNextLettersFromJsonArray } from "./next-letters.js";
-import { tryApplyFifoLetterRefillsAfterWordSubmission } from "./forward-verify.js";
+import { simulateChronoToEndBoard } from "./chrono-build.js";
+import { tryApplyFifoLetterRefillsAfterWordSubmission } from "./refill-fifo.js";
 
 /**
  * Clone `board`, apply committed row/col steps (`row`/`col`, signed steps match game shift semantics).
@@ -141,14 +142,17 @@ export function shiftAwareStarterHintsReplay(
           phase: "path_index",
         };
       }
-      const r = Math.floor(f / n);
-      const c = f % n;
-      const g = normalizeTileText(b[r][c]);
-      const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
-      if (g !== need) {
-        if (fillEmptyPathCells && g === "") {
-          b[r][c] = glyphs[i];
-        } else {
+    }
+    if (fillEmptyPathCells) {
+      b = simulateChronoToEndBoard(b, [{ word: w, pathFlat: path }]);
+    } else {
+      for (let i = 0; i < path.length; i++) {
+        const f = path[i];
+        const r = Math.floor(f / n);
+        const c = f % n;
+        const g = normalizeTileText(b[r][c]);
+        const need = typeof glyphs[i] === "string" ? normalizeTileText(glyphs[i]) : "";
+        if (g !== need) {
           return {
             ok: false,
             reason: "word " + wi + " at step " + i + " want " + need + " got " + g,
@@ -239,4 +243,64 @@ export function computePerfectHuntStarterHints(
     noop,
     options
   );
+}
+
+/**
+ * Build overlay `starting_grid`: replay ascending hunt on `grid0` with per-word shifts then stamps.
+ * Paths stay in post-shift coordinates; rejects occupied non-matching cells before each stamp.
+ *
+ * @param {string[][]} grid0
+ * @param {string[]} wordsAsc
+ * @param {number[][]} pathsAsc
+ * @param {unknown[] | null | undefined} shiftsBeforeByWordAsc
+ * @param {number} [gridSize]
+ */
+export function canonicalOverlayGridFromShiftAscReplay(
+  grid0,
+  wordsAsc,
+  pathsAsc,
+  shiftsBeforeByWordAsc,
+  gridSize = GRID_SIZE
+) {
+  const n = Math.max(1, Math.floor(Number(gridSize)) || GRID_SIZE);
+  const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
+  if (!Array.isArray(pathsAsc) || pathsAsc.length !== nw) {
+    return { ok: false, reason: "pathsAsc length mismatch" };
+  }
+  let b = grid0.map((row) => row.map((c) => String(c ?? "").toLowerCase()));
+  for (let wi = 0; wi < nw; wi++) {
+    const ops =
+      Array.isArray(shiftsBeforeByWordAsc) && Array.isArray(shiftsBeforeByWordAsc[wi])
+        ? normalizeShiftsBeforeOps(shiftsBeforeByWordAsc[wi])
+        : [];
+    b = applyShiftSeqToBoard(b, ops, n);
+    const w = String(wordsAsc[wi] || "").toLowerCase();
+    const path = pathsAsc[wi];
+    const glyphs = wordToTileLabelSequence(w);
+    if (!path?.length || glyphs.length !== path.length) {
+      return { ok: false, reason: "missing word or path at " + wi, word_index: wi };
+    }
+    b = simulateChronoToEndBoard(b, [{ word: w, pathFlat: path }]);
+  }
+  return { ok: true, board: b };
+}
+
+/**
+ * @param {string[][]} board
+ * @param {string} word
+ * @param {number[]} pathFlat
+ * @param {number} n
+ */
+export function pathSpellsWordOnBoard(board, word, pathFlat, n = GRID_SIZE) {
+  const w = String(word || "").toLowerCase();
+  const glyphs = wordToTileLabelSequence(w);
+  if (glyphs.length !== pathFlat.length) return false;
+  for (let i = 0; i < pathFlat.length; i++) {
+    const f = pathFlat[i];
+    if (f < 0 || f >= GRID_CELL_COUNT) return false;
+    const r = Math.floor(f / n);
+    const c = f % n;
+    if (normalizeTileText(board[r][c]) !== normalizeTileText(glyphs[i])) return false;
+  }
+  return true;
 }

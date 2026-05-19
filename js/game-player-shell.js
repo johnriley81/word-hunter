@@ -47,16 +47,14 @@ export function freezePlayerShellBeforeAssets({
 /**
  * Fetches puzzles + wordlist. Resolves `null` when puzzles are missing or fetch fails is handled upstream.
  */
+/**
+ * @returns {Promise<{ wordSet: Set<string>; puzzles: unknown[] } | { error: string }>}
+ */
 export async function loadPlayerWordhunterAssetBundle() {
-  try {
-    const { wordSet, puzzles } = await loadWordhunterTextAssets();
-    if (!puzzles.length) {
-      console.error("text/puzzles.txt has no puzzle rows");
-      return null;
-    }
-    return { wordSet, puzzles };
-  } catch (error) {
-    console.error("Fetch error:", error);
-    return null;
+  const loaded = await loadWordhunterTextAssets();
+  if (!loaded.ok) {
+    console.error("[word-hunter] asset load failed:", loaded.error);
+    return { error: loaded.error };
   }
+  return { wordSet: loaded.wordSet, puzzles: loaded.puzzles };
 }
