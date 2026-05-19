@@ -475,9 +475,14 @@ export function createWordDragHandlers(ctx, host) {
       runSuccessPopThenStaggeredFlip(
         tilesToReplace,
         () => {
-          if (!huntMeta.isPerfectCompletion) return;
           if (!host.getGameActive()) return;
-          host.endGameWithStinger?.({ endgameStinger: "perfect" });
+          if (huntMeta.isPerfectCompletion) {
+            host.endGameWithStinger?.({ endgameStinger: "perfect" });
+            return;
+          }
+          if (host.areNextLettersExhausted?.()) {
+            host.endGameWithStinger?.();
+          }
         },
         keepingPace,
         paceOrderResult.brokePace === true

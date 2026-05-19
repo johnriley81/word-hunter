@@ -837,6 +837,9 @@ export function initGame(ctx) {
       nextLetters = omitEmptyNextLetterSlots(nextLetters);
       updateNextLetters();
     },
+    areNextLettersExhausted() {
+      return omitEmptyNextLetterSlots(nextLetters).length === 0;
+    },
     isWordKeepingPerfectHuntPace(word) {
       return currentWordMatchesExpectedPerfectHunt(word);
     },

@@ -69,7 +69,7 @@
   --header-icon-button-background-color: #ffffff;
   --rules-overlay-background-color: rgba(0, 0, 0, 0.85);
   --rules-accent-gold: #e3af02;
-  --rules-accent-red: var(--color-shared-white);
+  --leaderboard-over-perfect-red: #ff4433;
   --rules-section-heading-color: #edcc97;
   --rules-dismiss-red: #c94a4a;
   --grid-size: 4;
@@ -1558,7 +1558,9 @@ body.rules-overlay-open #leaderboard-elements {
 }
 
 #leaderboard-table .leaderboard-over-perfect-glow {
-  animation: leaderboardOverPerfectPulse 0.42s ease-in-out infinite;
+  color: var(--leaderboard-over-perfect-red);
+  font-weight: 700;
+  animation: leaderboardSharedPulse 0.42s ease-in-out infinite;
 }
 
 @keyframes leaderboardSharedPulse {
@@ -1567,18 +1569,6 @@ body.rules-overlay-open #leaderboard-elements {
     filter: brightness(1);
   }
   50% {
-    filter: brightness(1.2) saturate(1.06);
-  }
-}
-
-@keyframes leaderboardOverPerfectPulse {
-  0%,
-  100% {
-    color: var(--perfect-hunt-starter-hint-gold-solid);
-    filter: brightness(1) saturate(1.02);
-  }
-  50% {
-    color: var(--rules-accent-red);
     filter: brightness(1.2) saturate(1.06);
   }
 }
