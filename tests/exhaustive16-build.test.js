@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
 import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/load-path-catalog.js";
-import { comparePoolWordEntriesDesc } from "../js/gamemaker/pool-order.js";
+import { comparePoolWordEntriesDesc } from "../js/puzzle-build/pool-order.js";
 import {
   wordToTileLabelSequence,
   wordReuseStats,

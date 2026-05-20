@@ -5,13 +5,14 @@
  * *not* word spelling length (`word.length`), *not* `wordToTileLabelSequence(word).length` (tile glyph count).
  * Tile-label lengths are narrowed earlier in **`npm run gen:word-rec`** (default 8–16 labels).
  *
- * Manual trim afterward (`puzzle-wordlist.txt` — **tier trim only**).
+ * Omits words in `text/gamemaker/problematic-words.txt`.
  * **`npm run gen:puzzle-pool`** pulls from **`text/wordlist.txt`** by default (`PUZZLE_WORDLIST`): see **`generate-puzzle-pool.mjs`** (`RECOG_MIN`, `POOL_SIZE`, etc.).
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { loadProblematicWordsSet } from "./lib/problematic-words.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -33,10 +34,16 @@ if (!words || typeof words !== "object") {
   process.exit(1);
 }
 
+const blocked = loadProblematicWordsSet();
 const picked = [];
+let skippedProblematic = 0;
 for (const [w, rec] of Object.entries(words)) {
   if (typeof rec !== "number" || rec < EXPORT_RECOG_MIN) continue;
   if (!w || !/^[a-z]+$/.test(w)) continue;
+  if (blocked.has(w)) {
+    skippedProblematic++;
+    continue;
+  }
   picked.push(w);
 }
 picked.sort((a, b) => a.localeCompare(b));
@@ -48,6 +55,6 @@ if (OUT_PATH_RAW === "-") {
   mkdirSync(dirname(OUT_PATH_RAW), { recursive: true });
   writeFileSync(OUT_PATH_RAW, body, "utf8");
   console.error(
-    `Wrote ${picked.length} words (recognizability tier rec ≥ ${EXPORT_RECOG_MIN} in word-recognizability.json — 1–10 score, not spelling length nor glyph/tile-label count) → ${OUT_PATH_RAW}`
+    `Wrote ${picked.length} words (recognizability tier rec ≥ ${EXPORT_RECOG_MIN}; skipped ${skippedProblematic} problematic) → ${OUT_PATH_RAW}`
   );
 }

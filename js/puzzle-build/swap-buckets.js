@@ -1,4 +1,5 @@
 import { wordToTileLabelSequence } from "../board-logic.js";
+import { isProblematicWord } from "./problematic-words.js";
 
 /** Lowercase a–z pool tokens only. */
 const POOL_SWAP_WORD_RE = /^[a-z]+$/;
@@ -54,14 +55,15 @@ export function buildSwapBucketsByStats(lists) {
 }
 
 /**
- * Alternate pool words for the toolbar slot at `placementIndex`: same statistical
+ * Alternate pool words for build slot `placementIndex`: same statistical
  * row as `currentWordsDesc[idx]` (`min_tiles`, `reuse`, `wordTotal` exactly),
  * lowercase a–z, not the current spelling nor any other spelling on this list.
  */
 export function collectSwapAlternatesMatchingStats(
   buckets,
   currentWordsDesc,
-  placementIndex
+  placementIndex,
+  blockedWords = null
 ) {
   if (!(buckets instanceof Map) || buckets.size === 0) return [];
   const list = Array.isArray(currentWordsDesc) ? currentWordsDesc : [];
@@ -100,6 +102,7 @@ export function collectSwapAlternatesMatchingStats(
     const w = String(x.word || "").toLowerCase();
     if (!POOL_SWAP_WORD_RE.test(w)) continue;
     if (w === curLc || blocked.has(w)) continue;
+    if (blockedWords instanceof Set && isProblematicWord(w, blockedWords)) continue;
     if (wordToTileLabelSequence(w).length !== glyphsAtLen) continue;
     alternates.push(x);
   }

@@ -339,7 +339,6 @@ agreements
 agribusiness
 agricultural
 agriculture
-ailments
 airborne
 aircraft
 airfield
@@ -566,7 +565,6 @@ antitrust
 anxieties
 anxiously
 anything
-anywhere
 apartheid
 apartment
 apartments
@@ -652,7 +650,6 @@ appropriation
 appropriations
 approval
 approvals
-approved
 approves
 approving
 approximate
@@ -965,7 +962,6 @@ avoidable
 avoidance
 avoiding
 awaiting
-awakened
 awakening
 awarding
 awareness
@@ -1203,7 +1199,6 @@ blizzard
 blockade
 blockbuster
 blockbusters
-blockers
 blocking
 bloggers
 blogging
@@ -1349,7 +1344,6 @@ brotherhood
 brothers
 brownies
 browning
-brownish
 browsers
 browsing
 bruising
@@ -1543,7 +1537,6 @@ categories
 categorization
 categorize
 categorized
-category
 catering
 caterpillar
 caterpillars
@@ -1559,7 +1552,6 @@ cautionary
 cautioned
 cautious
 cautiously
-cavalier
 cavaliers
 cavendish
 cavities
@@ -1671,7 +1663,6 @@ charlotte
 charming
 chartered
 charters
-charting
 chastity
 chatting
 chauffeur
@@ -1848,7 +1839,6 @@ clinically
 clinician
 clinicians
 clippers
-clipping
 clippings
 clockwise
 clockwork
@@ -2169,7 +2159,6 @@ compressibility
 compression
 compressor
 compressors
-comprise
 comprised
 comprises
 comprising
@@ -2953,7 +2942,6 @@ deadlines
 deafening
 dealership
 dealerships
-dealings
 debatable
 debating
 debilitating
@@ -3046,7 +3034,6 @@ defibrillators
 deficiencies
 deficiency
 deficient
-deficits
 defining
 definite
 definitely
@@ -3821,7 +3808,6 @@ drawback
 drawbacks
 drawings
 dreadful
-dreaming
 dredging
 drenched
 dressing
@@ -3830,7 +3816,6 @@ drifting
 drilling
 drinkers
 drinking
-dripping
 driveway
 droplets
 dropping
@@ -3854,7 +3839,6 @@ dwellings
 dwindling
 dynamically
 dynamics
-dynamite
 dynasties
 dysfunction
 dysfunctional
@@ -4616,7 +4600,6 @@ fantasies
 fantastic
 fantastical
 fantastically
-farewell
 farmhouse
 farmland
 fascinated
@@ -4701,7 +4684,6 @@ filtration
 finalist
 finalists
 finalized
-financed
 finances
 financial
 financially
@@ -5243,7 +5225,6 @@ hamburger
 hamburgers
 hammered
 hammering
-hampered
 hamstring
 handbags
 handball
@@ -5271,7 +5252,6 @@ happening
 happenings
 happiest
 happiness
-harassed
 harassing
 harassment
 hardcore
@@ -5314,7 +5294,6 @@ headquartered
 headquarters
 healthier
 healthiest
-hearings
 heartache
 heartbeat
 heartbreak
@@ -5422,7 +5401,6 @@ homeschooling
 homestead
 hometown
 homework
-homicide
 homicides
 homogeneous
 homogenization
@@ -6555,7 +6533,6 @@ labourers
 labrador
 labyrinth
 lackluster
-lacrosse
 lakeside
 lamented
 laminated
@@ -6704,7 +6681,6 @@ listening
 listings
 literacy
 literally
-literary
 literate
 literature
 litigation
@@ -6912,7 +6888,6 @@ masterpieces
 masturbate
 masturbating
 masturbation
-matching
 matchmaking
 material
 materialism
@@ -6989,7 +6964,6 @@ meditating
 meditation
 meditations
 mediterranean
-meetings
 melancholic
 melancholy
 melanoma
@@ -6997,7 +6971,6 @@ melatonin
 melodies
 melodrama
 melodramatic
-meltdown
 membership
 memberships
 membrane
@@ -7250,7 +7223,6 @@ modified
 modifying
 modulated
 modulation
-moisture
 moisturizer
 moisturizing
 molecular
@@ -7421,7 +7393,6 @@ narrator
 narrowed
 narrower
 narrowing
-narrowly
 national
 nationalised
 nationalism
@@ -7716,7 +7687,6 @@ offensively
 offering
 offerings
 officers
-official
 officially
 officials
 officiating
@@ -7848,7 +7818,6 @@ otherwise
 otherworldly
 otolaryngology
 ourselves
-outbreak
 outbreaks
 outbuildings
 outburst
@@ -7861,7 +7830,6 @@ outfielder
 outfitted
 outgoing
 outlandish
-outlawed
 outlined
 outlines
 outlining
@@ -8133,7 +8101,6 @@ patrolling
 patronage
 patronizing
 patterned
-patterns
 pavement
 pavilion
 paycheck
@@ -8147,7 +8114,6 @@ peasants
 peculiar
 peculiarities
 pedagogical
-pedagogy
 pedestal
 pedestrian
 pedestrians
@@ -8385,7 +8351,6 @@ planting
 plastered
 plasticity
 plastics
-platform
 platforms
 platinum
 platonic
@@ -8516,7 +8481,6 @@ possessions
 possessive
 possibilities
 possibility
-possible
 possibly
 postcard
 postcards
@@ -8781,7 +8745,6 @@ probably
 probation
 probationary
 problematic
-problems
 procedural
 procedure
 procedures
@@ -9024,7 +8987,6 @@ provocation
 provocative
 provoked
 provoking
-proximal
 proximity
 prudential
 pseudonym
@@ -9514,7 +9476,6 @@ relatives
 relativistic
 relativity
 relaxation
-relaxing
 released
 releases
 releasing
@@ -9631,7 +9592,6 @@ replicate
 replicated
 replicating
 replication
-replying
 reported
 reportedly
 reporter
@@ -9899,7 +9859,6 @@ rheumatoid
 rhythmic
 rhythmically
 richness
-ridicule
 ridiculed
 ridiculous
 ridiculously
@@ -10645,7 +10604,6 @@ stabilizing
 stacking
 stadiums
 staffers
-staffing
 staggered
 staggering
 stagnant
@@ -10873,8 +10831,6 @@ subdivisions
 subgroups
 subjected
 subjective
-subjectively
-subjectivity
 subjects
 submarine
 submarines
@@ -11295,7 +11251,6 @@ terminus
 terraces
 terrestrial
 terrible
-terribly
 terrific
 terrified
 terrifying
@@ -11376,7 +11331,6 @@ thoughtfully
 thoughtfulness
 thoughtless
 thoughts
-thousand
 thousands
 thrashing
 threaded
@@ -11453,7 +11407,6 @@ totalitarianism
 totalling
 touchdown
 touchdowns
-touching
 toughest
 toughness
 tourists
@@ -11662,7 +11615,6 @@ tuberculosis
 tumbling
 tumultuous
 tungsten
-turbines
 turbocharged
 turbulence
 turbulent
@@ -12075,7 +12027,6 @@ upstairs
 upstream
 urbanisation
 urbanization
-urgently
 usability
 usefulness
 username
@@ -12274,7 +12225,6 @@ waterfall
 waterfalls
 waterfront
 watering
-waterloo
 watermark
 watermelon
 waterproof
@@ -12417,7 +12367,6 @@ worshipping
 worthless
 worthwhile
 wounding
-wrapping
 wreckage
 wrecking
 wrenching

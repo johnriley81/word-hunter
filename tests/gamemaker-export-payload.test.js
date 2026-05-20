@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildGamemakerDictExportPayload } from "../js/gamemaker/build-export-payload.js";
+import { buildGamemakerDictExportPayload } from "../js/puzzle-build/build-export-payload.js";
 
 test("buildGamemakerDictExportPayload returns null when play count mismatches wordCount", () => {
   assert.equal(

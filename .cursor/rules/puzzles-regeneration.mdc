@@ -3,12 +3,13 @@ description: Regenerate puzzles.txt after puzzle-validity fixes
 alwaysApply: true
 ---
 
-# `text/puzzles.txt` after validity fixes
+# Shipped puzzles after validity fixes
 
 Whenever a change fixes **incorrect or ambiguous shipped puzzles** (e.g. unique-spelling gates, forward verify rules, automation in `auto-puzzle-build` / `word-path-search`, or regenerated export scripts), finish the session by rebuilding rows from existing `perfect_hunt` specs:
 
-1. Run **`npm run regen:puzzles:inplace`** (writes `text/puzzles.txt`; increase `--seed-skew` / `--attempts-build` in `package.json` or pass flags if rebuilds fail).
-2. If a row refuses to converge, escalate skew/attempts or adjust that puzzle’s **`perfect_hunt`** list—do not ship stale grids that contradict the tightened rules.
-3. Run **`npm test`** (spot-check at least **`tests/word-path-search.test.js`** when path/uniqueness logic changed).
+1. Run **`npm run regen:puzzles:inplace`** (writes gitignored `text/puzzles.txt`; increase `--seed-skew` / `--attempts-build` in `package.json` or pass flags if rebuilds fail).
+2. Run **`npm run encrypt:puzzles`** and commit **`text/puzzles.enc`** (pre-commit also encrypts when plaintext exists).
+3. If a row refuses to converge, escalate skew/attempts or adjust that puzzle’s **`perfect_hunt`** list—do not ship stale grids that contradict the tightened rules.
+4. Run **`npm test`** (spot-check at least **`tests/word-path-search.test.js`** when path/uniqueness logic changed).
 
-Do not declare the fix “done” until `puzzles.txt` reflects regeneration when the bug affected **exported puzzle content**.
+Do not declare the fix “done” until **`text/puzzles.enc`** reflects regeneration when the bug affected **exported puzzle content**.

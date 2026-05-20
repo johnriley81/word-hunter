@@ -13,7 +13,7 @@ import {
 } from "./pool-order.js";
 
 /**
- * Gamemaker publishable puzzle row (`starting_grids` → `starting_grid`).
+ * Publishable puzzle row (`starting_grids` → `starting_grid` in JSON Lines export).
  * Covered stack iteration uses sack order (`comparePoolWordEntriesDescSackRefillOrder`);
  * exported hunt order ascending (`comparePoolWordEntriesAscForwardExport`).
  * Indices: `buildPlaysChron[i]` matches `currentWords[i]` after each commit.

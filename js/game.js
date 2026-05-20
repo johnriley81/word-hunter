@@ -54,7 +54,10 @@ import {
   resetWordSelectionState,
 } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
-import { omitEmptyNextLetterSlots } from "./puzzle-export-sim/next-letters.js";
+import {
+  isGridAllNormalizedEmpty,
+  omitEmptyNextLetterSlots,
+} from "./puzzle-export-sim/next-letters.js";
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
 import { cloneGameGrid } from "./perfect-hunt-shifts.js";
 import {
@@ -837,8 +840,8 @@ export function initGame(ctx) {
       nextLetters = omitEmptyNextLetterSlots(nextLetters);
       updateNextLetters();
     },
-    areNextLettersExhausted() {
-      return omitEmptyNextLetterSlots(nextLetters).length === 0;
+    areAllLetterTilesUsedUp() {
+      return isGridAllNormalizedEmpty(ctx.state.gameBoard, GRID_SIZE);
     },
     isWordKeepingPerfectHuntPace(word) {
       return currentWordMatchesExpectedPerfectHunt(word);

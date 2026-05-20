@@ -44,3 +44,11 @@ repos:
           - json
           - markdown
           - yaml
+
+  - repo: local
+    hooks:
+      - id: encrypt-puzzles
+        name: encrypt puzzles.txt → puzzles.enc
+        entry: node scripts/encrypt-puzzles.mjs
+        language: system
+        pass_filenames: false

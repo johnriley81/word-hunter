@@ -35,6 +35,7 @@ import {
   findRandomLegalPathFlat,
   isPathGamemakerLegal,
 } from "../js/puzzle-export-sim/word-path-search.js";
+import { loadProblematicWordsSet } from "./lib/problematic-words.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -116,12 +117,13 @@ function emptyBoard(n) {
   return out;
 }
 
+const blockedWords = loadProblematicWordsSet();
 const rawList = readFileSync(wordlistPath, "utf8");
 /** @type {string[]} */
 let words = rawList
   .split(/\r?\n/)
   .map((w) => w.trim().toLowerCase())
-  .filter((w) => w && /^[a-z]+$/.test(w));
+  .filter((w) => w && /^[a-z]+$/.test(w) && !blockedWords.has(w));
 words = [...new Set(words)].sort();
 if (maxWords > 0) words = words.slice(0, maxWords);
 

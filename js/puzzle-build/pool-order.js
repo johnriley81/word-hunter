@@ -1,6 +1,6 @@
 /**
- * Puzzle-pool entry ordering for gamemaker. Three comparators differ by **tie-break when `wordTotal`
- * is equal** — they are not simple negations of each other.
+ * Puzzle-pool entry ordering for automated builds and export. Three comparators differ by
+ * **tie-break when `wordTotal` is equal** — they are not simple negations of each other.
  *
  * | Comparator | Primary key | Tie-break |
  * |------------|-------------|-----------|
@@ -8,14 +8,14 @@
  * | `comparePoolWordEntriesAscForwardExport` | Lower `wordTotal` first | `word` ascending |
  * | `comparePoolWordEntriesDescSackRefillOrder` | Higher `wordTotal` first | `word` descending |
  *
- * The sack ordering Must match `buildNextLettersFromCoveredInBuildOrder` iteration direction so the
+ * The sack ordering must match `buildNextLettersFromCoveredInBuildOrder` iteration direction so the
  * lowest-score hunt word’s refills sit at the FIFO head — see `puzzle-export-sim.js`.
  */
 
 /** @typedef {{ word?: string; wordTotal?: number }} PoolWordEntry */
 
 /**
- * Toolbar list order: descending score, then word ascending.
+ * Build list order: descending score, then word ascending.
  * @param {PoolWordEntry} a
  * @param {PoolWordEntry} b
  */

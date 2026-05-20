@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildSwapBucketsByStats,
   collectSwapAlternatesMatchingStats,
-} from "../js/gamemaker/swap-buckets.js";
+} from "../js/puzzle-build/swap-buckets.js";
 
 /** Seven toolbar slots (high score → low); pool entries must match /^[a-z]+$/ through `buildSwapBucketsByStats`. */
 const listDesc = [

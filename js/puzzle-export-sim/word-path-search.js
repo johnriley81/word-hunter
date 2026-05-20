@@ -4,3 +4,5 @@
  */
 export * from "./path-placement.js";
 export * from "./path-search.js";
+export * from "./play-path-uniqueness.js";
+export * from "./resolve-shipped-paths.js";

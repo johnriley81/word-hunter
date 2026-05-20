@@ -17,7 +17,10 @@
  * Usage:
  *   node scripts/regenerate-puzzles-txt.mjs [--in text/puzzles.txt] [--shift] [--attempts-build N] [--seed-skew N]
  *   node scripts/regenerate-puzzles-txt.mjs [--no-lookahead] …
- *   node scripts/regenerate-puzzles-txt.mjs [--verbose-seeds] [--explain-last-failure] [--trace-build]
+ *   node scripts/regenerate-puzzles-txt.mjs [--verbose-seeds] [--explain-last-failure] [--trace-build] [--debug-placement]
+ *   Pass **`--no-word-swap`** to disable same-stats word alternates on placement failure (default: load puzzle-wordlist buckets).
+ *   **`--no-substitute-problematic`** — do not swap blocked words out of `perfect_hunt` before build.
+ *   **`--no-discover-problematic`** — do not append failing words and retry the row.
  *   node scripts/regenerate-puzzles-txt.mjs [--max-rows N] [--from-line K] …
  *   node scripts/regenerate-puzzles-txt.mjs [--out text/puzzles.new.txt] [--from-line N] [--reuse-prefix OLD.txt]
  *
@@ -44,22 +47,24 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  wordReuseStats,
-  getLiveWordScoreBreakdownFromLabels,
-  wordToTileLabelSequence,
-} from "../js/board-logic.js";
-import {
-  comparePoolWordEntriesAscForwardExport,
-  comparePoolWordEntriesDesc,
-} from "../js/gamemaker/pool-order.js";
+import { comparePoolWordEntriesDesc } from "../js/puzzle-build/pool-order.js";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
 import {
   normalizePuzzleRow,
   serializePuzzleRow,
   validatePuzzleRow,
 } from "../js/puzzle-row-format.js";
-import { createPuzzleBuildCli, makeRegenBuildOpts } from "./lib/puzzle-build-cli.mjs";
+import {
+  createPuzzleBuildCli,
+  makeRegenBuildOpts,
+  swapWordBucketsForCli,
+} from "./lib/puzzle-build-cli.mjs";
+import {
+  discoverAndRefresh,
+  substituteBlockedInPool,
+} from "./lib/pool-problematic.mjs";
+import { loadProblematicWordsSet } from "./lib/problematic-words.mjs";
+import { wordEntryFromWord } from "./lib/word-pool-entry.mjs";
 import { repoRoot } from "./lib/puzzle-build-paths.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -106,6 +111,16 @@ const verboseSeeds = hasFlag("--verbose-seeds") || hasFlag("--v");
 const explainLastFailure = hasFlag("--explain-last-failure");
 /** Verbose **`[auto-build]`** / **`[path-search]`** lines on stderr (temporary profiling). */
 const traceBuild = hasFlag("--trace-build");
+/** Log which word/slot failed placement and optional swaps without full trace. */
+const debugPlacement = hasFlag("--debug-placement");
+/** Replace blocked `perfect_hunt` spellings with same-stats alternates before build (default on). */
+const substituteProblematic = !hasFlag("--no-substitute-problematic");
+/** On row failure, append newly found words to `problematic-words.txt` and retry (default on). */
+const discoverProblematic = !hasFlag("--no-discover-problematic");
+const maxDiscoverRoundsPerRow = Math.max(
+  1,
+  Math.floor(argvNum("--discover-max-rounds", 12))
+);
 /** When set, `tryBuildAutomatedPuzzle` never probes the next word — much faster (forward verify still runs unless **`--no-verify`**). */
 const noLookaheadProbe = hasFlag("--no-lookahead");
 /** Tiered cheap→full rounds (default ON). Override with `--no-tiered`. */
@@ -138,43 +153,63 @@ let seedLogStep =
     ? Math.max(1, Math.ceil(maxSeedSkew / 24))
     : Math.max(5, Math.ceil(maxSeedSkew / 20));
 
-function wordEntry(word) {
-  const w = String(word || "")
-    .trim()
-    .toLowerCase();
-  const labels = wordToTileLabelSequence(w);
-  const st = wordReuseStats(labels);
-  const { wordTotal } = getLiveWordScoreBreakdownFromLabels(labels);
-  return { word: w, min_tiles: st.minTiles, reuse: st.reuse, wordTotal };
+/** @param {Parameters<typeof tryBuildAutomatedPuzzle>[1]} tierExtras @param {number} dbgSeed */
+function runDiagnosticBuild(poolSeven, dbgSeed, tierExtras) {
+  return tryBuildAutomatedPuzzle(
+    poolSeven,
+    makeRegenBuildOpts(cli, dbgSeed, {
+      ...tierExtras,
+      returnFailureTally: true,
+      returnLastPlacementFailure: true,
+      returnLastPlayPathUniqFailure: true,
+      debugVerify: true,
+      debugVerbose: traceBuild,
+      diagnoseBuild: true,
+      placementOrder: "input",
+    })
+  );
 }
 
-/**
- * @param {{
- *   oldLines: string[];
- *   li: number;
- *   rowLabelOneBased: number;
- *   traceBuild: boolean;
- *   tiers: Array<{
- *     label: string;
- *     maxSeedSkew: number;
- *     wholeBuildAttempts: number;
- *     lookaheadProbeNext: boolean;
- *     maxAttemptsPerWord?: number;
- *     placementCandidateSamples?: number;
- *     pathSearchExploreBudget?: number;
- *     lookaheadAttempts?: number;
- *     lookaheadInnerTries?: number;
- *   }>;
- * }} opts
- */
 function rowForLineWithTiers(opts) {
-  const { oldLines, li, rowLabelOneBased, tiers, traceBuild } = opts;
+  const {
+    oldLines,
+    li,
+    rowLabelOneBased,
+    tiers,
+    traceBuild,
+    swapBuckets,
+    substituteProblematic,
+  } = opts;
   const j = JSON.parse(oldLines[li]);
   /** Shift builds place in ascending hunt order; fixed-grid regen keeps desc toolbar order. */
-  const poolSeven = shiftOn
-    ? j.perfect_hunt.map(wordEntry)
-    : j.perfect_hunt.map(wordEntry).sort(comparePoolWordEntriesDesc);
+  let poolSeven = shiftOn
+    ? j.perfect_hunt.map(wordEntryFromWord)
+    : j.perfect_hunt.map(wordEntryFromWord).sort(comparePoolWordEntriesDesc);
   const base = (li * 9973 + Math.floor(Number(seedBase) || 42)) >>> 0;
+
+  poolSeven = substituteBlockedInPool(
+    poolSeven,
+    problematicWords,
+    /** @type {Map<string, unknown>} */ (swapBuckets),
+    base,
+    {
+      enabled: substituteProblematic,
+      logPrefix: `[regen] row ${rowLabelOneBased}`,
+      verbose: true,
+    }
+  );
+  if (!substituteProblematic) {
+    const blockedInRow = poolSeven
+      .map((e) => e.word)
+      .filter((w) => problematicWords.has(w));
+    if (blockedInRow.length) {
+      console.warn(
+        `[regen] row ${rowLabelOneBased}: blocklisted words in perfect_hunt: ${blockedInRow.join(
+          ", "
+        )}`
+      );
+    }
+  }
 
   for (let ti = 0; ti < tiers.length; ti++) {
     const cfg = tiers[ti];
@@ -226,6 +261,7 @@ function rowForLineWithTiers(opts) {
             ? { lookaheadInnerTries: Math.floor(cfg.lookaheadInnerTries) }
             : {}),
           debugVerbose: traceBuild,
+          diagnoseBuild: explainLastFailure || debugPlacement,
           placementOrder: "input",
         })
       );
@@ -236,39 +272,29 @@ function rowForLineWithTiers(opts) {
     }
   }
 
-  const hunt = Array.isArray(j.perfect_hunt) ? j.perfect_hunt.join(", ") : "";
-  if (explainLastFailure) {
-    const lastCfg = tiers[tiers.length - 1];
-    const lastSi = Math.max(0, lastCfg.maxSeedSkew);
-    const dbgSeed =
-      (((li * 9973 + Math.floor(Number(seedBase) || 42)) >>> 0) +
-        Math.imul(lastSi, 4093)) >>>
-      0;
-    const diag = tryBuildAutomatedPuzzle(
-      poolSeven,
-      makeRegenBuildOpts(cli, dbgSeed, {
-        wholeBuildAttempts: lastCfg.wholeBuildAttempts,
-        lookaheadProbeNext: lastCfg.lookaheadProbeNext,
-        maxAttemptsPerWord: lastCfg.maxAttemptsPerWord ?? 10000,
-        placementCandidateSamples: lastCfg.placementCandidateSamples ?? 6,
-        ...(typeof lastCfg.pathSearchExploreBudget === "number" &&
-        lastCfg.pathSearchExploreBudget > 0
-          ? { pathSearchExploreBudget: Math.floor(lastCfg.pathSearchExploreBudget) }
-          : {}),
-        ...(typeof lastCfg.lookaheadAttempts === "number" &&
-        lastCfg.lookaheadAttempts > 0
-          ? { lookaheadAttempts: Math.floor(lastCfg.lookaheadAttempts) }
-          : {}),
-        ...(typeof lastCfg.lookaheadInnerTries === "number" &&
-        lastCfg.lookaheadInnerTries > 0
-          ? { lookaheadInnerTries: Math.floor(lastCfg.lookaheadInnerTries) }
-          : {}),
-        returnFailureTally: true,
-        debugVerify: true,
-        debugVerbose: traceBuild,
-        placementOrder: "input",
-      })
-    );
+  const hunt = poolSeven.map((e) => e.word).join(", ");
+  const lastCfg = tiers[tiers.length - 1];
+  const lastSi = Math.max(0, lastCfg.maxSeedSkew);
+  const dbgSeed = (base + Math.imul(lastSi, 4093)) >>> 0;
+  const tierExtras = {
+    wholeBuildAttempts: lastCfg.wholeBuildAttempts,
+    lookaheadProbeNext: lastCfg.lookaheadProbeNext,
+    maxAttemptsPerWord: lastCfg.maxAttemptsPerWord ?? 10000,
+    placementCandidateSamples: lastCfg.placementCandidateSamples ?? 6,
+    ...(typeof lastCfg.pathSearchExploreBudget === "number" &&
+    lastCfg.pathSearchExploreBudget > 0
+      ? { pathSearchExploreBudget: Math.floor(lastCfg.pathSearchExploreBudget) }
+      : {}),
+    ...(typeof lastCfg.lookaheadAttempts === "number" && lastCfg.lookaheadAttempts > 0
+      ? { lookaheadAttempts: Math.floor(lastCfg.lookaheadAttempts) }
+      : {}),
+    ...(typeof lastCfg.lookaheadInnerTries === "number" &&
+    lastCfg.lookaheadInnerTries > 0
+      ? { lookaheadInnerTries: Math.floor(lastCfg.lookaheadInnerTries) }
+      : {}),
+  };
+  const diag = runDiagnosticBuild(poolSeven, dbgSeed, tierExtras);
+  if (explainLastFailure || discoverProblematic) {
     console.error(
       `[regen] row ${rowLabelOneBased}: diagnostic last seed (${dbgSeed}) -> ${
         diag.ok
@@ -276,11 +302,16 @@ function rowForLineWithTiers(opts) {
           : JSON.stringify({
               reason: diag.reason,
               failureTally: diag.failureTally ?? null,
+              lastPlacementFailure: diag.lastPlacementFailure ?? null,
+              lastPlayPathUniqFailure: diag.lastPlayPathUniqFailure ?? null,
             })
       }`
     );
   }
-  throw new Error(`[regenerate-puzzles-txt] build failed row ${li + 1}: ${hunt}`);
+  const err = new Error(`[regenerate-puzzles-txt] build failed row ${li + 1}: ${hunt}`);
+  /** @type {Record<string, unknown>} */
+  err.buildDiag = diag;
+  throw err;
 }
 
 function buildTiers() {
@@ -353,6 +384,9 @@ if (prefixLines.length < startLi) {
   );
 }
 
+let problematicWords = loadProblematicWordsSet();
+let swapBuckets = swapWordBucketsForCli(cli);
+
 const tiers = buildTiers();
 if (skipForwardVerify) {
   console.warn("[regen] forward replay verify disabled (--no-verify)");
@@ -376,13 +410,48 @@ if (regenEndExclusive < oldLines.length) {
 for (let li = startLi; li < regenEndExclusive; li++) {
   const preview = JSON.parse(oldLines[li]).perfect_hunt.slice(0, 2).join(", ");
   console.error(`[regen] ${li + 1}/${oldLines.length}: ${preview} …`);
-  const rowRaw = rowForLineWithTiers({
-    oldLines,
-    li,
-    rowLabelOneBased: li + 1,
-    tiers,
-    traceBuild,
-  });
+
+  let rowRaw = null;
+  for (
+    let discoverRound = 0;
+    discoverRound < maxDiscoverRoundsPerRow;
+    discoverRound++
+  ) {
+    try {
+      rowRaw = rowForLineWithTiers({
+        oldLines,
+        li,
+        rowLabelOneBased: li + 1,
+        tiers,
+        traceBuild,
+        swapBuckets,
+        substituteProblematic,
+      });
+      break;
+    } catch (err) {
+      const buildDiag = /** @type {{ buildDiag?: Record<string, unknown> }} */ (err)
+        .buildDiag;
+      if (
+        !discoverProblematic ||
+        !buildDiag ||
+        discoverRound + 1 >= maxDiscoverRoundsPerRow
+      ) {
+        throw err;
+      }
+      const refreshed = discoverAndRefresh(
+        /** @type {Parameters<typeof discoverAndRefresh>[0]} */ (buildDiag),
+        problematicWords,
+        `[regen] row ${li + 1}`
+      );
+      if (!refreshed) throw err;
+      problematicWords = refreshed.blocked;
+      swapBuckets = refreshed.buckets;
+    }
+  }
+  if (!rowRaw) {
+    throw new Error(`[regen] row ${li + 1}: no result after discover rounds`);
+  }
+
   const norm = normalizePuzzleRow(/** @type {Record<string, unknown>} */ (rowRaw));
   validatePuzzleRow(norm);
   outLines.push(serializePuzzleRow(norm));

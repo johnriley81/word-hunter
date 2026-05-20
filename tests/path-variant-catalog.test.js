@@ -10,7 +10,7 @@ import {
   scoreBestCatalogPlacement,
 } from "../js/puzzle-export-sim/path-variant-catalog.js";
 import { isPathGamemakerLegal } from "../js/puzzle-export-sim/word-path-search.js";
-import { comparePoolWordEntriesAscForwardExport } from "../js/gamemaker/pool-order.js";
+import { comparePoolWordEntriesAscForwardExport } from "../js/puzzle-build/pool-order.js";
 import {
   wordReuseStats,
   getLiveWordScoreBreakdownFromLabels,

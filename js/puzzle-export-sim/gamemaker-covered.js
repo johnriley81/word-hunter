@@ -1,5 +1,5 @@
 /**
- * Gamemaker-parity `covered[]` for export / `next_letters` (see `grid-placement.js` `applyCommitToBoard`).
+ * Build-parity `covered[]` for export / `next_letters` (pre-commit snapshot + path order).
  * Snapshot is the board **before** the word is stamped; one entry per first-visit cell in path order.
  */
 
