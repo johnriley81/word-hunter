@@ -1,0 +1,153 @@
+# Words excluded from puzzle-wordlist, puzzle-pool generation, path catalog, and swap buckets.
+# One lowercase word per line; # starts an end-of-line comment.
+#
+# thousand — shift regen row 1: placement succeeds but hunt-0 FIFO play-path count=2
+# subjectivity / subjectively — fixed-grid regen: grid_coherence ping-pong at toolbar step 1
+
+thousand
+subjectivity
+subjectively
+
+# auto-discovered 2026-05-20
+anywhere
+
+# auto-discovered 2026-05-20
+meltdown
+
+# auto-discovered 2026-05-20
+terribly
+
+# auto-discovered 2026-05-20
+touching
+
+# auto-discovered 2026-05-20
+charting
+
+# auto-discovered 2026-05-20
+lacrosse
+
+# auto-discovered 2026-05-20
+moisture
+
+# auto-discovered 2026-05-20
+dealings
+
+# auto-discovered 2026-05-20
+dreaming
+
+# auto-discovered 2026-05-20
+urgently
+
+# auto-discovered 2026-05-20
+hearings
+
+# auto-discovered 2026-05-20
+possible
+
+# auto-discovered 2026-05-20
+cavalier
+
+# auto-discovered 2026-05-20
+ailments
+
+# auto-discovered 2026-05-20
+awakened
+
+# auto-discovered 2026-05-20
+financed
+
+# auto-discovered 2026-05-20
+dynamite
+
+# auto-discovered 2026-05-20
+waterloo
+
+# auto-discovered 2026-05-20
+literary
+
+# auto-discovered 2026-05-20
+meetings
+
+# auto-discovered 2026-05-20
+ridicule
+
+# auto-discovered 2026-05-20
+pedagogy
+
+# auto-discovered 2026-05-20
+approved
+
+# auto-discovered 2026-05-20
+wrapping
+
+# auto-discovered 2026-05-20
+brownish
+
+# auto-discovered 2026-05-20
+matching
+
+# auto-discovered 2026-05-20
+hampered
+
+# auto-discovered 2026-05-20
+relaxing
+
+# auto-discovered 2026-05-20
+deficits
+
+# auto-discovered 2026-05-20
+problems
+
+# auto-discovered 2026-05-20
+category
+
+# auto-discovered 2026-05-20
+outbreak
+
+# auto-discovered 2026-05-20
+comprise
+
+# auto-discovered 2026-05-20
+turbines
+
+# auto-discovered 2026-05-20
+harassed
+
+# auto-discovered 2026-05-20
+outlawed
+
+# auto-discovered 2026-05-20
+patterns
+
+# auto-discovered 2026-05-20
+blockers
+
+# auto-discovered 2026-05-20
+narrowly
+
+# auto-discovered 2026-05-20
+dripping
+
+# auto-discovered 2026-05-20
+official
+
+# auto-discovered 2026-05-20
+homicide
+
+# auto-discovered 2026-05-20
+proximal
+
+# auto-discovered 2026-05-20
+farewell
+
+# auto-discovered 2026-05-20
+replying
+
+# auto-discovered 2026-05-20
+clipping
+
+# auto-discovered 2026-05-20
+platform
+
+# auto-discovered 2026-05-20
+staffing

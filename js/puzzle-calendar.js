@@ -5,7 +5,7 @@ function startOfLocalDayMs(d) {
 }
 
 /** Local calendar day 0 → `puzzles[0]`. Month is 0-based. */
-const PUZZLE_ROTATION_EPOCH = new Date(2026, 3, 26);
+const PUZZLE_ROTATION_EPOCH = new Date(2026, 4, 19);
 
 export function puzzleDayIndexAt(now, epochDate) {
   return Math.floor((startOfLocalDayMs(now) - startOfLocalDayMs(epochDate)) / DAY_MS);

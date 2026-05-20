@@ -15,8 +15,8 @@ import {
   buildNextLettersFromCoveredInBuildOrder,
 } from "../js/puzzle-export-sim.js";
 import { normalizedOrthoNeighborsAtFlat } from "../js/board-logic.js";
-import { buildGamemakerDictExportPayload } from "../js/gamemaker/build-export-payload.js";
-import { comparePoolWordEntriesDescSackRefillOrder } from "../js/gamemaker/pool-order.js";
+import { buildGamemakerDictExportPayload } from "../js/puzzle-build/build-export-payload.js";
+import { comparePoolWordEntriesDescSackRefillOrder } from "../js/puzzle-build/pool-order.js";
 
 /**
  * After hunt word 0, replay mutates orthogonal tiles around hunt word 1’s opener.
@@ -76,7 +76,8 @@ const replayVsTerminalFixture = (() => {
       grid0,
       stripTrailingEmptyNextLetters(padNextLettersToLen(fifoTrim)),
       wordsAsc,
-      pathsAsc
+      pathsAsc,
+      { skipPlayPathUniqueness: true }
     ).ok,
     true,
     "fixture puzzle must replay"
@@ -166,14 +167,16 @@ test("verifyForwardPuzzleWithShifts empty shift rows agrees with verifyForwardPu
     grid0.map((row) => row.slice()),
     nextTrim,
     wordsAsc,
-    pathsAsc
+    pathsAsc,
+    { skipPlayPathUniqueness: true }
   );
   const b = verifyForwardPuzzleWithShifts(
     grid0.map((row) => row.slice()),
     nextTrim,
     wordsAsc,
     pathsAsc,
-    noop
+    noop,
+    { skipPlayPathUniqueness: true }
   );
   assert.equal(a.ok, b.ok);
   assert.equal(a.reason, b.reason);
@@ -221,7 +224,9 @@ test("gamemaker dict export packs only core fields plus tor_neighbor ring (sack-
   );
 
   assert.equal(
-    verifyForwardPuzzle(grid0, fifoTrim.slice(), wordsAsc, pathsAsc).ok,
+    verifyForwardPuzzle(grid0, fifoTrim.slice(), wordsAsc, pathsAsc, {
+      skipPlayPathUniqueness: true,
+    }).ok,
     true,
     "sack from covered must replay"
   );

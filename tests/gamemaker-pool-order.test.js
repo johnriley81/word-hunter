@@ -4,7 +4,7 @@ import {
   comparePoolWordEntriesDesc,
   comparePoolWordEntriesAscForwardExport,
   comparePoolWordEntriesDescSackRefillOrder,
-} from "../js/gamemaker/pool-order.js";
+} from "../js/puzzle-build/pool-order.js";
 
 const hi = { word: "zebra", wordTotal: 100 };
 const midA = { word: "apple", wordTotal: 50 };

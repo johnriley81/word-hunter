@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildNextLettersFromCoveredInBuildOrder } from "../js/puzzle-export-sim/chrono-build.js";
 import { deriveCoveredGamemakerPreCommit } from "../js/puzzle-export-sim/gamemaker-covered.js";
-import { buildGamemakerDictExportPayload } from "../js/gamemaker/build-export-payload.js";
-import { comparePoolWordEntriesDescSackRefillOrder } from "../js/gamemaker/pool-order.js";
+import { buildGamemakerDictExportPayload } from "../js/puzzle-build/build-export-payload.js";
+import { comparePoolWordEntriesDescSackRefillOrder } from "../js/puzzle-build/pool-order.js";
 
 test("deriveCoveredGamemakerPreCommit reads pre-commit snapshot on first visits", () => {
   const snap = [
@@ -16,7 +16,7 @@ test("deriveCoveredGamemakerPreCommit reads pre-commit snapshot on first visits"
   assert.deepEqual(covered, ["a", "", ""]);
 });
 
-test("buildGamemakerDictExportPayload stacks sack like manual export (desc refill order)", () => {
+test("buildGamemakerDictExportPayload stacks sack in desc refill order", () => {
   const currentWords = [
     { word: "high", wordTotal: 200 },
     { word: "low", wordTotal: 50 },

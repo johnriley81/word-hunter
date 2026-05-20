@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -15,6 +14,7 @@ import {
   NEXT_LETTERS_LEN,
   GRID_CELL_COUNT,
 } from "../js/config.js";
+import { readShippedPuzzlesText } from "./lib/read-shipped-puzzles.mjs";
 
 const HUNT_PLACEHOLDERS = Array.from({ length: PERFECT_HUNT_WORD_COUNT }, (_, i) =>
   String.fromCharCode("a".charCodeAt(0) + i)
@@ -38,8 +38,8 @@ test("normalizePuzzleRow accepts starting_grids[0] alias", () => {
   assert.equal(row.starting_grid?.[0]?.[0], "a");
 });
 
-test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
-  const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
+test("parsePuzzlesFileText reads shipped puzzles file", () => {
+  const text = readShippedPuzzlesText();
   const puzzles = parsePuzzlesFileText(text);
   const jsonLineCount = text
     .split("\n")
@@ -54,7 +54,7 @@ test("parsePuzzlesFileText reads repo text/puzzles.txt", () => {
 });
 
 test("compact next_letters in JSON pad to NEXT_LETTERS_LEN on load (50 letter tiles)", () => {
-  const text = readFileSync(join(root, "text/puzzles.txt"), "utf8");
+  const text = readShippedPuzzlesText();
   const rawLines = text.split("\n").filter((line) => line.trim().length > 0);
   for (let i = 0; i < rawLines.length; i++) {
     const compact = /** @type {{ next_letters: string[] }} */ (JSON.parse(rawLines[i]))

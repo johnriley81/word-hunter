@@ -15,7 +15,11 @@
     "gen:path-catalog:fast": "node scripts/build-path-signature-catalog.mjs --signatures-only",
     "gen:path-catalog:reverse": "node scripts/build-path-signature-catalog.mjs --resume --reverse",
     "gen:path-catalog:tail": "node scripts/build-path-signature-catalog.mjs --resume --reverse --skip-at 1",
-    "gen:gamemaker-pool": "npm run gen:word-rec && npm run gen:puzzle-pool",
+    "gen:pool-data": "npm run gen:word-rec && npm run gen:puzzle-pool",
+    "init:puzzle-key": "node scripts/init-puzzle-key.mjs",
+    "encrypt:puzzles": "node scripts/encrypt-puzzles.mjs",
+    "decrypt:puzzles": "node scripts/decrypt-puzzles.mjs",
+    "analyze:puzzle": "node scripts/analyze-puzzle-json.mjs",
     "inventory:hints": "node scripts/inventory-puzzle-hints.mjs",
     "leaderboard-mock": "node scripts/leaderboard-mock-server.mjs",
     "leaderboard-proxy": "node scripts/leaderboard-cors-proxy.mjs",
@@ -25,10 +29,12 @@
     "export:puzzle-lines": "node scripts/export-built-puzzle-lines.mjs",
     "export:puzzle-lines:robust": "node scripts/export-built-puzzle-lines.mjs --lookahead --tiered --seed-skew 200 --attempts-build 280",
     "regen:puzzles": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.regen.txt --seed-skew 500 --attempts-build 280",
-    "regen:puzzles:inplace": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.txt --seed-skew 500 --attempts-build 280",
+    "regen:puzzles:inplace": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.txt --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 2000 --attempts-build 400",
     "regen:puzzle:one": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.txt --seed-skew 500 --attempts-build 280 --max-rows 1",
     "regen:puzzles:shift": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.regen.shift.txt --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 500 --attempts-build 280",
-    "regen:puzzle:one:shift": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.txt --max-rows 1 --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 200 --attempts-build 120"
+    "regen:puzzle:one:shift": "node scripts/regenerate-puzzles-txt.mjs --in text/puzzles.txt --out text/puzzles.txt --max-rows 1 --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 200 --attempts-build 120",
+    "gen:puzzles:100": "node scripts/export-built-puzzle-lines.mjs --from 0 --target 100 --out text/puzzles.txt --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 40 --attempts-build 25 --no-discover-problematic",
+    "gen:puzzles:1000": "node scripts/export-built-puzzle-lines.mjs --from 0 --to 999 --out text/puzzles.txt --shift --shift-exhaustive16 --skip-cheap-tier --seed-skew 80 --attempts-build 35"
   },
   "devDependencies": {
     "prettier": "3.1.0"

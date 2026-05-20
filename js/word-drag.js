@@ -480,7 +480,7 @@ export function createWordDragHandlers(ctx, host) {
             host.endGameWithStinger?.({ endgameStinger: "perfect" });
             return;
           }
-          if (host.areNextLettersExhausted?.()) {
+          if (host.areAllLetterTilesUsedUp?.()) {
             host.endGameWithStinger?.();
           }
         },

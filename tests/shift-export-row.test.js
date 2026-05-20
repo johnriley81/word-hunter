@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readShippedPuzzlesText } from "./lib/read-shipped-puzzles.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
@@ -35,9 +35,8 @@ function wordEntry(word) {
 
 test("shift export uses end-of-generation starting_grid and dense next_letters head", () => {
   assert.ok(catalog, "path catalog required");
-  const poolPath = join(root, "text/puzzles.txt");
-  const rows = parsePuzzlesFileText(readFileSync(poolPath, "utf8"));
-  assert.ok(rows.length >= 1, "text/puzzles.txt needs at least one row");
+  const rows = parsePuzzlesFileText(readShippedPuzzlesText());
+  assert.ok(rows.length >= 1, "shipped puzzles need at least one row");
   const hunt = rows[0].perfect_hunt;
   const pool = hunt.map(wordEntry);
 
@@ -53,6 +52,7 @@ test("shift export uses end-of-generation starting_grid and dense next_letters h
       lookaheadProbeNext: true,
       maxAttemptsPerWord: 8000,
       requireCoexistentPathsOnFinalGrid: false,
+      skipPlayPathUniqueness: true,
     });
     if (r.ok && r.row) built = r;
   }
@@ -98,7 +98,12 @@ test("shift export uses end-of-generation starting_grid and dense next_letters h
     wordsAsc,
     pathsAsc,
     row.perfect_hunt_shifts_before,
-    { fillEmptyPathCells: true }
+    {
+      fillEmptyPathCells: true,
+      pathCatalog: catalog,
+      seed: 42,
+      skipPlayPathUniqueness: true,
+    }
   );
   assert.equal(vrf.ok, true, vrf.reason ?? "forward verify failed");
 });

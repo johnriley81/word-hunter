@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
-import { readFileSync } from "node:fs";
+import { readShippedPuzzlesText } from "./lib/read-shipped-puzzles.mjs";
 import { fileURLToPath } from "node:url";
 import {
   canonicalNextLettersFromJsonArray,
@@ -43,7 +43,7 @@ function normalizeGridLetters(/** @type {string[][]} */ g) {
 
 /** @returns {{ row: Record<string, unknown>; lineIndex: number }} */
 function locateWrongfulPuzzleMeta() {
-  const text = readFileSync(join(root, "../text/puzzles.txt"), "utf8").trim();
+  const text = readShippedPuzzlesText().trim();
   const huntNeedle = `"perfect_hunt":["wrongful"`;
   const lines = text.split("\n").filter((ln) => ln.trim().length);
   let lineIndex = -1;

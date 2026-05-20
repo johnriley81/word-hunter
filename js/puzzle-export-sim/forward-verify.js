@@ -6,6 +6,7 @@ import {
 } from "./refill-fifo.js";
 import { shiftAwareStarterHintsReplay } from "./shift-starter.js";
 import { pathFlatConflictsPenultimateUndoStroke } from "./word-path-search.js";
+import { verifyShippedPlayPathUniqueness } from "./play-path-uniqueness.js";
 
 export {
   replacementTilesFirstVisitFlatOrder,
@@ -71,6 +72,25 @@ export function verifyForwardPuzzleWithShifts(
     }
   }
 
+  const replayMerged =
+    typeof replayOpts === "object" && replayOpts != null ? replayOpts : {};
+  if (replayMerged.skipPlayPathUniqueness !== true) {
+    const uniq = verifyShippedPlayPathUniqueness(
+      grid0,
+      wordsAsc,
+      pathFlatByWordAsc,
+      shiftsBeforeByWordAsc,
+      { ...replayMerged, nextIn }
+    );
+    if (!uniq.ok) {
+      return {
+        ok: false,
+        reason: uniq.reason ?? "fifo_play_path_uniqueness_failed",
+        queueLeft: emptyQueueSnapshot(q),
+      };
+    }
+  }
+
   const r = shiftAwareStarterHintsReplay(
     grid0,
     nextIn,
@@ -92,10 +112,16 @@ export function verifyForwardPuzzleWithShifts(
  * Replay ascending hunt paths on `grid0` with FIFO refills; board must solve with empty sack after.
  * Equivalent to verifyForwardPuzzleWithShifts with no inter-word shifts.
  *
- * Placement ambiguity gates (**`geometry`** vs **`fifo_equivalence`**) belong to **`findRandomLegalPathFlat`** /
- * automated builds — forward verify assumes exported paths already satisfied whatever uniqueness policy the builder used.
+ * Shipped-grid FIFO play-path uniqueness is enforced inside **`verifyForwardPuzzleWithShifts`**
+ * via **`verifyShippedPlayPathUniqueness`** (overlay placement gates remain separate).
  */
-export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) {
+export function verifyForwardPuzzle(
+  grid0,
+  nextIn,
+  wordsAsc,
+  pathFlatByWordAsc,
+  replayOpts = {}
+) {
   const nw = Array.isArray(wordsAsc) ? wordsAsc.length : 0;
   const noop = Array.from({ length: nw }, () => []);
   return verifyForwardPuzzleWithShifts(
@@ -104,7 +130,7 @@ export function verifyForwardPuzzle(grid0, nextIn, wordsAsc, pathFlatByWordAsc) 
     wordsAsc,
     pathFlatByWordAsc,
     noop,
-    {}
+    replayOpts
   );
 }
 

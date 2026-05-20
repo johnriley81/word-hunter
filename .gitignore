@@ -18,6 +18,7 @@ text/gamemaker/pregen/word-recognizability.raw.json
 # Generated reference dump (see tools/export_word_pool_jsonl.py)
 text/gamemaker/word-pool.jsonl
 text/puzzles.dev.txt
+text/puzzles.txt
 
 # Path catalog probe / export artifacts (regenerate locally; commit only path-signature-catalog.json)
 text/gamemaker/pregen/path-catalog-paths-*

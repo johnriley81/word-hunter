@@ -5,7 +5,7 @@ import {
   torNeighborQuadExportTokensFromBoard,
   normalizeTileText,
 } from "../board-logic.js";
-import { comparePoolWordEntriesDescSackRefillOrder } from "../gamemaker/pool-order.js";
+import { comparePoolWordEntriesDescSackRefillOrder } from "../puzzle-build/pool-order.js";
 import {
   replacementTilesFirstVisitFlatOrder,
   tryApplyFifoLetterRefillsAfterWordSubmission,

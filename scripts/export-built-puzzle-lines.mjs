@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 /**
- * Emit JSON Lines compatible with text/puzzles.txt: for each pool row in range,
- * run tryBuildAutomatedPuzzle, then serializePuzzleRow (same canonical packing as shipped puzzles).
+ * Build pool rows into JSON lines for `text/puzzles.txt`.
  *
- * Usage:
- *   node scripts/export-built-puzzle-lines.mjs --from 0 --to 9 --out text/puzzles-new.jsonl
- *   node scripts/export-built-puzzle-lines.mjs --from 100 --to 199 --append --out text/puzzles.txt --lookahead --attempts-build 40
+ *   node scripts/export-built-puzzle-lines.mjs --from 0 --to 99 --out text/puzzles.txt --shift --shift-exhaustive16
+ *   node scripts/export-built-puzzle-lines.mjs --from 0 --target 100 --out text/puzzles.txt --shift …
  *
- * Multi-seed (matches regen ergonomics): `--seed-skew N` tries `(base_seed + si*4093)` for si=0..N.
- * **`--attempts-word`** / **`--attempts-build`** default **`12000`** / **`280`** unless overridden.
- * `--tiered` runs a cheap no-lookahead skew pass plus a full pass (default `--seed-skew` becomes 120 when
- * tiered without an explicit `--seed-skew`).
- *
- * By default placements require gamemaker **unique spelling** on the snapped board (exactly one path per word —
- * nicer for players). Pass `--allow-ambiguous-spelling` to opt into ambiguous paths like `scripts/auto-puzzle-build`
- * without `--strict-uniqueness`.
- * Inter-word toroidal shifts are **off by default** during construction (`--shift` enables).
- * Shift builds skip forward replay verify by default (`--verify` to enable). See `auto-puzzle-build.mjs` header.
+ * `--target N` scans the pool until N rows are written (skips failures). `--seed-skew` tries
+ * `(rowSeed + si*4093)` per row. `--skip-cheap-tier` with `--tiered` runs one full pass only.
  */
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -28,6 +18,13 @@ import {
 } from "../js/puzzle-row-format.js";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
 import { createPuzzleBuildCli, mergeAutoBuildOpts } from "./lib/puzzle-build-cli.mjs";
+import {
+  discoverAndRefresh,
+  substituteBlockedInPool,
+  wordsFromPoolEntry,
+} from "./lib/pool-problematic.mjs";
+import { loadProblematicWordsSet } from "./lib/problematic-words.mjs";
+import { swapWordBucketsForCli } from "./lib/puzzle-build-cli.mjs";
 import { PUZZLE_POOL_JSON, repoRoot } from "./lib/puzzle-build-paths.mjs";
 
 const cli = createPuzzleBuildCli();
@@ -37,8 +34,19 @@ const append = cli.hasFlag("--append") || cli.hasFlag("-a");
 const failFast = cli.hasFlag("--fail-fast");
 const verbose = cli.hasFlag("--verbose");
 const exportTiered = cli.hasFlag("--tiered");
+const skipCheapTier = cli.hasFlag("--skip-cheap-tier");
 const allowAmbiguousSpelling = cli.hasFlag("--allow-ambiguous-spelling");
 const lookaheadOn = cli.hasFlag("--lookahead");
+const substituteProblematic = !cli.hasFlag("--no-substitute-problematic");
+const discoverProblematic = !cli.hasFlag("--no-discover-problematic");
+const maxDiscoverRoundsPerRow = Math.max(
+  1,
+  Math.floor(cli.argvNum("--discover-max-rounds", 4))
+);
+const targetCount = Math.max(0, Math.floor(cli.argvNum("--target", 0)));
+
+let problematicWords = loadProblematicWordsSet();
+let swapBuckets = swapWordBucketsForCli(cli);
 
 const seedSkewArgvIx = cli.argv.indexOf("--seed-skew");
 let exportSeedSkew = Math.max(
@@ -54,9 +62,7 @@ if (exportTiered && exportSeedSkew === 0 && seedSkewArgvIx === -1) {
   exportSeedSkew = 120;
 }
 
-if (cli.pathCatalog) {
-  console.error("[export-built] path catalog loaded");
-}
+if (cli.pathCatalog) console.error("[export-built] path catalog loaded");
 
 const outIx = cli.argv.indexOf("--out");
 const outArg = outIx !== -1 ? cli.argv[outIx + 1] : "";
@@ -76,25 +82,26 @@ if (!Array.isArray(puzzles) || puzzles.length === 0) {
 }
 
 const lo = Math.max(0, Math.floor(from));
-const hi =
+let hi =
   Number.isFinite(toIncl) && toIncl > 0
     ? Math.min(puzzles.length - 1, Math.floor(toIncl))
     : Math.min(puzzles.length - 1, lo);
+if (targetCount > 0) {
+  hi = Math.min(puzzles.length - 1, Math.max(hi, lo + targetCount * 4));
+}
 
 if (hi < lo) {
   console.error("--to must be >= --from", lo, hi);
   process.exit(1);
 }
-
 if (!outPath) {
-  console.error("Need --out path (relative to repo root is fine)");
+  console.error("Need --out path");
   process.exit(1);
 }
 
 const seedBase = cli.argvNum("--seed-base", 42);
 const sameSeedEveryRow = cli.hasFlag("--same-seed-every-row");
 
-/** @returns {number} */
 function seedForRow(pi) {
   const b = Math.floor(Number(seedBase)) || 42;
   if (sameSeedEveryRow) return b >>> 0;
@@ -102,10 +109,10 @@ function seedForRow(pi) {
 }
 
 function buildExportTierList() {
-  if (!exportTiered) {
+  if (!exportTiered || skipCheapTier) {
     return [
       {
-        label: exportSeedSkew === 0 ? "single" : "scan",
+        label: exportSeedSkew === 0 ? "single" : "full",
         maxSeedSkew: exportSeedSkew,
         wholeBuildAttempts: cli.wholeBuildAttempts,
         lookaheadProbeNext: lookaheadOn,
@@ -130,7 +137,6 @@ function buildExportTierList() {
   ];
 }
 
-/** @returns {NonNullable<Parameters<typeof tryBuildAutomatedPuzzle>[1]>} */
 function buildOptsForSeed(seed, tier) {
   const {
     wholeBuildAttempts: att = cli.wholeBuildAttempts,
@@ -140,11 +146,23 @@ function buildOptsForSeed(seed, tier) {
     wholeBuildAttempts: att,
     requireUniqueSpelling: !allowAmbiguousSpelling,
     lookaheadProbeNext,
+    placementOrder: cli.shiftOn ? "input" : undefined,
   });
 }
 
-/** @param {ReturnType<typeof buildExportTierList>[number]} tier */
-function tryBuildWordsWithTierSkew(words, /** @type {number} */ pi, tier) {
+function diagnosticBuild(words, pi, tier) {
+  const seed = (seedForRow(pi) + Math.imul(Math.max(0, tier.maxSeedSkew), 4093)) >>> 0;
+  return tryBuildAutomatedPuzzle(words, {
+    ...buildOptsForSeed(seed, tier),
+    returnFailureTally: true,
+    returnLastPlacementFailure: true,
+    returnLastPlayPathUniqFailure: true,
+    wholeBuildAttempts: tier.wholeBuildAttempts,
+    lookaheadProbeNext: tier.lookaheadProbeNext,
+  });
+}
+
+function tryBuildWordsWithTierSkew(words, pi, tier) {
   const seedBaseRow = seedForRow(pi);
   const logEvery =
     tier.maxSeedSkew > 160
@@ -160,19 +178,15 @@ function tryBuildWordsWithTierSkew(words, /** @type {number} */ pi, tier) {
       );
     }
     const r = tryBuildAutomatedPuzzle(words, buildOptsForSeed(seed, tier));
-    if (r.ok && r.row) return /** @type {typeof r & { ok: true }} */ (r);
+    if (r.ok && r.row) return r;
   }
   return null;
 }
 
-function tryExportPoolRow(words, /** @type {number} */ pi) {
-  const tiers = buildExportTierList();
-  for (let ti = 0; ti < tiers.length; ti++) {
-    if (verbose && tiers.length > 1)
-      console.error(
-        `[export-built] pool ${pi} tier=${ti + 1}/${tiers.length} "${tiers[ti].label}"`
-      );
-    const r = tryBuildWordsWithTierSkew(words, pi, tiers[ti]);
+function tryExportPoolRow(words, pi) {
+  for (const tier of buildExportTierList()) {
+    if (verbose) console.error(`[export-built] pool ${pi} tier "${tier.label}"`);
+    const r = tryBuildWordsWithTierSkew(words, pi, tier);
     if (r) return r;
   }
   return null;
@@ -181,15 +195,14 @@ function tryExportPoolRow(words, /** @type {number} */ pi) {
 let ok = 0;
 let skipped = 0;
 const errors = [];
+let lastPoolIndex = lo;
 
-if (!append) {
-  writeFileSync(outPath, "", "utf8");
-}
+if (!append) writeFileSync(outPath, "", "utf8");
 
-for (let pi = lo; pi <= hi; pi++) {
+for (let pi = lo; pi <= hi && (targetCount <= 0 || ok < targetCount); pi++) {
+  lastPoolIndex = pi;
   const entry = puzzles[pi];
-  const words = entry.words;
-  if (!Array.isArray(words) || words.length !== 7) {
+  if (!Array.isArray(entry.words) || entry.words.length !== 7) {
     errors.push({ pi, id: entry.id, reason: "pool row missing seven words" });
     skipped++;
     if (failFast) break;
@@ -197,19 +210,54 @@ for (let pi = lo; pi <= hi; pi++) {
   }
 
   const seed = seedForRow(pi);
-  const r = tryExportPoolRow(words, pi);
-  if (!r || !r.ok || !("row" in r)) {
-    const failureReason =
-      r && typeof r === "object" && "reason" in r ? String(r.reason ?? "") : "";
+  let words = substituteBlockedInPool(
+    wordsFromPoolEntry(entry, cli.shiftOn),
+    problematicWords,
+    /** @type {Map<string, unknown>} */ (swapBuckets),
+    seed,
+    {
+      enabled: substituteProblematic,
+      logPrefix: verbose ? `[export-built] pool ${pi}` : undefined,
+      verbose,
+    }
+  );
+
+  let r = null;
+  for (
+    let discoverRound = 0;
+    discoverRound < maxDiscoverRoundsPerRow;
+    discoverRound++
+  ) {
+    r = tryExportPoolRow(words, pi);
+    if (r?.ok && r.row) break;
+    if (!discoverProblematic || discoverRound + 1 >= maxDiscoverRoundsPerRow) break;
+
+    const tiers = buildExportTierList();
+    const diag = diagnosticBuild(words, pi, tiers[tiers.length - 1]);
+    const refreshed = discoverAndRefresh(
+      diag,
+      problematicWords,
+      `[export-built] pool ${pi}`
+    );
+    if (!refreshed) break;
+    problematicWords = refreshed.blocked;
+    swapBuckets = refreshed.buckets;
+    words = substituteBlockedInPool(words, problematicWords, swapBuckets, seed, {
+      enabled: substituteProblematic,
+      logPrefix: verbose ? `[export-built] pool ${pi}` : undefined,
+      verbose,
+    });
+  }
+
+  if (!r?.ok || !r.row) {
     errors.push({
       pi,
       id: entry.id,
-      reason: failureReason.trim() !== "" ? failureReason : "build failed",
+      reason: "build failed",
       seed,
     });
     skipped++;
-    if (verbose)
-      console.error("[export-built]", pi, entry.id, "FAIL", r?.reason, "seed", seed);
+    if (verbose) console.error("[export-built]", pi, entry.id, "FAIL", seed);
     if (failFast) break;
     continue;
   }
@@ -217,33 +265,39 @@ for (let pi = lo; pi <= hi; pi++) {
   try {
     const norm = normalizePuzzleRow(/** @type {Record<string, unknown>} */ (r.row));
     validatePuzzleRow(norm);
-    const line = serializePuzzleRow(norm) + "\n";
-    appendFileSync(outPath, line, "utf8");
+    appendFileSync(outPath, serializePuzzleRow(norm) + "\n", "utf8");
     ok++;
-    if (verbose) console.error("[export-built]", pi, entry.id, "ok", seed);
+    if (verbose || (pi - lo) % 50 === 0) {
+      console.error("[export-built]", pi, entry.id, "ok", `(${ok} written)`);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    errors.push({ pi, id: entry.id, reason: "serialize/validate: " + msg });
+    errors.push({ pi, id: entry.id, reason: msg });
     skipped++;
-    if (verbose) console.error("[export-built]", pi, entry.id, "serialize FAIL", msg);
     if (failFast) break;
   }
 }
 
-const summary = {
-  pool: PUZZLE_POOL_JSON.replace(repoRoot + "/", ""),
-  rangeInclusive: [lo, hi],
-  written: ok,
-  skipped,
-  append,
-  out: outPath.replace(repoRoot + "/", ""),
-  tiered: exportTiered || exportSeedSkew > 0,
-  seedSkew: exportSeedSkew,
-};
-console.log(JSON.stringify(summary, null, 2));
-if (errors.length && errors.length <= 48)
+console.log(
+  JSON.stringify(
+    {
+      pool: PUZZLE_POOL_JSON.replace(repoRoot + "/", ""),
+      rangeInclusive: [lo, lastPoolIndex],
+      targetCount: targetCount > 0 ? targetCount : undefined,
+      written: ok,
+      skipped,
+      out: outPath.replace(repoRoot + "/", ""),
+    },
+    null,
+    2
+  )
+);
+if (errors.length && errors.length <= 48) {
   console.error(JSON.stringify({ errors }, null, 2));
-else if (errors.length > 48)
-  console.error(errors.length + " errors (suppress detail; rerange or --fail-fast)");
+} else if (errors.length > 48) {
+  console.error(`${errors.length} errors (use --verbose or --fail-fast)`);
+}
 
-process.exit(errors.length ? 2 : 0);
+process.exit(
+  targetCount > 0 && ok < targetCount ? 2 : errors.length && ok === 0 ? 2 : 0
+);

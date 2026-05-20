@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { loadProblematicWordsSet } from "./lib/problematic-words.mjs";
 import { NEXT_LETTERS_LEN } from "../js/config.js";
 import {
   wordToTileLabelSequence,
@@ -179,11 +180,13 @@ function loadCandidateWords(recMap) {
     process.exit(1);
   }
   const raw = readFileSync(wordlistPath, "utf8");
+  const blocked = loadProblematicWordsSet();
   const set = new Set();
   const out = [];
   for (const line of raw.split("\n")) {
     const w = line.trim().toLowerCase();
     if (!w || !/^[a-z]+$/.test(w)) continue;
+    if (blocked.has(w)) continue;
     const labels = wordToTileLabelSequence(w);
     const n = labels.length;
     if (n < TILE_LABEL_MIN || n > TILE_LABEL_MAX) continue;

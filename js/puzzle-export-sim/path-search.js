@@ -276,6 +276,12 @@ function dfsFromStart(
     const glyphNeedNorm = normalizeTileText(glyphs[glyphIdx]);
     const last = path[path.length - 1];
     let neigh = neighborFlats(/** @type {number} */ (last), gridSize);
+    if (neighborSnap) {
+      neigh = neigh.filter((f) => {
+        const t = tileNormalizedAt(neighborSnap, f, gridSize);
+        return t !== "" && t === glyphNeedNorm;
+      });
+    }
     if (dcNow === minTiles) {
       neigh = neigh.filter((f) => mask & (1 << f));
     }
@@ -376,8 +382,10 @@ export function findRandomLegalPathFlat(word, options = {}) {
   const requireUniqueSpelling = options.requireUniqueSpelling !== false;
   const snapshotBoard4 =
     options.snapshotBoard4 !== undefined ? options.snapshotBoard4 : null;
-  /** Placement is always overlay: snapshot letters do not gate DFS; snapshot is used for cover-existing bias and uniqueness. */
-  const neighborSnap = null;
+  /** Overlay placement: snapshot does not gate DFS. **`gateNeighborsOnSnapshot`** gates on labeled cells (shipped-grid resolve). */
+  const gateNeighborsOnSnapshot =
+    options.gateNeighborsOnSnapshot === true && snapshotBoard4 != null;
+  const neighborSnap = gateNeighborsOnSnapshot ? snapshotBoard4 : null;
   const uniquenessSnap = snapshotBoard4;
   const preferCoverExistingNeighbors =
     typeof options.preferCoverExistingNeighbors === "boolean"
@@ -447,6 +455,12 @@ export function findRandomLegalPathFlat(word, options = {}) {
     const rng = mulberry32(baseSeed + att * 1000003);
     const starts = [];
     for (let f = 0; f < cellCount; f++) {
+      if (gateNeighborsOnSnapshot && snapshotBoard4) {
+        const r = Math.floor(f / gridSize);
+        const c = f % gridSize;
+        const t = normalizeTileText(snapshotBoard4[r][c]);
+        if (t === "" || t !== normalizeTileText(glyphs[0])) continue;
+      }
       starts.push(f);
     }
     if (starts.length === 0) continue;

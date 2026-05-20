@@ -59,13 +59,14 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 | `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                            |
 | `leaderboard-ui.js`        | Table, overlay, API refresh, post-game copy-score flow; **`rt.state`** holds mutable leaderboard/post-game flags |
 | `rules-dock.js`            | Rules overlay + mute wiring                                                                                      |
-| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet` (gamemaker only), `puzzleListIndex`, `calculatePuzzleDayIndex` |
+| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet`, `puzzleListIndex`, `calculatePuzzleDayIndex`                  |
 | `audio.js`                 | Sound pools and playback                                                                                         |
 | `config.js`                | Constants and timings                                                                                            |
+| `puzzle-build/`            | Pool ordering, export payload, swap buckets, problematic-word filter (used by automated builder scripts)         |
 
 ## Content and assets
 
-- **`text/`** — `wordlist.txt` and `puzzles.txt` (JSON Lines per puzzle: `starting_grid`, compact `next_letters` (typically 50 tokens, pads to `NEXT_LETTERS_LEN` = 66), `perfect_hunt` ×7; Σ min-tiles per row = **66**). Daily row: `puzzleListIndex` in `puzzle-calendar.js` (`PUZZLE_ROTATION_EPOCH`). Leaderboard path and share `#` use `calculatePuzzleDayIndex()` (same epoch).
+- **`text/`** — `wordlist.txt` (game dictionary) and **`puzzles.enc`** (AES-GCM encrypted JSON Lines shipped to the browser; row 0 = epoch day 0). Local **`text/puzzles.txt`** is gitignored plaintext for export/regen. Each puzzle row: `starting_grid`, compact `next_letters` (typically 50 tokens, pads to `NEXT_LETTERS_LEN` = 66), `perfect_hunt` ×7; Σ min-tiles per row = **66**. Daily row: `puzzleListIndex` in `puzzle-calendar.js` (`PUZZLE_ROTATION_EPOCH` = 2026-05-19). Leaderboard path and share `#` use `calculatePuzzleDayIndex()` (same epoch).
 - **`sounds/`** — Game SFX referenced from `audio.js`.
 - **`style.css`** — Layout and theme.
 
@@ -73,13 +74,25 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 
 Puzzle-generation / cert Python helpers can live in `tools/` on your machine; that tree is **gitignored** and is not part of the shipped static site. CI only runs `npm test`.
 
-### Puzzle pool (gamemaker)
+### Automated puzzle generation
+
+Shared build/export logic lives in **`js/puzzle-build/`** (`build-export-payload.js`, `pool-order.js`, `swap-buckets.js`, `problematic-words.js`). Offline data and pregen artifacts stay under **`text/gamemaker/`** (pool, path catalog, wordlist trim, blocklist).
+
+**Corpus prep**
 
 1. **Word metrics pickle** — Recognizability tiers come from `text/word_metrics_7_10.pkl` (**lengths 7–10 only**, external model) or, when present, **`text/word_metrics_extended.pkl`** which adds **8-letter-and-up** coverage and **11–16 letter** words via English Zipf proxies (`pip install wordfreq`, then `npm run gen:extend-metrics`). Prefer the original where it exists; extended omits 7-letter rows. Override path with **`WORD_METRICS_PKL`**. See `scripts/build-extended-word-metrics.py`.
 2. **`npm run gen:word-rec`** — requires **Python 3** and **`pip install wordfreq`**. Pickle **`rec`** was wrongly tied to **letter count at the max tier** (bogus “only spellings with 10 letters reach tier **10**”). Default **`RECO_EXPORT_MODE=length_deciles`** ranks by **English Zipf within each spelled length** (**`scripts/rec_zipf_tiers.py`**) and assigns tiers **10→1**, so **`rec`** is comparable **across** lengths (**tier 10** ≈ strongest decile **per length**). Alternatives: **`RECO_EXPORT_MODE=zipf`** (absolute Zipf breakpoints; few long tier-10s), **`RECO_EXPORT_MODE=legacy`** (trust pickle third tuple). Python writes **`word-recognizability.raw.json`**; **Node** filters by **`wordToTileLabelSequence`**, default **8–16** tile labels (`TILE_LABEL_MIN` / `TILE_LABEL_MAX`). Outputs **`text/gamemaker/pregen/word-recognizability.json`**. Re-run when wordlist or metrics change.
 3. **`npm run gen:puzzle-wordlist`** — Node only. Optional **tier trim**: writes **`puzzle-wordlist.txt`** from **`word-recognizability.json`** for words with **`rec` ≥ EXPORT_RECOG_MIN** (default **10**). Env **`OUT_PATH`** (`-` for stdout). **Default `gen:puzzle-pool` does not require this**: it reads **`text/wordlist.txt`** unless **`PUZZLE_WORDLIST=text/gamemaker/puzzle-wordlist.txt`**. If the trim file is **too sparse**, the pool generator may fail to build seven-word combos (Σ **`min_tiles`** = **66**) — widen **`EXPORT_RECOG_MIN`**, use **`wordlist.txt`**, or hand-edit **`puzzle-wordlist.txt`**.
-4. **`npm run gen:puzzle-pool`** — Node only. **`PUZZLE_WORDLIST=text/wordlist.txt`** by default (**wordlist ∩ rec JSON ∩ 8–16 tile glyphs**); **`RECOG_MIN`** default **1** (raise to filter obscure tier). Outputs **`pregen/puzzle-pool.json`**: **`POOL_SIZE`** hunts (default **10 000**), compact JSON (**`POOL_JSON_PRETTY=1`** = indented). Default ranking (**`POOL_REUSE_RANK=near`**, **`POOL_REUSE_SUM_TARGET=13`** in the generator) favors Σ-reuse near the median on this lexicon, then **`letterUnion`**, then scores—balanced tile reuse and cross-word letter variety. Set **`POOL_REUSE_RANK=max`** for reuse-heavy top rows or **`ignore`** for **`letterUnion`**-first. Other knobs: **`POOL_OVERSAMPLE`**, **`POOL_RANK_BY_LETTER_UNION`**, **`POOL_WORD_TOTAL_RANK`**, **`SEED`**, **`TILE_LABEL_*`**. Use **`PUZZLE_WORDLIST=text/gamemaker/puzzle-wordlist.txt`** only when you intentionally want tier-trimmed inputs.
+4. **`npm run gen:puzzle-pool`** — Node only. **`PUZZLE_WORDLIST=text/wordlist.txt`** by default (**wordlist ∩ rec JSON ∩ 8–16 tile glyphs**); **`RECOG_MIN`** default **1** (raise to filter obscure tier). Outputs **`text/gamemaker/pregen/puzzle-pool.json`**: **`POOL_SIZE`** hunts (default **10 000**), compact JSON (**`POOL_JSON_PRETTY=1`** = indented). Default ranking (**`POOL_REUSE_RANK=near`**, **`POOL_REUSE_SUM_TARGET=13`** in the generator) favors Σ-reuse near the median on this lexicon, then **`letterUnion`**, then scores—balanced tile reuse and cross-word letter variety. Set **`POOL_REUSE_RANK=max`** for reuse-heavy top rows or **`ignore`** for **`letterUnion`**-first. Other knobs: **`POOL_OVERSAMPLE`**, **`POOL_RANK_BY_LETTER_UNION`**, **`POOL_WORD_TOTAL_RANK`**, **`SEED`**, **`TILE_LABEL_*`**. Use **`PUZZLE_WORDLIST=text/gamemaker/puzzle-wordlist.txt`** only when you intentionally want tier-trimmed inputs.
+5. **`npm run gen:path-catalog`** — Precomputes path variants for fast automated placement (`text/gamemaker/pregen/path-signature-catalog.json`). Required for production batch builds.
 
-5. **`npm run gen:gamemaker-pool`** — **`gen:word-rec`** then **`gen:puzzle-pool`** (full corpus for **`gamemaker.html`** reset/next). (**`text/puzzles.txt`** for the shipped game is pasted from gamemaker export, not inferred from **`puzzle-pool.json`**.)
+**Shipped puzzles (`text/puzzles.enc`)**
 
-**Gamemaker (`gamemaker.html`):** **WORD** swaps for another spelling in the pool with identical **`min_tiles`**, **`reuse`**, **`wordTotal`**. Words need **`gen:word-rec`** coverage (pickle ∪ metrics); **`text/wordlist.txt`** gates gameplay spellings available to the generator.
+- The game loads **`text/puzzles.enc`** and decrypts client-side (`js/puzzle-file-crypto.js` + obfuscated key in `js/puzzle-file-key.js`). This hides puzzle content in git; the key is recoverable from the static bundle by determined users.
+- **`text/puzzles.txt`** (plaintext) is **gitignored**. Clone → optional **`npm run decrypt:puzzles`** to edit locally. After regen/export, run **`npm run encrypt:puzzles`** and commit **`text/puzzles.enc`**. Pre-commit runs encrypt when plaintext exists.
+- **`npm run init:puzzle-key`** — one-time or key rotation (rewrites `js/puzzle-file-key.js`, then re-encrypt).
+- **`npm run export:puzzle-lines`** — Build pool rows into JSON Lines (writes plaintext `text/puzzles.txt`; encrypt before commit).
+- **`npm run regen:puzzles:inplace`** — Rebuild existing rows from their `perfect_hunt` specs using the current builder + verify pipeline (use after rule changes).
+- **`npm run auto:puzzle`** — Single-puzzle probe to stdout (debugging one pool index / seed).
+
+**Convenience:** **`npm run gen:pool-data`** runs **`gen:word-rec`** then **`gen:puzzle-pool`**. **`npm run analyze:puzzle`** replays one puzzle JSON for FIFO/shift debugging (`scripts/analyze-puzzle-json.mjs`).
