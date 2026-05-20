@@ -5,6 +5,11 @@ export const PUZZLE_ENC_VERSION = 1;
 export const PUZZLE_ENC_IV_LEN = 12;
 export const PUZZLE_ENC_GCM_TAG_LEN = 16;
 
+/** Web Crypto AES-GCM is only available in secure contexts (HTTPS, localhost). */
+export function puzzleDecryptAvailable() {
+  return typeof globalThis.crypto?.subtle?.importKey === "function";
+}
+
 const HEADER_LEN = PUZZLE_ENC_MAGIC.length + 1 + PUZZLE_ENC_IV_LEN;
 
 function assertPuzzleEncHeader(bytes) {
