@@ -61,11 +61,7 @@ export const TILE_PALETTE_TRANSITION_SETTLE_MS = 120;
 export const CURRENT_WORD_FADE_MS = 220;
 export const CURRENT_WORD_MESSAGE_EXTRA_MS = 500;
 export const CURRENT_WORD_MESSAGE_ON_MS = 1100 + CURRENT_WORD_MESSAGE_EXTRA_MS;
-/**
- * Leaderboard: demo mode (`LEADERBOARD_USE_DEMO_DATA`) skips the API and uses the demo submit UI.
- * Live base is `LEADERBOARD_PRODUCTION_API_BASE`; on localhost, `LEADERBOARD_API_BASE` points at the CORS proxy.
- * Tests: `npm test` / `npm run test:leaderboard`. Local API without prod: `npm run dev:leaderboard`.
- */
+/** Leaderboard demo mode and local dev proxy; see `npm run dev:leaderboard`. */
 export const LEADERBOARD_USE_DEMO_DATA = false;
 export const LEADERBOARD_PRODUCTION_API_BASE =
   "https://johnriley81.pythonanywhere.com/leaderboard/";
@@ -82,8 +78,16 @@ function resolveLeaderboardApiBase() {
 }
 
 export const LEADERBOARD_API_BASE = resolveLeaderboardApiBase();
-/** When true, POST includes `scoreValidation` (server `WORDHUNTER_VALIDATE_SCORE`). */
-export const LEADERBOARD_SUBMIT_SCORE_VALIDATION = false;
+
+/** Google Analytics 4 measurement ID (`G-…`). Set via `<meta name="google-analytics-id" content="…">`. */
+export const GOOGLE_ANALYTICS_MEASUREMENT_ID =
+  typeof document !== "undefined"
+    ? String(
+        document
+          .querySelector('meta[name="google-analytics-id"]')
+          ?.getAttribute("content") ?? ""
+      ).trim()
+    : "";
 /** Only when `LEADERBOARD_USE_DEMO_DATA`: empty GET-style board, optional inject rows for UI tests. */
 export const LEADERBOARD_DEMO_EMPTY_BOARD = false;
 export const LEADERBOARD_DEMO_INJECT_PERFECT_HUNT_ROW = false;

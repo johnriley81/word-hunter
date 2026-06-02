@@ -85,6 +85,8 @@ export function top10RowsFromPayload(payload) {
 const LEADERBOARD_POST_COMMIT_MARKERS = Object.freeze([
   "record inserted successfully",
   "this record already exists",
+  "record updated successfully",
+  "score not improved",
 ]);
 
 function leaderboardPayloadIndicatesSoftReject(payload) {
