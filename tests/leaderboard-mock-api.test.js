@@ -198,6 +198,26 @@ test("Lambda API Gateway envelope: parse body then same commit + rows", () => {
   assert.deepEqual(tableRows.slice(1), Array(9).fill(EMPTY_PAD));
 });
 
+test("derive: improved self score preview replaces prior API row", () => {
+  const raw = [
+    ["Ada", 50, "STAR"],
+    ["Bob", 100, "STAR"],
+  ];
+  const { tableRows } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw },
+    {
+      ...baseInput,
+      clicked: false,
+      score: 88,
+      nameTrim: "Ada",
+    }
+  );
+  const adaRows = tableRows.filter((r) => String(r[0]).toUpperCase() === "ADA");
+  assert.equal(adaRows.length, 1);
+  assert.equal(adaRows[0][2], 88);
+  assert.equal(adaRows[0][4], LEADERBOARD_META_LIVE_PREVIEW);
+});
+
 test("derive: submit cutoff uses GET board before preview merge", () => {
   const raw = Array.from({ length: 10 }, (_, i) => [`N${i}`, 200 - i * 10, "STAR"]);
   const { tableRows, eligibilityRows } = deriveLiveLeaderboardAfterFetch(

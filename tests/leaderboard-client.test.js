@@ -185,6 +185,39 @@ test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows playe
   assert.equal(merged.length, 10);
 });
 
+test("applyLiveLeaderboardPreviewMerge: improved self score replaces prior API row", () => {
+  const norm = normalizeLeaderboardRows([
+    ["ADA", 50, "STAR"],
+    ["BOB", 100, "STAR"],
+  ]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 88, "STAR", {
+    useDemoData: false,
+    liveSubmitUsed: false,
+  });
+  const adaRows = merged.filter((r) => String(r[0]).toUpperCase() === "ADA");
+  assert.equal(adaRows.length, 1);
+  assert.equal(adaRows[0][2], 88);
+  assert.equal(adaRows[0][4], LEADERBOARD_META_LIVE_PREVIEW);
+});
+
+test("applyLiveLeaderboardPreviewMerge: improved anonymous score replaces prior row", () => {
+  const norm = normalizeLeaderboardRows([
+    ["", 50, "STAR"],
+    ["BOB", 100, "STAR"],
+  ]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "", 88, "STAR", {
+    useDemoData: false,
+    liveSubmitUsed: false,
+  });
+  const anonRows = merged.filter(
+    (r) =>
+      !String(r[0] ?? "").trim() &&
+      r[2] === 88 &&
+      r[4] === LEADERBOARD_META_LIVE_PREVIEW
+  );
+  assert.equal(anonRows.length, 1);
+});
+
 test("applyLiveLeaderboardPreviewMerge: skipped after submit or in demo", () => {
   const norm = normalizeLeaderboardRows([]);
   const optsA = { useDemoData: false, liveSubmitUsed: true };

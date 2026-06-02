@@ -124,12 +124,31 @@ export function applyLiveLeaderboardPreviewMerge(
   ) {
     return normalizedApiRows;
   }
+  const playerKey = leaderboardPreviewNameKey(trimmedPlayerName);
+  let apiRows = normalizedApiRows;
+  if (playerKey) {
+    apiRows = normalizedApiRows.filter((r) => {
+      if (leaderboardPreviewNameKey(r[0]) !== playerKey) return true;
+      const apiScore = Number(r[2]);
+      return !Number.isFinite(apiScore) || apiScore >= run;
+    });
+  } else {
+    apiRows = normalizedApiRows.filter((r) => {
+      if (leaderboardPreviewNameKey(r[0]) !== "") return true;
+      if (r[4] === LEADERBOARD_META_LIVE_PREVIEW) return false;
+      const apiScore = Number(r[2]);
+      return Number.isFinite(apiScore) && apiScore > run;
+    });
+  }
   return mergeDemoRunIntoTop10(
-    normalizedApiRows,
+    apiRows,
     displayName,
     run,
     String(trophyWord || "").trim(),
-    { dedupeNameScoreTrophy: false, tagLiveRunPreview: true }
+    {
+      dedupeNameScoreTrophy: Boolean(playerKey),
+      tagLiveRunPreview: true,
+    }
   );
 }
 
