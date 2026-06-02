@@ -8,7 +8,7 @@ export const LEADERBOARD_SUBMIT_BUTTON_LABEL = "Submit";
 export function formatLeaderboardSubmitCooldownLabel(remainingMs) {
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
   if (totalSeconds <= 60) {
-    return `0:${String(totalSeconds).padStart(2, "0")}`;
+    return `:${String(totalSeconds).padStart(2, "0")}`;
   }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -197,7 +197,7 @@ export function applyLeaderboardSubmitButtonVisibility({
     "leaderboard-action--concealed",
     !qualifiesForBoardSlot
   );
-  const submitCooldownActive = submitCooldownRemainingMs > 0;
+  const submitCooldownActive = submitCooldownRemainingMs > 0 && !liveSubmitUsed;
   leaderboardButton.disabled = !nameReady || submitCooldownActive;
   if (submitCooldownActive) {
     leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";

@@ -518,9 +518,6 @@ export function createLeaderboardController(rt) {
     const canPost =
       clicked &&
       leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
-    if (canPost) {
-      markLiveLeaderboardSubmitCooldown();
-    }
     const deriveInput = {
       clicked,
       score: rt.getScore(),
@@ -555,6 +552,7 @@ export function createLeaderboardController(rt) {
         rt.playSound("submit", rt.getIsMuted());
         st.liveLeaderboardSubmitUsed = true;
         playerName.value = nameTrim;
+        markLiveLeaderboardSubmitCooldown();
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
         if (nameRejectedOnSubmit) {

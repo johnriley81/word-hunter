@@ -39,13 +39,13 @@ test("leaderboardSubmitCooldownRemainingMs: counts down within window", () => {
   );
 });
 
-test("formatLeaderboardSubmitCooldownLabel: M:SS from remaining ms", () => {
-  assert.equal(formatLeaderboardSubmitCooldownLabel(60_000), "0:60");
-  assert.equal(formatLeaderboardSubmitCooldownLabel(45_000), "0:45");
-  assert.equal(formatLeaderboardSubmitCooldownLabel(12_000), "0:12");
-  assert.equal(formatLeaderboardSubmitCooldownLabel(1_000), "0:01");
-  assert.equal(formatLeaderboardSubmitCooldownLabel(500), "0:01");
-  assert.equal(formatLeaderboardSubmitCooldownLabel(0), "0:00");
+test("formatLeaderboardSubmitCooldownLabel: :SS under one minute, M:SS after", () => {
+  assert.equal(formatLeaderboardSubmitCooldownLabel(60_000), ":60");
+  assert.equal(formatLeaderboardSubmitCooldownLabel(45_000), ":45");
+  assert.equal(formatLeaderboardSubmitCooldownLabel(12_000), ":12");
+  assert.equal(formatLeaderboardSubmitCooldownLabel(1_000), ":01");
+  assert.equal(formatLeaderboardSubmitCooldownLabel(500), ":01");
+  assert.equal(formatLeaderboardSubmitCooldownLabel(0), ":00");
   assert.equal(formatLeaderboardSubmitCooldownLabel(90_000), "1:30");
 });
 
@@ -95,7 +95,7 @@ test("submit at t=0, endgame at t=45: button disabled with 15s cooldown left", (
   assert.equal(leaderboardButton.classList.has("hiddenDisplay"), false);
   assert.equal(leaderboardButton.disabled, true);
   assert.equal(leaderboardButton.style.backgroundColor, "rgba(95, 95, 95, 0.92)");
-  assert.equal(leaderboardButton.textContent, "0:15");
+  assert.equal(leaderboardButton.textContent, ":15");
 });
 
 test("applyLeaderboardSubmitButtonVisibility: restores Submit when cooldown inactive", () => {
@@ -117,7 +117,7 @@ test("applyLeaderboardSubmitButtonVisibility: restores Submit when cooldown inac
       },
     },
     disabled: true,
-    textContent: "0:01",
+    textContent: ":01",
     style: { backgroundColor: "gray", removeProperty() {} },
   };
 
@@ -138,6 +138,78 @@ test("applyLeaderboardSubmitButtonVisibility: restores Submit when cooldown inac
 
   assert.equal(leaderboardButton.disabled, false);
   assert.equal(leaderboardButton.textContent, LEADERBOARD_SUBMIT_BUTTON_LABEL);
+});
+
+function mockLeaderboardButton(initialHidden = false) {
+  return {
+    classList: {
+      _set: new Set(
+        initialHidden ? ["hiddenDisplay", "leaderboard-action--concealed"] : []
+      ),
+      add(c) {
+        this._set.add(c);
+      },
+      remove(c) {
+        this._set.delete(c);
+      },
+      toggle(c, on) {
+        if (on) this._set.add(c);
+        else this._set.delete(c);
+      },
+      has(c) {
+        return this._set.has(c);
+      },
+    },
+    disabled: false,
+    textContent: LEADERBOARD_SUBMIT_BUTTON_LABEL,
+    style: { backgroundColor: "", removeProperty() {} },
+  };
+}
+
+test("Scenario A: current-run submit hides button despite active cooldown", () => {
+  const leaderboardButton = mockLeaderboardButton();
+
+  applyLeaderboardSubmitButtonVisibility({
+    leaderboardUseDemoData: false,
+    refs: {
+      leaderboardButton,
+      leaderboardDemoAdd: null,
+      playerName: { value: "Ada" },
+    },
+    qualifiesForBoardSlot: true,
+    score: 88,
+    scoreSubmitThreshold: 0,
+    liveSubmitUsed: true,
+    demoSubmitUsed: false,
+    submitCooldownRemainingMs: 45_000,
+  });
+
+  assert.equal(leaderboardButton.classList.has("hiddenDisplay"), true);
+  assert.equal(leaderboardButton.textContent, LEADERBOARD_SUBMIT_BUTTON_LABEL);
+  assert.equal(leaderboardButton.style.backgroundColor, "");
+});
+
+test("Scenario B: new run within cooldown shows countdown until expired", () => {
+  const leaderboardButton = mockLeaderboardButton(true);
+
+  applyLeaderboardSubmitButtonVisibility({
+    leaderboardUseDemoData: false,
+    refs: {
+      leaderboardButton,
+      leaderboardDemoAdd: null,
+      playerName: { value: "Ada" },
+    },
+    qualifiesForBoardSlot: true,
+    score: 88,
+    scoreSubmitThreshold: 0,
+    liveSubmitUsed: false,
+    demoSubmitUsed: false,
+    submitCooldownRemainingMs: 15_000,
+  });
+
+  assert.equal(leaderboardButton.classList.has("hiddenDisplay"), false);
+  assert.equal(leaderboardButton.disabled, true);
+  assert.equal(leaderboardButton.textContent, ":15");
 });
 
 test("submit cooldown duration matches leaderboard fetch cache", () => {
