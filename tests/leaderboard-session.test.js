@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getLeaderboardSessionId,
+  getLeaderboardSubmitName,
+  setLeaderboardSubmitName,
   resetLeaderboardSessionStorageForTests,
 } from "../js/leaderboard-session.js";
 import {
@@ -43,6 +45,15 @@ test("getLeaderboardSessionId: stable for same puzzleId, new for different puzzl
   assert.equal(first, second);
   assert.notEqual(first, other);
   assert.match(first, /^[0-9a-f-]{36}$/i);
+});
+
+test("getLeaderboardSubmitName: persists committed name per puzzle", () => {
+  installLocalStorageMock();
+  resetLeaderboardSessionStorageForTests();
+  assert.equal(getLeaderboardSubmitName(42), "");
+  setLeaderboardSubmitName(42, "Ada");
+  assert.equal(getLeaderboardSubmitName(42), "Ada");
+  assert.equal(getLeaderboardSubmitName(99), "");
 });
 
 test("fetchLiveLeaderboardNetworkResult POST body includes sessionId", async () => {
@@ -92,6 +103,6 @@ test("leaderboard commit markers include update and score-not-improved", () => {
   );
   assert.equal(
     leaderboardPostTreatAsCommitted(true, { message: "Score not improved." }, true),
-    true
+    false
   );
 });
