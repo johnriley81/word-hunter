@@ -3,6 +3,17 @@ import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
 
 export const LEADERBOARD_SUBMIT_COOLDOWN_MS = LEADERBOARD_FETCH_CACHE_MS;
 export const LEADERBOARD_SUBMIT_COOLDOWN_STORAGE_PREFIX = "wordhunter:lb-submit-at:";
+export const LEADERBOARD_SUBMIT_BUTTON_LABEL = "Submit";
+
+export function formatLeaderboardSubmitCooldownLabel(remainingMs) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  if (totalSeconds <= 60) {
+    return `0:${String(totalSeconds).padStart(2, "0")}`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 export function leaderboardSubmitCooldownStorageKey(puzzleId) {
   return `${LEADERBOARD_SUBMIT_COOLDOWN_STORAGE_PREFIX}${String(puzzleId)}`;
@@ -85,7 +96,7 @@ export function clearLiveLeaderboardSubmitCooldown(
   storage = globalThis.localStorage
 ) {
   if (st.liveLeaderboardSubmitCooldownTimer !== null) {
-    globalThis.clearTimeout(st.liveLeaderboardSubmitCooldownTimer);
+    globalThis.clearInterval(st.liveLeaderboardSubmitCooldownTimer);
     st.liveLeaderboardSubmitCooldownTimer = null;
   }
   st.liveLeaderboardSubmitCooldownAt = null;
@@ -165,6 +176,7 @@ export function applyLeaderboardSubmitButtonVisibility({
     leaderboardButton.classList.add("leaderboard-action--concealed");
     leaderboardButton.disabled = true;
     leaderboardButton.style.removeProperty("background-color");
+    leaderboardButton.textContent = LEADERBOARD_SUBMIT_BUTTON_LABEL;
     return;
   }
 
@@ -176,6 +188,7 @@ export function applyLeaderboardSubmitButtonVisibility({
     leaderboardButton.classList.add("leaderboard-action--concealed");
     leaderboardButton.disabled = true;
     leaderboardButton.style.removeProperty("background-color");
+    leaderboardButton.textContent = LEADERBOARD_SUBMIT_BUTTON_LABEL;
     return;
   }
 
@@ -188,7 +201,11 @@ export function applyLeaderboardSubmitButtonVisibility({
   leaderboardButton.disabled = !nameReady || submitCooldownActive;
   if (submitCooldownActive) {
     leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";
+    leaderboardButton.textContent = formatLeaderboardSubmitCooldownLabel(
+      submitCooldownRemainingMs
+    );
   } else {
     leaderboardButton.style.removeProperty("background-color");
+    leaderboardButton.textContent = LEADERBOARD_SUBMIT_BUTTON_LABEL;
   }
 }

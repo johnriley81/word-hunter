@@ -66,7 +66,7 @@ export function createLeaderboardController(rt) {
 
   function clearSubmitCooldownTimer() {
     if (st.liveLeaderboardSubmitCooldownTimer !== null) {
-      window.clearTimeout(st.liveLeaderboardSubmitCooldownTimer);
+      window.clearInterval(st.liveLeaderboardSubmitCooldownTimer);
       st.liveLeaderboardSubmitCooldownTimer = null;
     }
   }
@@ -75,12 +75,16 @@ export function createLeaderboardController(rt) {
     clearSubmitCooldownTimer();
     const remaining = liveSubmitCooldownRemainingMs();
     if (remaining <= 0) return;
-    st.liveLeaderboardSubmitCooldownTimer = window.setTimeout(() => {
-      st.liveLeaderboardSubmitCooldownTimer = null;
-      clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
-      st.liveLeaderboardSubmitCooldownAt = null;
+    applySubmitButtonVisibility();
+    st.liveLeaderboardSubmitCooldownTimer = window.setInterval(() => {
+      const rem = liveSubmitCooldownRemainingMs();
+      if (rem <= 0) {
+        clearSubmitCooldownTimer();
+        clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
+        st.liveLeaderboardSubmitCooldownAt = null;
+      }
       applySubmitButtonVisibility();
-    }, remaining);
+    }, 1000);
   }
 
   function markLiveLeaderboardSubmitCooldown() {
