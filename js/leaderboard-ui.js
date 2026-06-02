@@ -91,7 +91,9 @@ export function createLeaderboardController(rt) {
     const at = Date.now();
     st.liveLeaderboardSubmitCooldownAt = at;
     writePersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId(), at);
-    armSubmitCooldownRefresh();
+    if (!st.liveLeaderboardSubmitUsed) {
+      armSubmitCooldownRefresh();
+    }
   }
 
   function syncSubmitCooldownFromStorage() {
@@ -113,7 +115,9 @@ export function createLeaderboardController(rt) {
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
       liveNameRejected: st.liveLeaderboardNameRejected,
       demoSubmitUsed: st.demoLeaderboardSubmitUsed,
-      submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
+      submitCooldownRemainingMs: st.liveLeaderboardSubmitUsed
+        ? 0
+        : liveSubmitCooldownRemainingMs(),
     });
   }
 
