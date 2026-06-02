@@ -16,7 +16,8 @@ export function leaderboardCanPostLive(
   score,
   nameTrim,
   scoreThreshold,
-  eligibilityRows
+  eligibilityRows,
+  fallbackSubmitName
 ) {
   if (
     !clicked ||
@@ -25,9 +26,16 @@ export function leaderboardCanPostLive(
   ) {
     return false;
   }
+  if (!eligibilityRows) {
+    return false;
+  }
   if (
-    eligibilityRows &&
-    leaderboardRunAtOrBelowSessionBest(eligibilityRows, nameTrim, score)
+    leaderboardRunAtOrBelowSessionBest(
+      eligibilityRows,
+      nameTrim,
+      score,
+      fallbackSubmitName
+    )
   ) {
     return false;
   }
@@ -45,6 +53,7 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     useDemoData,
     liveSubmitUsed,
     priorEligibilityRows,
+    fallbackSubmitName,
   } = input;
 
   const trimmedName = String(nameTrim || "").trim();
@@ -53,7 +62,8 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     score,
     trimmedName,
     scoreThreshold,
-    priorEligibilityRows
+    priorEligibilityRows,
+    fallbackSubmitName
   );
   const payload = parsedFetchPayload(raw);
   const response = { ok, status: status ?? (ok ? 200 : 400) };
@@ -69,6 +79,7 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, trophyWord, {
       useDemoData,
       liveSubmitUsed,
+      fallbackSubmitName,
     });
 
   if (!useDemoData && !canPost && !liveSubmitUsed) {

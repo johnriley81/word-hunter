@@ -257,6 +257,33 @@ test("leaderboardCanPostLive: blocks POST at or below session best", () => {
   );
 });
 
+test("leaderboardCanPostLive: blocks POST until eligibility rows exist", () => {
+  assert.equal(
+    leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, null),
+    false
+  );
+});
+
+test("leaderboardSessionBestScore: uses stored submit name when field empty", () => {
+  const norm = normalizeLeaderboardRows([["Ada", 100, "STAR"]]);
+  assert.equal(leaderboardSessionBestScore(norm, "", "Ada"), 100);
+  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "", 50, "Ada"), true);
+});
+
+test("applyLiveLeaderboardPreviewMerge: lower retry blocked via stored submit name", () => {
+  const norm = normalizeLeaderboardRows([
+    ["ADA", 100, "STAR"],
+    ["BOB", 120, "STAR"],
+  ]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "", 50, "STAR", {
+    useDemoData: false,
+    liveSubmitUsed: false,
+    fallbackSubmitName: "Ada",
+  });
+  assert.deepEqual(merged, norm);
+  assert.equal(merged.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length, 0);
+});
+
 test("applyLiveLeaderboardPreviewMerge: lower retry leaves API rows unchanged", () => {
   const norm = normalizeLeaderboardRows([
     ["ADA", 88, "STAR"],

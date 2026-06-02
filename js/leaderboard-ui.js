@@ -27,6 +27,10 @@ import {
   leaderboardRunAtOrBelowSessionBest,
 } from "./leaderboard-lifecycle.js";
 import {
+  getLeaderboardSubmitName,
+  setLeaderboardSubmitName,
+} from "./leaderboard-session.js";
+import {
   leaderboardCanPostLive,
   deriveLiveLeaderboardAfterFetch,
 } from "./leaderboard-live-flow.js";
@@ -51,6 +55,10 @@ function trimLeaderboardSubmitName(raw) {
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
   const st = rt.state;
+
+  function sessionSubmitNameFallback() {
+    return getLeaderboardSubmitName(rt.getLeaderboardPuzzleId());
+  }
 
   function applySubmitButtonVisibility() {
     applyLeaderboardSubmitButtonVisibility({
@@ -170,14 +178,19 @@ export function createLeaderboardController(rt) {
     const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
     const runScoreNum = Number(rt.getScore());
     const eligibilityForSession = st.liveLeaderboardEligibilityRows ?? rows;
+    const sessionNameFallback = sessionSubmitNameFallback();
     const sessionBestScore = LEADERBOARD_USE_DEMO_DATA
       ? null
-      : leaderboardSessionBestScore(eligibilityForSession, playerName.value);
+      : leaderboardSessionBestScore(
+          eligibilityForSession,
+          playerName.value,
+          sessionNameFallback
+        );
     const runBelowSessionBest =
       !LEADERBOARD_USE_DEMO_DATA &&
       sessionBestScore !== null &&
       Number.isFinite(runScoreNum) &&
-      runScoreNum < sessionBestScore;
+      runScoreNum <= sessionBestScore;
 
     rows.forEach((row, index) => {
       let [playerRaw, , , rowTrophy] = row;
@@ -328,7 +341,8 @@ export function createLeaderboardController(rt) {
         !leaderboardRunAtOrBelowSessionBest(
           liveEligibility,
           playerName.value,
-          rt.getScore()
+          rt.getScore(),
+          sessionSubmitNameFallback()
         ) &&
         !st.liveLeaderboardSubmitUsed;
     st.qualifiesForBoardSlot = qualifiesForBoardSlot;
@@ -462,12 +476,14 @@ export function createLeaderboardController(rt) {
     }
 
     const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
+    const fallbackSubmitName = sessionSubmitNameFallback();
     const canPost = leaderboardCanPostLive(
       clicked,
       rt.getScore(),
       nameTrim,
       SCORE_SUBMIT_THRESHOLD,
-      st.liveLeaderboardEligibilityRows
+      st.liveLeaderboardEligibilityRows,
+      fallbackSubmitName
     );
     const deriveInput = {
       clicked,
@@ -478,6 +494,7 @@ export function createLeaderboardController(rt) {
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
       priorEligibilityRows: st.liveLeaderboardEligibilityRows,
+      fallbackSubmitName,
     };
     let tableRows;
     let committed = false;
@@ -503,6 +520,7 @@ export function createLeaderboardController(rt) {
         rt.playSound("submit", rt.getIsMuted());
         st.liveLeaderboardSubmitUsed = true;
         playerName.value = nameTrim;
+        setLeaderboardSubmitName(rt.getLeaderboardPuzzleId(), nameTrim);
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
       }

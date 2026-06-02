@@ -22,12 +22,19 @@ export function leaderboardPreviewNameKey(raw) {
 }
 
 /** Best score on eligibility rows for this player key (GET rows before preview merge). */
-export function leaderboardSessionBestScore(rows, playerNameValue) {
+export function leaderboardSessionBestScore(
+  rows,
+  playerNameValue,
+  fallbackPlayerNameValue
+) {
   if (!rows?.length) return null;
-  const playerKey = leaderboardPreviewNameKey(playerNameValue);
+  const keys = [leaderboardPreviewNameKey(playerNameValue)];
+  const fallbackKey = leaderboardPreviewNameKey(fallbackPlayerNameValue);
+  if (fallbackKey && !keys.includes(fallbackKey)) keys.push(fallbackKey);
   let best = null;
   for (const r of rows) {
-    if (leaderboardPreviewNameKey(r[0]) !== playerKey) continue;
+    const rowKey = leaderboardPreviewNameKey(r[0]);
+    if (!keys.includes(rowKey)) continue;
     const s = Number(r[2]);
     if (!Number.isFinite(s)) continue;
     if (best === null || s > best) best = s;
@@ -35,8 +42,17 @@ export function leaderboardSessionBestScore(rows, playerNameValue) {
   return best;
 }
 
-export function leaderboardRunAtOrBelowSessionBest(rows, playerNameValue, runScore) {
-  const sessionBest = leaderboardSessionBestScore(rows, playerNameValue);
+export function leaderboardRunAtOrBelowSessionBest(
+  rows,
+  playerNameValue,
+  runScore,
+  fallbackPlayerNameValue
+) {
+  const sessionBest = leaderboardSessionBestScore(
+    rows,
+    playerNameValue,
+    fallbackPlayerNameValue
+  );
   if (sessionBest === null) return false;
   const run = Number(runScore);
   return Number.isFinite(run) && run <= sessionBest;
@@ -132,7 +148,7 @@ export function applyLiveLeaderboardPreviewMerge(
   trimmedPlayerName,
   runScore,
   trophyWord,
-  { useDemoData, liveSubmitUsed }
+  { useDemoData, liveSubmitUsed, fallbackSubmitName }
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
   const displayName = sanitizeDemoLeaderboardName(
@@ -142,7 +158,12 @@ export function applyLiveLeaderboardPreviewMerge(
   if (
     !(Number.isFinite(run) && run > SCORE_SUBMIT_THRESHOLD) ||
     !demoRunQualifiesForLeaderboard(normalizedApiRows, run) ||
-    leaderboardRunAtOrBelowSessionBest(normalizedApiRows, trimmedPlayerName, run)
+    leaderboardRunAtOrBelowSessionBest(
+      normalizedApiRows,
+      trimmedPlayerName,
+      run,
+      fallbackSubmitName
+    )
   ) {
     return normalizedApiRows;
   }

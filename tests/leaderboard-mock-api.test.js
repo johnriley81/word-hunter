@@ -13,6 +13,8 @@ import { demoRunQualifiesForLeaderboard } from "../js/leaderboard-lifecycle.js";
 
 const EMPTY_PAD = ["", 0, "", ""];
 
+const EMPTY_ELIGIBILITY = Array(10).fill(EMPTY_PAD);
+
 const baseInput = {
   scoreThreshold: SCORE_SUBMIT_THRESHOLD,
   useDemoData: false,
@@ -101,6 +103,7 @@ test("POST success + commit message: rows from top_10, committed", () => {
       clicked: true,
       score: 88,
       nameTrim: "Ada",
+      priorEligibilityRows: EMPTY_ELIGIBILITY,
     }
   );
   assert.equal(canPost, true);
@@ -155,6 +158,7 @@ test("POST 200 root JSON array (same as GET): populates table from response only
       clicked: true,
       score: 88,
       nameTrim: "Ada",
+      priorEligibilityRows: EMPTY_ELIGIBILITY,
     }
   );
   assert.equal(canPost, true);
@@ -173,6 +177,7 @@ test("POST 200 empty object: committed; rows only from server (empty here)", () 
       clicked: true,
       score: 88,
       nameTrim: "Ada",
+      priorEligibilityRows: EMPTY_ELIGIBILITY,
     }
   );
   assert.equal(canPost, true);
@@ -193,6 +198,7 @@ test("Lambda API Gateway envelope: parse body then same commit + rows", () => {
       clicked: true,
       score: 88,
       nameTrim: "Ada",
+      priorEligibilityRows: EMPTY_ELIGIBILITY,
     }
   );
   assert.equal(committed, true);
@@ -242,6 +248,71 @@ test("derive: lower retry keeps API row, no preview merge", () => {
   );
 });
 
+test("derive: prior submit 100 retry 50 empty name shows only session best", () => {
+  const prior = normalizeLeaderboardRows([["Ada", 100, "STAR"]]);
+  const { tableRows, canPost } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw: [["Ada", 100, "STAR"]] },
+    {
+      ...baseInput,
+      clicked: false,
+      score: 50,
+      nameTrim: "",
+      priorEligibilityRows: prior,
+      fallbackSubmitName: "Ada",
+    }
+  );
+  assert.equal(canPost, false);
+  assert.equal(tableRows.filter((r) => String(r[0]).toUpperCase() === "ADA").length, 1);
+  assert.equal(tableRows.find((r) => String(r[0]).toUpperCase() === "ADA")[2], 100);
+  assert.equal(
+    tableRows.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length,
+    0
+  );
+});
+
+test("derive: blocks POST before eligibility rows and on lower retry", () => {
+  assert.equal(
+    deriveLiveLeaderboardAfterFetch(
+      {
+        ok: true,
+        raw: {
+          message: "Record inserted successfully.",
+          top_10: [["Ada", 50, "STAR"]],
+        },
+      },
+      {
+        ...baseInput,
+        clicked: true,
+        score: 50,
+        nameTrim: "Ada",
+        priorEligibilityRows: null,
+      }
+    ).canPost,
+    false
+  );
+  const prior = normalizeLeaderboardRows([["Ada", 100, "STAR"]]);
+  assert.equal(
+    deriveLiveLeaderboardAfterFetch(
+      {
+        ok: true,
+        raw: {
+          message: "Record inserted successfully.",
+          top_10: [["Ada", 50, "STAR"]],
+        },
+      },
+      {
+        ...baseInput,
+        clicked: true,
+        score: 50,
+        nameTrim: "Ada",
+        priorEligibilityRows: prior,
+        fallbackSubmitName: "Ada",
+      }
+    ).canPost,
+    false
+  );
+});
+
 test("leaderboardCanPostLive: blocks submit when run does not beat session best", () => {
   const prior = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
   assert.equal(
@@ -251,6 +322,10 @@ test("leaderboardCanPostLive: blocks submit when run does not beat session best"
   assert.equal(
     leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, prior),
     true
+  );
+  assert.equal(
+    leaderboardCanPostLive(true, 50, "", SCORE_SUBMIT_THRESHOLD, prior, "Ada"),
+    false
   );
 });
 
