@@ -481,7 +481,7 @@ export function initGame(ctx) {
     lockGridSizeForSwipe();
 
     score = 0;
-    scoreValidationWordsPlayed = [];
+    scoreValidationWordsPlayed.length = 0;
     wordState.currentWord = "";
     ctx.state.perfectHuntWordsSubmitted?.clear();
     ctx.state.perfectHuntOrderIndex = 0;
@@ -536,7 +536,7 @@ export function initGame(ctx) {
     }
     leaderboardPuzzleId = calculatePuzzleDayIndex();
     lbCtl?.syncSubmitCooldownFromStorage();
-    scoreValidationWordsPlayed = [];
+    scoreValidationWordsPlayed.length = 0;
     const p = puzzles[puzzleListIndex(puzzles.length)];
     const gridLetters = p.starting_grid;
     ctx.state.perfectHunt = p.perfect_hunt;

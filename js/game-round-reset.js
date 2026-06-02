@@ -80,7 +80,6 @@ export function resetRoundToPregame(deps, options = {}) {
   leaderboardRtState.demoLeaderboardSubmitUsed = false;
   leaderboardRtState.liveLeaderboardSubmitUsed = false;
   leaderboardRtState.liveLeaderboardNameRejected = false;
-  leaderboardRtState.liveLeaderboardRateLimitAt = null;
   if (!skipLeaderboardOverlayTeardown) {
     lbCtl.hidePostgameLeaderboardOverlay();
   }

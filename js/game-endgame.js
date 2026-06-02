@@ -138,7 +138,6 @@ export function createGameEndgameCoordinator(deps) {
     st.demoLeaderboardSubmitUsed = false;
     st.liveLeaderboardSubmitUsed = false;
     st.liveLeaderboardNameRejected = false;
-    st.liveLeaderboardRateLimitAt = null;
     st.liveLeaderboardPreviewRows = null;
     st.liveLeaderboardEligibilityRows = null;
     clearInternalEndgameTimers();

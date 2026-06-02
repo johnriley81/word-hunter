@@ -13,10 +13,7 @@ import {
   leaderboardDebugWarn,
   padNormalizedLeaderboardToTop10,
 } from "./leaderboard-api.js";
-import {
-  fetchLiveLeaderboardNetworkResult,
-  invalidateLeaderboardFetchCache,
-} from "./leaderboard-client.js";
+import { fetchLiveLeaderboardNetworkResult } from "./leaderboard-client.js";
 import {
   applyLiveLeaderboardPreviewMerge,
   buildDemoLeaderboardRows,
@@ -61,19 +58,9 @@ function trimLeaderboardSubmitName(raw) {
 export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
   const st = rt.state;
-  /** @type {Promise<void> | null} */
-  let refreshLeaderboardInFlight = null;
 
   function liveSubmitCooldownRemainingMs() {
     return leaderboardSubmitCooldownRemainingMs(st.liveLeaderboardSubmitCooldownAt);
-  }
-
-  function liveRateLimitRemainingMs() {
-    return leaderboardSubmitCooldownRemainingMs(st.liveLeaderboardRateLimitAt);
-  }
-
-  function submitButtonFeedbackRemainingMs() {
-    return Math.max(liveSubmitCooldownRemainingMs(), liveRateLimitRemainingMs());
   }
 
   function clearSubmitCooldownTimer() {
@@ -85,18 +72,15 @@ export function createLeaderboardController(rt) {
 
   function armSubmitCooldownRefresh() {
     clearSubmitCooldownTimer();
-    const remaining = submitButtonFeedbackRemainingMs();
+    const remaining = liveSubmitCooldownRemainingMs();
     if (remaining <= 0) return;
     applySubmitButtonVisibility();
     st.liveLeaderboardSubmitCooldownTimer = window.setInterval(() => {
-      const rem = submitButtonFeedbackRemainingMs();
+      const rem = liveSubmitCooldownRemainingMs();
       if (rem <= 0) {
         clearSubmitCooldownTimer();
-        if (st.liveLeaderboardSubmitCooldownAt != null) {
-          clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
-          st.liveLeaderboardSubmitCooldownAt = null;
-        }
-        st.liveLeaderboardRateLimitAt = null;
+        clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
+        st.liveLeaderboardSubmitCooldownAt = null;
       }
       applySubmitButtonVisibility();
     }, 1000);
@@ -132,7 +116,7 @@ export function createLeaderboardController(rt) {
       demoSubmitUsed: st.demoLeaderboardSubmitUsed,
       submitCooldownRemainingMs: st.liveLeaderboardSubmitUsed
         ? 0
-        : Math.max(liveSubmitCooldownRemainingMs(), liveRateLimitRemainingMs()),
+        : liveSubmitCooldownRemainingMs(),
     });
   }
 
@@ -428,141 +412,91 @@ export function createLeaderboardController(rt) {
     return t;
   }
 
-  function markLeaderboardRateLimitFeedback() {
-    st.liveLeaderboardRateLimitAt = Date.now();
-    if (!st.liveLeaderboardSubmitUsed) {
-      armSubmitCooldownRefresh();
-    }
-    applySubmitButtonVisibility();
-  }
-
   async function refreshLeaderboardFromApi(clicked) {
-    if (refreshLeaderboardInFlight) {
-      if (clicked) return;
-      return refreshLeaderboardInFlight;
+    const { playerName, leaderboardButton } = refs();
+    if (clicked) {
+      playerName.disabled = true;
+      leaderboardButton.disabled = true;
+      leaderboardButton.style.backgroundColor = "gray";
     }
 
-    const run = async () => {
-      const { playerName, leaderboardButton } = refs();
-      if (clicked) {
-        playerName.disabled = true;
-        leaderboardButton.disabled = true;
-        leaderboardButton.style.backgroundColor = "gray";
-      }
+    const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
+    const nameRejectedOnSubmit =
+      !LEADERBOARD_USE_DEMO_DATA &&
+      isProhibitedLeaderboardSubmitClick(clicked, nameTrim);
+    if (nameRejectedOnSubmit) {
+      st.liveLeaderboardNameRejected = true;
+    }
+    const canPost =
+      clicked &&
+      leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
+    const deriveInput = {
+      clicked,
+      score: rt.getScore(),
+      nameTrim,
+      trophyWord: rt.getTrophyWord(),
+      scoreThreshold: SCORE_SUBMIT_THRESHOLD,
+      useDemoData: LEADERBOARD_USE_DEMO_DATA,
+      liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      liveNameRejected: st.liveLeaderboardNameRejected,
+    };
+    let tableRows;
+    let committed = false;
+    let rendered = false;
 
-      const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
-      const nameRejectedOnSubmit =
-        !LEADERBOARD_USE_DEMO_DATA &&
-        isProhibitedLeaderboardSubmitClick(clicked, nameTrim);
-      if (nameRejectedOnSubmit) {
-        st.liveLeaderboardNameRejected = true;
-      }
-      const canPost =
-        clicked &&
-        leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
+    try {
+      const network = await fetchLiveLeaderboardNetworkResult({
+        leaderboardLink: rt.leaderboardLink,
+        puzzleId: rt.getLeaderboardPuzzleId(),
+        canPost,
+        playerNameTrim: nameTrim,
+        score: rt.getScore(),
+        trophyWord: rt.getTrophyWord(),
+        scoreValidationPayload: rt.getScoreValidationPayload(),
+      });
 
-      if (clicked && !canPost) {
+      const resolved = deriveLiveLeaderboardAfterFetch(network, deriveInput);
+      tableRows = resolved.tableRows;
+      committed = resolved.committed;
+      st.liveLeaderboardEligibilityRows = resolved.eligibilityRows;
+
+      if (committed) {
+        rt.playSound("submit", rt.getIsMuted());
+        st.liveLeaderboardSubmitUsed = true;
+        playerName.value = nameTrim;
+        markLiveLeaderboardSubmitCooldown();
+      } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
         if (nameRejectedOnSubmit) {
-          const stripped = stripLiveLeaderboardPreviewRows(
-            normalizeLeaderboardRows(st.liveLeaderboardPreviewRows ?? [])
+          tableRows = stripLiveLeaderboardPreviewRows(
+            normalizeLeaderboardRows(Array.isArray(tableRows) ? tableRows : [])
           );
-          renderLeaderboardTable(stripped);
-        } else {
+        }
+      }
+
+      if (
+        !LEADERBOARD_USE_DEMO_DATA &&
+        Array.isArray(tableRows) &&
+        tableRows.length === 0 &&
+        committed &&
+        st.liveLeaderboardSubmitUsed &&
+        !st.liveLeaderboardNameRejected
+      ) {
+        const prev = st.liveLeaderboardPreviewRows;
+        if (prev?.length) {
+          tableRows = prev.map((r) => r.slice());
+        }
+      }
+
+      renderLeaderboardTable(tableRows);
+      rendered = true;
+    } finally {
+      if (clicked) {
+        playerName.disabled = false;
+        if (!rendered) {
           applySubmitButtonVisibility();
         }
-        return;
       }
-
-      const deriveInput = {
-        clicked,
-        score: rt.getScore(),
-        nameTrim,
-        trophyWord: rt.getTrophyWord(),
-        scoreThreshold: SCORE_SUBMIT_THRESHOLD,
-        useDemoData: LEADERBOARD_USE_DEMO_DATA,
-        liveSubmitUsed: st.liveLeaderboardSubmitUsed,
-        liveNameRejected: st.liveLeaderboardNameRejected,
-      };
-      let tableRows;
-      let committed = false;
-      let rendered = false;
-
-      try {
-        const network = await fetchLiveLeaderboardNetworkResult({
-          leaderboardLink: rt.leaderboardLink,
-          puzzleId: rt.getLeaderboardPuzzleId(),
-          canPost,
-          playerNameTrim: nameTrim,
-          score: rt.getScore(),
-          trophyWord: rt.getTrophyWord(),
-          scoreValidationPayload: rt.getScoreValidationPayload(),
-        });
-
-        const resolved = deriveLiveLeaderboardAfterFetch(network, deriveInput);
-        tableRows = resolved.tableRows;
-        committed = resolved.committed;
-        st.liveLeaderboardEligibilityRows = resolved.eligibilityRows;
-
-        if (committed) {
-          rt.playSound("submit", rt.getIsMuted());
-          st.liveLeaderboardSubmitUsed = true;
-          st.liveLeaderboardRateLimitAt = null;
-          playerName.value = nameTrim;
-          markLiveLeaderboardSubmitCooldown();
-        } else if (network.status === 429) {
-          invalidateLeaderboardFetchCache(rt.getLeaderboardPuzzleId());
-          markLeaderboardRateLimitFeedback();
-          if (clicked) {
-            rt.playSound("click", rt.getIsMuted());
-          }
-          if (
-            !committed &&
-            (!Array.isArray(tableRows) || tableRows.length === 0) &&
-            st.liveLeaderboardPreviewRows?.length
-          ) {
-            tableRows = st.liveLeaderboardPreviewRows.map((r) => r.slice());
-          }
-        } else if (clicked) {
-          rt.playSound("click", rt.getIsMuted());
-          if (nameRejectedOnSubmit) {
-            tableRows = stripLiveLeaderboardPreviewRows(
-              normalizeLeaderboardRows(Array.isArray(tableRows) ? tableRows : [])
-            );
-          }
-        }
-
-        if (
-          !LEADERBOARD_USE_DEMO_DATA &&
-          Array.isArray(tableRows) &&
-          tableRows.length === 0 &&
-          committed &&
-          st.liveLeaderboardSubmitUsed &&
-          !st.liveLeaderboardNameRejected
-        ) {
-          const prev = st.liveLeaderboardPreviewRows;
-          if (prev?.length) {
-            tableRows = prev.map((r) => r.slice());
-          }
-        }
-
-        renderLeaderboardTable(tableRows);
-        rendered = true;
-      } finally {
-        if (clicked) {
-          playerName.disabled = false;
-          if (!rendered) {
-            applySubmitButtonVisibility();
-          }
-        }
-      }
-    };
-
-    refreshLeaderboardInFlight = run();
-    try {
-      await refreshLeaderboardInFlight;
-    } finally {
-      refreshLeaderboardInFlight = null;
     }
   }
 
