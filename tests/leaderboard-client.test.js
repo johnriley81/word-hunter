@@ -14,13 +14,9 @@ import {
   demoRunQualifiesForLeaderboard,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
-  leaderboardSessionBestScore,
-  leaderboardRunAtOrBelowSessionBest,
   mergeDemoRunIntoTop10,
 } from "../js/leaderboard-lifecycle.js";
-import { leaderboardCanPostLive } from "../js/leaderboard-live-flow.js";
 import { leaderboardNumericScore } from "../js/leaderboard-ui-helpers.js";
-import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 
 test("top10RowsFromPayload: Flask GET root array and empty POST object", () => {
   assert.deepEqual(top10RowsFromPayload([]), []);
@@ -187,123 +183,6 @@ test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows playe
   assert.equal(merged[0][0], "ADA");
   assert.equal(merged[0][2], 88);
   assert.equal(merged.length, 10);
-});
-
-test("applyLiveLeaderboardPreviewMerge: improved self score replaces prior API row", () => {
-  const norm = normalizeLeaderboardRows([
-    ["ADA", 50, "STAR"],
-    ["BOB", 100, "STAR"],
-  ]);
-  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 88, "STAR", {
-    useDemoData: false,
-    liveSubmitUsed: false,
-  });
-  const adaRows = merged.filter((r) => String(r[0]).toUpperCase() === "ADA");
-  assert.equal(adaRows.length, 1);
-  assert.equal(adaRows[0][2], 88);
-  assert.equal(adaRows[0][4], LEADERBOARD_META_LIVE_PREVIEW);
-});
-
-test("applyLiveLeaderboardPreviewMerge: improved anonymous score replaces prior row", () => {
-  const norm = normalizeLeaderboardRows([
-    ["", 50, "STAR"],
-    ["BOB", 100, "STAR"],
-  ]);
-  const merged = applyLiveLeaderboardPreviewMerge(norm, "", 88, "STAR", {
-    useDemoData: false,
-    liveSubmitUsed: false,
-  });
-  const anonRows = merged.filter(
-    (r) =>
-      !String(r[0] ?? "").trim() &&
-      r[2] === 88 &&
-      r[4] === LEADERBOARD_META_LIVE_PREVIEW
-  );
-  assert.equal(anonRows.length, 1);
-});
-
-test("leaderboardSessionBestScore: named and anonymous keys", () => {
-  const norm = normalizeLeaderboardRows([
-    ["Ada", 88, "STAR"],
-    ["Bob", 100, "STAR"],
-    ["", 70, "STAR"],
-  ]);
-  assert.equal(leaderboardSessionBestScore(norm, "Ada"), 88);
-  assert.equal(leaderboardSessionBestScore(norm, ""), 70);
-  assert.equal(leaderboardSessionBestScore(norm, "Zoe"), null);
-});
-
-test("leaderboardRunAtOrBelowSessionBest: blocks tie and lower retry", () => {
-  const norm = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
-  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 88), true);
-  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 50), true);
-  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 90), false);
-  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Zoe", 90), false);
-});
-
-test("leaderboardCanPostLive: blocks POST at or below session best", () => {
-  const norm = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
-  assert.equal(
-    leaderboardCanPostLive(true, 50, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
-    false
-  );
-  assert.equal(
-    leaderboardCanPostLive(true, 88, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
-    false
-  );
-  assert.equal(
-    leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
-    true
-  );
-});
-
-test("leaderboardCanPostLive: blocks POST until eligibility rows exist", () => {
-  assert.equal(
-    leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, null),
-    false
-  );
-});
-
-test("leaderboardSessionBestScore: uses stored submit name when field empty", () => {
-  const norm = normalizeLeaderboardRows([["Ada", 100, "STAR"]]);
-  assert.equal(leaderboardSessionBestScore(norm, "", "Ada"), 100);
-  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "", 50, "Ada"), true);
-});
-
-test("applyLiveLeaderboardPreviewMerge: lower retry blocked via stored submit name", () => {
-  const norm = normalizeLeaderboardRows([
-    ["ADA", 100, "STAR"],
-    ["BOB", 120, "STAR"],
-  ]);
-  const merged = applyLiveLeaderboardPreviewMerge(norm, "", 50, "STAR", {
-    useDemoData: false,
-    liveSubmitUsed: false,
-    fallbackSubmitName: "Ada",
-  });
-  assert.deepEqual(merged, norm);
-  assert.equal(merged.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length, 0);
-});
-
-test("applyLiveLeaderboardPreviewMerge: lower retry leaves API rows unchanged", () => {
-  const norm = normalizeLeaderboardRows([
-    ["ADA", 88, "STAR"],
-    ["BOB", 100, "STAR"],
-  ]);
-  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 50, "STAR", {
-    useDemoData: false,
-    liveSubmitUsed: false,
-  });
-  assert.deepEqual(merged, norm);
-  assert.equal(merged.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length, 0);
-});
-
-test("applyLiveLeaderboardPreviewMerge: tie with session best skips preview", () => {
-  const norm = normalizeLeaderboardRows([["ADA", 88, "STAR"]]);
-  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 88, "STAR", {
-    useDemoData: false,
-    liveSubmitUsed: false,
-  });
-  assert.deepEqual(merged, norm);
 });
 
 test("applyLiveLeaderboardPreviewMerge: skipped after submit or in demo", () => {

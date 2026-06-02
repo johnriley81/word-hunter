@@ -5,41 +5,13 @@ import {
   leaderboardRowsFromResponse,
   leaderboardPostTreatAsCommitted,
 } from "./leaderboard-api.js";
-import {
-  applyLiveLeaderboardPreviewMerge,
-  leaderboardRunAtOrBelowSessionBest,
-} from "./leaderboard-lifecycle.js";
+import { applyLiveLeaderboardPreviewMerge } from "./leaderboard-lifecycle.js";
 import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 
-export function leaderboardCanPostLive(
-  clicked,
-  score,
-  nameTrim,
-  scoreThreshold,
-  eligibilityRows,
-  fallbackSubmitName
-) {
-  if (
-    !clicked ||
-    Number(score) <= scoreThreshold ||
-    !isLeaderboardNameAcceptable(nameTrim)
-  ) {
-    return false;
-  }
-  if (!eligibilityRows) {
-    return false;
-  }
-  if (
-    leaderboardRunAtOrBelowSessionBest(
-      eligibilityRows,
-      nameTrim,
-      score,
-      fallbackSubmitName
-    )
-  ) {
-    return false;
-  }
-  return true;
+export function leaderboardCanPostLive(clicked, score, nameTrim, scoreThreshold) {
+  return (
+    clicked && Number(score) > scoreThreshold && isLeaderboardNameAcceptable(nameTrim)
+  );
 }
 
 export function deriveLiveLeaderboardAfterFetch(network, input) {
@@ -52,19 +24,10 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     scoreThreshold,
     useDemoData,
     liveSubmitUsed,
-    priorEligibilityRows,
-    fallbackSubmitName,
   } = input;
 
   const trimmedName = String(nameTrim || "").trim();
-  const canPost = leaderboardCanPostLive(
-    clicked,
-    score,
-    trimmedName,
-    scoreThreshold,
-    priorEligibilityRows,
-    fallbackSubmitName
-  );
+  const canPost = leaderboardCanPostLive(clicked, score, trimmedName, scoreThreshold);
   const payload = parsedFetchPayload(raw);
   const response = { ok, status: status ?? (ok ? 200 : 400) };
 
@@ -79,7 +42,6 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, trophyWord, {
       useDemoData,
       liveSubmitUsed,
-      fallbackSubmitName,
     });
 
   if (!useDemoData && !canPost && !liveSubmitUsed) {
