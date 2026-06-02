@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 import {
   normalizePuzzleRow,
   parsePuzzlesFileText,
+  parsePuzzlesFileTextForPlay,
   dictExportToCanonicalRow,
   serializePuzzleRow,
 } from "../js/puzzle-row-format.js";
+import { puzzleListIndex } from "../js/puzzle-calendar.js";
 import { canonicalNextLettersFromJsonArray } from "../js/puzzle-export-sim.js";
 import {
   PERFECT_HUNT_WORD_COUNT,
@@ -51,6 +53,23 @@ test("parsePuzzlesFileText reads shipped puzzles file", () => {
     assert.equal(p.next_letters.length, NEXT_LETTERS_LEN);
     assert.equal(p.perfect_hunt.length, PERFECT_HUNT_WORD_COUNT);
   }
+});
+
+test("parsePuzzlesFileTextForPlay matches full parse for today's puzzle index", () => {
+  const text = readShippedPuzzlesText();
+  const full = parsePuzzlesFileText(text);
+  const play = parsePuzzlesFileTextForPlay(text);
+  assert.equal(play.length, full.length);
+  const ix = puzzleListIndex(full.length);
+  assert.deepEqual(play[ix], full[ix]);
+  let populated = 0;
+  for (let i = 0; i < play.length; i++) {
+    if (play[i] !== undefined) {
+      populated++;
+      assert.equal(i, ix);
+    }
+  }
+  assert.equal(populated, 1);
 });
 
 test("compact next_letters in JSON pad to NEXT_LETTERS_LEN on load (50 letter tiles)", () => {
