@@ -12,7 +12,6 @@ import {
   TILE_PALETTE_TRANSITION_SETTLE_MS,
   LEADERBOARD_USE_DEMO_DATA,
   LEADERBOARD_API_BASE,
-  LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
 } from "./config.js";
@@ -61,6 +60,10 @@ import {
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
 import { cloneGameGrid } from "./perfect-hunt-shifts.js";
 import {
+  buildGameLettersList,
+  buildScoreValidationPayload,
+} from "./leaderboard-score-validation.js";
+import {
   createLineOverlayLayoutSync,
   lockGridSizeForSwipe as lockGridSizeForSwipeCore,
   unlockGridSizeAfterSwipe as unlockGridSizeAfterSwipeCore,
@@ -73,10 +76,6 @@ import {
   hydrateRulesHudCounts,
   loadPlayerWordhunterAssetBundle,
 } from "./game-player-shell.js";
-
-function cloneBoardSnapshotForLeaderboard(board) {
-  return board.map((row) => row.map((cell) => String(cell || "").toLowerCase()));
-}
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -154,7 +153,10 @@ export function initGame(ctx) {
   /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[]; perfect_hunt_shifts_before?: Array<Array<{ t: "row" | "col"; s: number }>> }>} */
   let puzzles = [];
   let leaderboardPuzzleId = 0;
-  let scoreValidationTurns = [];
+  /** @type {string[]} */
+  let scoreValidationWordsPlayed = [];
+  /** @type {string[]} */
+  let scoreValidationGameLetters = [];
   let isPaused = false;
   let isMuted = readStoredMuted();
 
@@ -517,7 +519,7 @@ export function initGame(ctx) {
     lockGridSizeForSwipe();
 
     score = 0;
-    scoreValidationTurns = [];
+    scoreValidationWordsPlayed = [];
     wordState.currentWord = "";
     ctx.state.perfectHuntWordsSubmitted?.clear();
     ctx.state.perfectHuntOrderIndex = 0;
@@ -571,7 +573,7 @@ export function initGame(ctx) {
       grid.removeChild(grid.firstChild);
     }
     leaderboardPuzzleId = calculatePuzzleDayIndex();
-    scoreValidationTurns = [];
+    scoreValidationWordsPlayed = [];
     const p = puzzles[puzzleListIndex(puzzles.length)];
     const gridLetters = p.starting_grid;
     ctx.state.perfectHunt = p.perfect_hunt;
@@ -598,6 +600,7 @@ export function initGame(ctx) {
       ? p.perfect_hunt_shifts_before
       : null;
     ctx.state.puzzleInitialGrid = cloneGameGrid(gridLetters, GRID_SIZE);
+    scoreValidationGameLetters = buildGameLettersList(gridLetters, p.next_letters);
     ctx.state.perfectHuntWordsSubmitted = new Set();
     ctx.state.perfectHuntOrderIndex = 0;
     ctx.state.perfectHuntHintFlat = null;
@@ -848,14 +851,9 @@ export function initGame(ctx) {
     },
     refreshPerfectHuntHint,
     clearPerfectHuntHintVisual,
-    recordLeaderboardScoreTurn(word, replacementCount) {
-      if (!LEADERBOARD_SUBMIT_SCORE_VALIDATION) return;
-      const letters = cloneBoardSnapshotForLeaderboard(ctx.state.gameBoard);
-      scoreValidationTurns.push([
-        String(word || "").toLowerCase(),
-        letters,
-        replacementCount,
-      ]);
+    recordLeaderboardScoreTurn(word) {
+      const w = String(word || "").toLowerCase();
+      if (w) scoreValidationWordsPlayed.push(w);
     },
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
@@ -870,7 +868,11 @@ export function initGame(ctx) {
     getScore: () => score,
     getTrophyWord: () => trophyWord,
     getLeaderboardPuzzleId: () => leaderboardPuzzleId,
-    getScoreValidationTurns: () => scoreValidationTurns,
+    getScoreValidationPayload: () =>
+      buildScoreValidationPayload(
+        scoreValidationGameLetters,
+        scoreValidationWordsPlayed
+      ),
     getIsMuted: () => isMuted,
     getIsGameActive: () => isGameActive,
     getPerfectHuntTargetSum: () => ctx.state.perfectHuntTargetSum,

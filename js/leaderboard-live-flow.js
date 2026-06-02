@@ -6,10 +6,11 @@ import {
   leaderboardPostTreatAsCommitted,
 } from "./leaderboard-api.js";
 import { applyLiveLeaderboardPreviewMerge } from "./leaderboard-lifecycle.js";
+import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 
 export function leaderboardCanPostLive(clicked, score, nameTrim, scoreThreshold) {
   return (
-    clicked && Number(score) > scoreThreshold && String(nameTrim || "").trim() !== ""
+    clicked && Number(score) > scoreThreshold && isLeaderboardNameAcceptable(nameTrim)
   );
 }
 

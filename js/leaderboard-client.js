@@ -1,8 +1,10 @@
 import { leaderboardDebugWarn } from "./leaderboard-api.js";
 
-/**
- * @returns {{ ok: boolean; status: number; raw: unknown }}
- */
+const LEADERBOARD_FETCH_CACHE_MS = 60_000;
+
+/** @type {Map<string, { fetchedAt: number; result: { ok: boolean; status: number; raw: unknown } }>} */
+const leaderboardFetchCache = new Map();
+
 async function fetchJsonLeaderboardRound(requestURL, requestOptions) {
   try {
     const response = await fetch(requestURL, requestOptions);
@@ -19,6 +21,31 @@ async function fetchJsonLeaderboardRound(requestURL, requestOptions) {
   }
 }
 
+function cacheKeyFor(puzzleId, method) {
+  return `${String(puzzleId)}:${method}`;
+}
+
+function readCachedLeaderboardResult(puzzleId, method) {
+  const entry = leaderboardFetchCache.get(cacheKeyFor(puzzleId, method));
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt >= LEADERBOARD_FETCH_CACHE_MS) {
+    leaderboardFetchCache.delete(cacheKeyFor(puzzleId, method));
+    return null;
+  }
+  return entry.result;
+}
+
+function writeCachedLeaderboardResult(puzzleId, method, result) {
+  leaderboardFetchCache.set(cacheKeyFor(puzzleId, method), {
+    fetchedAt: Date.now(),
+    result,
+  });
+}
+
+export function resetLeaderboardFetchCacheForTests() {
+  leaderboardFetchCache.clear();
+}
+
 /**
  * Live leaderboard GET/POST round-trip (`fetch` + JSON parse edge cases).
  *
@@ -29,12 +56,18 @@ async function fetchJsonLeaderboardRound(requestURL, requestOptions) {
  *   playerNameTrim: string;
  *   score: number;
  *   trophyWord: string;
- *   attachScoreValidation: boolean;
- *   scoreValidationTurns: unknown;
+ *   scoreValidationPayload: unknown;
  * }} p
  */
 export async function fetchLiveLeaderboardNetworkResult(p) {
   const requestURL = `${p.leaderboardLink}${p.puzzleId}`;
+  const method = p.canPost ? "POST" : "GET";
+
+  if (!p.canPost) {
+    const cached = readCachedLeaderboardResult(p.puzzleId, method);
+    if (cached) return cached;
+  }
+
   const requestOptions = {
     method: "GET",
     headers: {
@@ -46,12 +79,16 @@ export async function fetchLiveLeaderboardNetworkResult(p) {
       player: p.playerNameTrim,
       score: p.score,
       trophy: p.trophyWord,
+      scoreValidation: p.scoreValidationPayload,
     };
-    if (p.attachScoreValidation) {
-      postBody.scoreValidation = p.scoreValidationTurns;
-    }
     requestOptions.method = "POST";
     requestOptions.body = JSON.stringify(postBody);
   }
-  return fetchJsonLeaderboardRound(requestURL, requestOptions);
+
+  const result = await fetchJsonLeaderboardRound(requestURL, requestOptions);
+  writeCachedLeaderboardResult(p.puzzleId, method, result);
+  if (p.canPost) {
+    writeCachedLeaderboardResult(p.puzzleId, "GET", result);
+  }
+  return result;
 }

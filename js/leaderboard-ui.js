@@ -1,7 +1,6 @@
 import {
   LEADERBOARD_USE_DEMO_DATA,
   LEADERBOARD_DEMO_EMPTY_BOARD,
-  LEADERBOARD_SUBMIT_SCORE_VALIDATION,
   DEMO_LEADERBOARD_NAME_MAX,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   LEADERBOARD_COPY_SCORE_AFTER_OVERLAY_FADE_MS as DEFAULT_COPY_SCORE_AFTER_OVERLAY_MS,
@@ -464,8 +463,7 @@ export function createLeaderboardController(rt) {
         playerNameTrim: nameTrim,
         score: rt.getScore(),
         trophyWord: rt.getTrophyWord(),
-        attachScoreValidation: LEADERBOARD_SUBMIT_SCORE_VALIDATION,
-        scoreValidationTurns: rt.getScoreValidationTurns(),
+        scoreValidationPayload: rt.getScoreValidationPayload(),
       });
 
       const resolved = deriveLiveLeaderboardAfterFetch(network, deriveInput);
