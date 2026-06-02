@@ -130,6 +130,7 @@ export function createGameEndgameCoordinator(deps) {
     st.endgameUiShown = false;
     st.copyScoreLineUsed = false;
     st.postgameSequenceStarted = false;
+    st.leaderboardNameAutofocusDone = false;
     if (st.postgameCopyScoreTimer !== null) {
       window.clearTimeout(st.postgameCopyScoreTimer);
       st.postgameCopyScoreTimer = null;

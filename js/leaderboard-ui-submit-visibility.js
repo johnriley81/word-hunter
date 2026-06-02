@@ -3,7 +3,7 @@ import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
 
 export const LEADERBOARD_SUBMIT_COOLDOWN_MS = LEADERBOARD_FETCH_CACHE_MS;
 export const LEADERBOARD_SUBMIT_COOLDOWN_STORAGE_PREFIX = "wordhunter:lb-submit-at:";
-export const LEADERBOARD_SUBMIT_BUTTON_LABEL = "Submit";
+export const LEADERBOARD_SUBMIT_BUTTON_LABEL = "SUBMIT";
 
 export function formatLeaderboardSubmitCooldownLabel(remainingMs) {
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));

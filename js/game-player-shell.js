@@ -18,6 +18,7 @@ export function createPlayerLeaderboardRuntimeState() {
     endgamePostUiReady: false,
     endgameUiShown: false,
     postgameSequenceStarted: false,
+    leaderboardNameAutofocusDone: false,
     copyScoreLineUsed: false,
     deferRetryUntilCopyScoreVisible: false,
   };

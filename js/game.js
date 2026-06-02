@@ -969,6 +969,7 @@ export function initGame(ctx) {
       leaderboardRtState.leaderboardFadeOutTimer = null;
     }
     leaderboardRtState.postgameSequenceStarted = false;
+    leaderboardRtState.leaderboardNameAutofocusDone = false;
     leaderboardRtState.demoLeaderboardRows = null;
     leaderboardRtState.liveLeaderboardPreviewRows = null;
     leaderboardRtState.liveLeaderboardEligibilityRows = null;
