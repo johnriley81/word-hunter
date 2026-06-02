@@ -40,10 +40,7 @@ export function scoreFromWordsPlayed(wordsPlayed) {
   return total;
 }
 
-export function validatedScoreFromGameLetters(gameLetters, wordsPlayed, trophyWord) {
-  const pool = (Array.isArray(gameLetters) ? gameLetters : []).map((c) =>
-    String(c ?? "").toLowerCase()
-  );
+export function validatedScoreFromGameLetters(_gameLetters, wordsPlayed, trophyWord) {
   const words = Array.isArray(wordsPlayed) ? wordsPlayed : [];
   const trophy = String(trophyWord ?? "")
     .trim()
@@ -54,13 +51,6 @@ export function validatedScoreFromGameLetters(gameLetters, wordsPlayed, trophyWo
   for (const word of words) {
     const w = String(word || "").toLowerCase();
     if (!w) return 0;
-    if (!canConsumeWordFromLetterPool(pool, w)) return 0;
-    const tiles = wordToTileLabelSequence(w);
-    for (const tile of tiles) {
-      const idx = pool.indexOf(tile);
-      if (idx < 0) return 0;
-      pool.splice(idx, 1);
-    }
     if (w === trophy) trophySeen = true;
   }
   if (!trophySeen) return 0;
