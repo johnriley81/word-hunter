@@ -40,3 +40,12 @@ export function syncLeaderboardNameCellSubPerfect(td, subPerfect) {
     subPerfect
   );
 }
+
+/** True while the leaderboard inline name field owns focus (skip full table rebuild). */
+export function isLeaderboardInlineNameInputFocused(
+  leaderboardTable,
+  activeElement = globalThis.document?.activeElement ?? null
+) {
+  const input = leaderboardTable?.querySelector?.(".leaderboard-inline-name-input");
+  return Boolean(input && activeElement === input);
+}

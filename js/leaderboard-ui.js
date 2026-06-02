@@ -41,6 +41,7 @@ import {
   writePersistedLeaderboardSubmitAt,
 } from "./leaderboard-ui-submit-visibility.js";
 import {
+  isLeaderboardInlineNameInputFocused,
   leaderboardNumericScore,
   rowPerfectOverFlags,
   setLeaderboardCellFlash,
@@ -121,6 +122,22 @@ export function createLeaderboardController(rt) {
     });
   }
 
+  function syncLiveLeaderboardPreviewState(merged) {
+    const perfectTargetForDemoMerge = rt.getPerfectHuntTargetSum?.() ?? null;
+    let rows = mergeDemoLeaderboardPreviewRows(
+      normalizeLeaderboardRows(Array.isArray(merged) ? merged : []),
+      perfectTargetForDemoMerge
+    );
+    rows = padNormalizedLeaderboardToTop10(rows);
+    st.liveLeaderboardPreviewRows = rows.map((r) => r.slice(0, 5));
+    st.qualifiesForBoardSlot =
+      demoRunQualifiesForLeaderboard(
+        st.liveLeaderboardEligibilityRows ?? rows,
+        rt.getScore()
+      ) && !liveTurnSpent();
+    applySubmitButtonVisibility();
+  }
+
   function refreshLivePreviewFromEligibility() {
     if (LEADERBOARD_USE_DEMO_DATA || liveTurnSpent()) return;
     const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
@@ -136,10 +153,18 @@ export function createLeaderboardController(rt) {
       rt.getTrophyWord(),
       { useDemoData: false, liveSubmitUsed: liveTurnSpent() }
     );
+    if (isLeaderboardInlineNameInputFocused(refs().leaderboardTable)) {
+      syncLiveLeaderboardPreviewState(merged);
+      return;
+    }
     renderLeaderboardTable(merged);
   }
 
   function syncLiveNamePolicyUi() {
+    if (isLeaderboardInlineNameInputFocused(refs().leaderboardTable)) {
+      applySubmitButtonVisibility();
+      return;
+    }
     refreshLivePreviewFromEligibility();
   }
 
