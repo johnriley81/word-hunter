@@ -56,7 +56,7 @@ Feature modules (each takes `ctx` and/or small host/runtime objects):
 | `word-drag.js`             | Word selection, connector SVG, success/invalid choreography                                                      |
 | `word-path.js`             | Path gradient helpers (tested)                                                                                   |
 | `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                                     |
-| `leaderboard-lifecycle.js` | Demo leaderboard merge helpers (pure)                                                                            |
+| `leaderboard-lifecycle.js` | Live leaderboard preview merge, name-key session-best checks, submit-name persistence (pure)                     |
 | `leaderboard-ui.js`        | Table, overlay, API refresh, post-game copy-score flow; **`rt.state`** holds mutable leaderboard/post-game flags |
 | `rules-dock.js`            | Rules overlay + mute wiring                                                                                      |
 | `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet`, `puzzleListIndex`, `calculatePuzzleDayIndex`                  |

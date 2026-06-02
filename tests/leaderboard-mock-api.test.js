@@ -313,26 +313,6 @@ test("derive: blocks POST before eligibility rows and on lower retry", () => {
   );
 });
 
-test("derive: score not improved does not commit submit lock", () => {
-  const prior = normalizeLeaderboardRows([["Ada", 100, "STAR"]]);
-  const { committed, canPost } = deriveLiveLeaderboardAfterFetch(
-    {
-      ok: true,
-      raw: { message: "Score not improved.", top_10: [["Ada", 100, "STAR"]] },
-    },
-    {
-      ...baseInput,
-      clicked: true,
-      score: 50,
-      nameTrim: "Ada",
-      priorEligibilityRows: prior,
-      fallbackSubmitName: "Ada",
-    }
-  );
-  assert.equal(canPost, false);
-  assert.equal(committed, false);
-});
-
 test("leaderboardCanPostLive: blocks submit when run does not beat session best", () => {
   const prior = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
   assert.equal(

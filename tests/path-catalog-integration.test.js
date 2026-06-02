@@ -7,9 +7,9 @@ import { readFileSync } from "node:fs";
 import {
   pathCatalogStats,
   loadPathCatalogIfReady,
-} from "../js/puzzle-export-sim/load-path-catalog.js";
-import { pickCatalogPathFlat } from "../js/puzzle-export-sim/path-variant-catalog.js";
-import { loadPathSignatureCatalog } from "../js/puzzle-export-sim/path-variant-catalog.js";
+} from "../js/puzzle-export-sim/path-catalog/load-path-catalog.js";
+import { pickCatalogPathFlat } from "../js/puzzle-export-sim/path-catalog/path-variant-catalog.js";
+import { loadPathSignatureCatalog } from "../js/puzzle-export-sim/path-catalog/path-variant-catalog.js";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

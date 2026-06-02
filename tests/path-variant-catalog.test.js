@@ -8,7 +8,7 @@ import {
   loadPathSignatureCatalog,
   pickCatalogPathFlat,
   scoreBestCatalogPlacement,
-} from "../js/puzzle-export-sim/path-variant-catalog.js";
+} from "../js/puzzle-export-sim/path-catalog/path-variant-catalog.js";
 import { isPathGamemakerLegal } from "../js/puzzle-export-sim/word-path-search.js";
 import { comparePoolWordEntriesAscForwardExport } from "../js/puzzle-build/pool-order.js";
 import {
@@ -17,7 +17,7 @@ import {
   wordToTileLabelSequence,
 } from "../js/board-logic.js";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
-import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/load-path-catalog.js";
+import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/path-catalog/load-path-catalog.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");

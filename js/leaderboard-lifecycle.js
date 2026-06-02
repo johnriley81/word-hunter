@@ -2,6 +2,63 @@ import { DEMO_LEADERBOARD_NAME_MAX, SCORE_SUBMIT_THRESHOLD } from "./config.js";
 import { LEADERBOARD_META_LIVE_PREVIEW } from "./leaderboard-api.js";
 import { leaderboardNumericScore } from "./leaderboard-ui-helpers.js";
 
+const SUBMIT_NAME_PREFIX = "wordhunter:lb-submit-name:";
+
+/** @type {Map<string, string>} */
+const submitNameMemoryFallback = new Map();
+
+export function resetLeaderboardSubmitNameStorageForTests() {
+  submitNameMemoryFallback.clear();
+  try {
+    if (typeof globalThis.localStorage === "undefined") return;
+    const keys = [];
+    for (let i = 0; i < globalThis.localStorage.length; i += 1) {
+      const key = globalThis.localStorage.key(i);
+      if (key?.startsWith(SUBMIT_NAME_PREFIX)) keys.push(key);
+    }
+    for (const key of keys) globalThis.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Last successfully committed leaderboard name for this puzzle (survives reload).
+ *
+ * @param {number | string} puzzleId
+ */
+export function getLeaderboardSubmitName(puzzleId) {
+  const key = `${SUBMIT_NAME_PREFIX}${String(puzzleId)}`;
+  try {
+    if (typeof globalThis.localStorage !== "undefined") {
+      const existing = globalThis.localStorage.getItem(key);
+      if (existing) return existing;
+    }
+  } catch {
+    // fall through to in-memory fallback
+  }
+  return submitNameMemoryFallback.get(key) ?? "";
+}
+
+/**
+ * @param {number | string} puzzleId
+ * @param {string} nameTrim
+ */
+export function setLeaderboardSubmitName(puzzleId, nameTrim) {
+  const key = `${SUBMIT_NAME_PREFIX}${String(puzzleId)}`;
+  const value = String(nameTrim ?? "").trim();
+  if (!value) return;
+  try {
+    if (typeof globalThis.localStorage !== "undefined") {
+      globalThis.localStorage.setItem(key, value);
+      return;
+    }
+  } catch {
+    // fall through to in-memory fallback
+  }
+  submitNameMemoryFallback.set(key, value);
+}
+
 export function sanitizeDemoLeaderboardName(raw) {
   return String(raw || "")
     .replace(/[^a-zA-Z]/g, "")

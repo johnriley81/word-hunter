@@ -29,8 +29,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GRID_SIZE } from "../js/config.js";
-import { pathSignatureFromWord } from "../js/puzzle-export-sim/path-signature.js";
-import { canonicalPathFlatKey } from "../js/puzzle-export-sim/path-variant-catalog.js";
+import { pathSignatureFromWord } from "../js/puzzle-export-sim/path-catalog/path-signature.js";
+import { canonicalPathFlatKey } from "../js/puzzle-export-sim/path-catalog/path-variant-catalog.js";
 import {
   findRandomLegalPathFlat,
   isPathGamemakerLegal,
