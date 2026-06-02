@@ -12,6 +12,7 @@ export function createPlayerLeaderboardRuntimeState() {
     liveLeaderboardNameRejected: false,
     liveLeaderboardSubmitCooldownAt: null,
     liveLeaderboardSubmitCooldownTimer: null,
+    liveLeaderboardRateLimitAt: null,
     playerPosition: undefined,
     postgameCopyScoreTimer: null,
     leaderboardFadeOutTimer: null,
