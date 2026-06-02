@@ -225,6 +225,7 @@ export function createLeaderboardController(rt) {
         leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
         liveTurnSpent: liveTurnSpent(),
         liveNameRejected: st.liveLeaderboardNameRejected,
+        postgameSequenceActive: st.postgameSequenceStarted && !st.endgameUiShown,
         playerNameValue: refs().playerName?.value,
         submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
         runScore: rt.getScore(),
