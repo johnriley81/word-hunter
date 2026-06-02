@@ -9,6 +9,8 @@ export function createPlayerLeaderboardRuntimeState() {
     liveLeaderboardEligibilityRows: null,
     demoLeaderboardSubmitUsed: false,
     liveLeaderboardSubmitUsed: false,
+    liveLeaderboardSubmitCooldownAt: null,
+    liveLeaderboardSubmitCooldownTimer: null,
     playerPosition: undefined,
     postgameCopyScoreTimer: null,
     leaderboardFadeOutTimer: null,

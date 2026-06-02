@@ -29,7 +29,10 @@ import {
   deriveLiveLeaderboardAfterFetch,
 } from "./leaderboard-live-flow.js";
 import { mergeDemoLeaderboardPreviewRows } from "./leaderboard-ui-demo-merge.js";
-import { applyLeaderboardSubmitButtonVisibility } from "./leaderboard-ui-submit-visibility.js";
+import {
+  applyLeaderboardSubmitButtonVisibility,
+  leaderboardSubmitCooldownRemainingMs,
+} from "./leaderboard-ui-submit-visibility.js";
 import {
   leaderboardNumericScore,
   rowPerfectOverFlags,
@@ -50,6 +53,32 @@ export function createLeaderboardController(rt) {
   const refs = () => rt.ctx.refs;
   const st = rt.state;
 
+  function liveSubmitCooldownRemainingMs() {
+    return leaderboardSubmitCooldownRemainingMs(st.liveLeaderboardSubmitCooldownAt);
+  }
+
+  function clearSubmitCooldownTimer() {
+    if (st.liveLeaderboardSubmitCooldownTimer !== null) {
+      window.clearTimeout(st.liveLeaderboardSubmitCooldownTimer);
+      st.liveLeaderboardSubmitCooldownTimer = null;
+    }
+  }
+
+  function armSubmitCooldownRefresh() {
+    clearSubmitCooldownTimer();
+    const remaining = liveSubmitCooldownRemainingMs();
+    if (remaining <= 0) return;
+    st.liveLeaderboardSubmitCooldownTimer = window.setTimeout(() => {
+      st.liveLeaderboardSubmitCooldownTimer = null;
+      applySubmitButtonVisibility();
+    }, remaining);
+  }
+
+  function markLiveLeaderboardSubmitCooldown() {
+    st.liveLeaderboardSubmitCooldownAt = Date.now();
+    armSubmitCooldownRefresh();
+  }
+
   function applySubmitButtonVisibility() {
     applyLeaderboardSubmitButtonVisibility({
       leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
@@ -59,6 +88,7 @@ export function createLeaderboardController(rt) {
       scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
       demoSubmitUsed: st.demoLeaderboardSubmitUsed,
+      submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
     });
   }
 
@@ -442,6 +472,9 @@ export function createLeaderboardController(rt) {
       nameTrim,
       SCORE_SUBMIT_THRESHOLD
     );
+    if (canPost) {
+      markLiveLeaderboardSubmitCooldown();
+    }
     const deriveInput = {
       clicked,
       score: rt.getScore(),

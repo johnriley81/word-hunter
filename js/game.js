@@ -34,6 +34,7 @@ import {
 import { persistMuted, readStoredMuted } from "./sfx-pref.js";
 import { calculatePuzzleDayIndex, puzzleListIndex } from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
+import { clearLiveLeaderboardSubmitCooldown } from "./leaderboard-ui-submit-visibility.js";
 import {
   getTileText,
   setTileText,
@@ -970,6 +971,7 @@ export function initGame(ctx) {
     leaderboardRtState.liveLeaderboardEligibilityRows = null;
     leaderboardRtState.demoLeaderboardSubmitUsed = false;
     leaderboardRtState.liveLeaderboardSubmitUsed = false;
+    clearLiveLeaderboardSubmitCooldown(leaderboardRtState);
     if (!skipLeaderboardOverlayTeardown) {
       lbCtl.hidePostgameLeaderboardOverlay();
     }
