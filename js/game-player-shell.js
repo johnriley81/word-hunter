@@ -9,6 +9,7 @@ export function createPlayerLeaderboardRuntimeState() {
     liveLeaderboardEligibilityRows: null,
     demoLeaderboardSubmitUsed: false,
     liveLeaderboardSubmitUsed: false,
+    liveLeaderboardNameRejected: false,
     liveLeaderboardSubmitCooldownAt: null,
     liveLeaderboardSubmitCooldownTimer: null,
     playerPosition: undefined,

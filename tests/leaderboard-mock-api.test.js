@@ -43,7 +43,7 @@ test("GET [] + prohibited name: preview row while typing before submit", () => {
   assert.equal(preview[2], 88);
 });
 
-test("clicked + prohibited name: lost turn — no POST, no preview, name rejected", () => {
+test("clicked + prohibited name: lost turn — no POST, no preview, submit used", () => {
   const { tableRows, committed, canPost } = deriveLiveLeaderboardAfterFetch(
     { ok: true, raw: { message: "Record inserted successfully.", top_10: [] } },
     {

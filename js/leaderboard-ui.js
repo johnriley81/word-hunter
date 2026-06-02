@@ -27,11 +27,10 @@ import {
   sanitizeDemoLeaderboardName,
   stripLiveLeaderboardPreviewRows,
 } from "./leaderboard-lifecycle.js";
+import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 import {
   leaderboardCanPostLive,
   deriveLiveLeaderboardAfterFetch,
-  isProhibitedLeaderboardSubmitClick,
-  liveLeaderboardTurnSpent,
 } from "./leaderboard-live-flow.js";
 import { mergeDemoLeaderboardPreviewRows } from "./leaderboard-ui-demo-merge.js";
 import {
@@ -84,10 +83,6 @@ export function createLeaderboardController(rt) {
     armSubmitCooldownRefresh();
   }
 
-  function liveTurnSpent() {
-    return liveLeaderboardTurnSpent(st);
-  }
-
   function applySubmitButtonVisibility() {
     applyLeaderboardSubmitButtonVisibility({
       leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
@@ -96,14 +91,13 @@ export function createLeaderboardController(rt) {
       score: rt.getScore(),
       scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
-      liveNameRejected: st.liveLeaderboardNameRejected,
       demoSubmitUsed: st.demoLeaderboardSubmitUsed,
       submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
     });
   }
 
   function refreshLivePreviewFromEligibility() {
-    if (LEADERBOARD_USE_DEMO_DATA || liveTurnSpent()) return;
+    if (LEADERBOARD_USE_DEMO_DATA || st.liveLeaderboardSubmitUsed) return;
     const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
     if (!base?.length) return;
     const norm = normalizeLeaderboardRows(
@@ -115,12 +109,13 @@ export function createLeaderboardController(rt) {
       nameTrim,
       rt.getScore(),
       rt.getTrophyWord(),
-      { useDemoData: false, liveSubmitUsed: liveTurnSpent() }
+      { useDemoData: false, liveSubmitUsed: st.liveLeaderboardSubmitUsed }
     );
     renderLeaderboardTable(merged);
   }
 
   function syncLiveNamePolicyUi() {
+    applySubmitButtonVisibility();
     refreshLivePreviewFromEligibility();
   }
 
@@ -260,11 +255,14 @@ export function createLeaderboardController(rt) {
         sameScoreAndTrophyAsRun && rowPreviewNameKey === previewNameKey;
       const isLiveCurrentRunPreviewRow =
         isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
-      const turnSpent = liveTurnSpent();
       const isLiveInlineSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA && !turnSpent && isLiveCurrentRunPreviewRow;
+        !LEADERBOARD_USE_DEMO_DATA &&
+        !st.liveLeaderboardSubmitUsed &&
+        isLiveCurrentRunPreviewRow;
       const isLiveSubmittedSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA && turnSpent && isLiveStatsAndNameMatch;
+        !LEADERBOARD_USE_DEMO_DATA &&
+        st.liveLeaderboardSubmitUsed &&
+        isLiveStatsAndNameMatch;
       const playerCanonical = String(
         sanitizeDemoLeaderboardName(playerStr) || playerStr
       ).trim();
@@ -280,7 +278,8 @@ export function createLeaderboardController(rt) {
         trophyMatches &&
         (LEADERBOARD_USE_DEMO_DATA ||
           (rowPreviewNameKey === previewNameKey &&
-            (turnSpent || row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
+            (st.liveLeaderboardSubmitUsed ||
+              row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
 
       const displayNameCell = playerStr || "";
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
@@ -362,7 +361,7 @@ export function createLeaderboardController(rt) {
       : demoRunQualifiesForLeaderboard(
           st.liveLeaderboardEligibilityRows ?? rows,
           rt.getScore()
-        ) && !liveTurnSpent();
+        ) && !st.liveLeaderboardSubmitUsed;
     st.qualifiesForBoardSlot = qualifiesForBoardSlot;
     applySubmitButtonVisibility();
   }
@@ -495,10 +494,12 @@ export function createLeaderboardController(rt) {
 
     const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
     const nameRejectedOnSubmit =
+      clicked &&
       !LEADERBOARD_USE_DEMO_DATA &&
-      isProhibitedLeaderboardSubmitClick(clicked, nameTrim);
+      leaderboardNameHasLetters(nameTrim) &&
+      !isLeaderboardNameAcceptable(nameTrim);
     if (nameRejectedOnSubmit) {
-      st.liveLeaderboardNameRejected = true;
+      st.liveLeaderboardSubmitUsed = true;
     }
     const canPost =
       clicked &&
@@ -514,7 +515,6 @@ export function createLeaderboardController(rt) {
       scoreThreshold: SCORE_SUBMIT_THRESHOLD,
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
-      liveNameRejected: st.liveLeaderboardNameRejected,
     };
     let tableRows;
     let committed = false;
@@ -554,8 +554,7 @@ export function createLeaderboardController(rt) {
         Array.isArray(tableRows) &&
         tableRows.length === 0 &&
         committed &&
-        st.liveLeaderboardSubmitUsed &&
-        !st.liveLeaderboardNameRejected
+        st.liveLeaderboardSubmitUsed
       ) {
         const prev = st.liveLeaderboardPreviewRows;
         if (prev?.length) {
