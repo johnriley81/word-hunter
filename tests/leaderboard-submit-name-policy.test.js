@@ -25,7 +25,7 @@ function mockRefs(playerNameValue) {
   };
 }
 
-test("applyLeaderboardSubmitButtonVisibility: hides live submit when name is prohibited", () => {
+test("applyLeaderboardSubmitButtonVisibility: shows live submit for prohibited name before submit click", () => {
   const refs = mockRefs("FUCK");
   applyLeaderboardSubmitButtonVisibility({
     leaderboardUseDemoData: false,
@@ -34,6 +34,38 @@ test("applyLeaderboardSubmitButtonVisibility: hides live submit when name is pro
     score: 88,
     scoreSubmitThreshold: 0,
     liveSubmitUsed: false,
+    demoSubmitUsed: false,
+    submitCooldownRemainingMs: 0,
+  });
+  assert.equal(refs.leaderboardButton.classList.has("hiddenDisplay"), false);
+  assert.equal(refs.leaderboardButton.disabled, false);
+});
+
+test("applyLeaderboardSubmitButtonVisibility: hides live submit after name rejected (lost turn)", () => {
+  const refs = mockRefs("FUCK");
+  applyLeaderboardSubmitButtonVisibility({
+    leaderboardUseDemoData: false,
+    refs,
+    qualifiesForBoardSlot: true,
+    score: 88,
+    scoreSubmitThreshold: 0,
+    liveSubmitUsed: false,
+    liveNameRejected: true,
+    demoSubmitUsed: false,
+    submitCooldownRemainingMs: 0,
+  });
+  assert.equal(refs.leaderboardButton.disabled, true);
+});
+
+test("applyLeaderboardSubmitButtonVisibility: hides live submit after lost turn (submit used)", () => {
+  const refs = mockRefs("FUCK");
+  applyLeaderboardSubmitButtonVisibility({
+    leaderboardUseDemoData: false,
+    refs,
+    qualifiesForBoardSlot: true,
+    score: 88,
+    scoreSubmitThreshold: 0,
+    liveSubmitUsed: true,
     demoSubmitUsed: false,
     submitCooldownRemainingMs: 0,
   });

@@ -20,12 +20,14 @@ import {
   buildDemoLeaderboardRows,
   demoRunQualifiesForLeaderboard,
   mergeDemoRunIntoTop10,
+  leaderboardNameHasLetters,
   leaderboardPreviewNameKey,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
   sanitizeDemoLeaderboardName,
   stripLiveLeaderboardPreviewRows,
 } from "./leaderboard-lifecycle.js";
+import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 import {
   leaderboardCanPostLive,
   deriveLiveLeaderboardAfterFetch,
@@ -107,7 +109,7 @@ export function createLeaderboardController(rt) {
       nameTrim,
       rt.getScore(),
       rt.getTrophyWord(),
-      { useDemoData: false, liveSubmitUsed: false }
+      { useDemoData: false, liveSubmitUsed: st.liveLeaderboardSubmitUsed }
     );
     renderLeaderboardTable(merged);
   }
@@ -491,6 +493,14 @@ export function createLeaderboardController(rt) {
     }
 
     const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
+    const nameRejectedOnSubmit =
+      clicked &&
+      !LEADERBOARD_USE_DEMO_DATA &&
+      leaderboardNameHasLetters(nameTrim) &&
+      !isLeaderboardNameAcceptable(nameTrim);
+    if (nameRejectedOnSubmit) {
+      st.liveLeaderboardSubmitUsed = true;
+    }
     const canPost =
       clicked &&
       leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
@@ -532,6 +542,11 @@ export function createLeaderboardController(rt) {
         playerName.value = nameTrim;
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
+        if (nameRejectedOnSubmit) {
+          tableRows = stripLiveLeaderboardPreviewRows(
+            normalizeLeaderboardRows(Array.isArray(tableRows) ? tableRows : [])
+          );
+        }
       }
 
       if (

@@ -1,6 +1,5 @@
 import { LEADERBOARD_FETCH_CACHE_MS } from "./leaderboard-client.js";
 import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
-import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 
 export const LEADERBOARD_SUBMIT_COOLDOWN_MS = LEADERBOARD_FETCH_CACHE_MS;
 
@@ -35,8 +34,6 @@ export function applyLeaderboardSubmitButtonVisibility({
 }) {
   const { leaderboardButton, leaderboardDemoAdd, playerName } = refs;
   const nameReady = leaderboardNameHasLetters(playerName?.value);
-  const namePolicyBlocksSubmit =
-    nameReady && !isLeaderboardNameAcceptable(playerName?.value);
 
   if (leaderboardUseDemoData) {
     leaderboardButton.classList.add("hiddenDisplay");
@@ -75,16 +72,17 @@ export function applyLeaderboardSubmitButtonVisibility({
     leaderboardDemoAdd.classList.add("hiddenDisplay");
   }
 
-  const runScore = Number(score);
-  const meetsSubmitScoreMinimum =
-    Number.isFinite(runScore) && runScore > scoreSubmitThreshold;
-  if (namePolicyBlocksSubmit) {
+  if (liveSubmitUsed) {
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
     leaderboardButton.disabled = true;
     leaderboardButton.style.removeProperty("background-color");
     return;
   }
+
+  const runScore = Number(score);
+  const meetsSubmitScoreMinimum =
+    Number.isFinite(runScore) && runScore > scoreSubmitThreshold;
   if (!meetsSubmitScoreMinimum) {
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
@@ -99,8 +97,8 @@ export function applyLeaderboardSubmitButtonVisibility({
     !qualifiesForBoardSlot
   );
   const submitCooldownActive = submitCooldownRemainingMs > 0;
-  leaderboardButton.disabled = liveSubmitUsed || !nameReady || submitCooldownActive;
-  if (liveSubmitUsed || submitCooldownActive) {
+  leaderboardButton.disabled = !nameReady || submitCooldownActive;
+  if (submitCooldownActive) {
     leaderboardButton.style.backgroundColor = "rgba(95, 95, 95, 0.92)";
   } else {
     leaderboardButton.style.removeProperty("background-color");

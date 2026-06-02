@@ -4,6 +4,8 @@ import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 import {
   deriveLiveLeaderboardAfterFetch,
   leaderboardCanPostLive,
+  isProhibitedLeaderboardSubmitClick,
+  liveLeaderboardTurnSpent,
 } from "../js/leaderboard-live-flow.js";
 import {
   normalizeLeaderboardRows,
@@ -17,8 +19,39 @@ const baseInput = {
   scoreThreshold: SCORE_SUBMIT_THRESHOLD,
   useDemoData: false,
   liveSubmitUsed: false,
+  liveNameRejected: false,
   trophyWord: "STAR",
 };
+
+test("isProhibitedLeaderboardSubmitClick: only on submit click with bad name", () => {
+  assert.equal(isProhibitedLeaderboardSubmitClick(true, "FUCK"), true);
+  assert.equal(isProhibitedLeaderboardSubmitClick(false, "FUCK"), false);
+  assert.equal(isProhibitedLeaderboardSubmitClick(true, "Ada"), false);
+});
+
+test("liveLeaderboardTurnSpent: true after submit or name rejection", () => {
+  assert.equal(
+    liveLeaderboardTurnSpent({
+      liveLeaderboardSubmitUsed: false,
+      liveLeaderboardNameRejected: true,
+    }),
+    true
+  );
+  assert.equal(
+    liveLeaderboardTurnSpent({
+      liveLeaderboardSubmitUsed: true,
+      liveLeaderboardNameRejected: false,
+    }),
+    true
+  );
+  assert.equal(
+    liveLeaderboardTurnSpent({
+      liveLeaderboardSubmitUsed: false,
+      liveLeaderboardNameRejected: false,
+    }),
+    false
+  );
+});
 
 test("leaderboardCanPostLive: false when name fails policy", () => {
   assert.equal(leaderboardCanPostLive(true, 88, "FUCK", 0), false);
@@ -26,7 +59,7 @@ test("leaderboardCanPostLive: false when name fails policy", () => {
   assert.equal(leaderboardCanPostLive(false, 88, "FUCK", 0), false);
 });
 
-test("GET [] + prohibited name: no preview row", () => {
+test("GET [] + prohibited name: preview row while typing before submit", () => {
   const { tableRows, canPost } = deriveLiveLeaderboardAfterFetch(
     { ok: true, raw: [] },
     {
@@ -37,13 +70,13 @@ test("GET [] + prohibited name: no preview row", () => {
     }
   );
   assert.equal(canPost, false);
-  assert.equal(
-    tableRows.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW),
-    undefined
-  );
+  const preview = tableRows.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
+  assert.ok(preview);
+  assert.equal(preview[0], "FUCK");
+  assert.equal(preview[2], 88);
 });
 
-test("clicked + prohibited name: no POST, no preview", () => {
+test("clicked + prohibited name: lost turn — no POST, no preview, name rejected", () => {
   const { tableRows, committed, canPost } = deriveLiveLeaderboardAfterFetch(
     { ok: true, raw: { message: "Record inserted successfully.", top_10: [] } },
     {
@@ -51,6 +84,7 @@ test("clicked + prohibited name: no POST, no preview", () => {
       clicked: true,
       score: 88,
       nameTrim: "shit",
+      liveNameRejected: true,
     }
   );
   assert.equal(canPost, false);

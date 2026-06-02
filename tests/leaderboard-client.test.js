@@ -197,7 +197,7 @@ test("stripLiveLeaderboardPreviewRows: removes tagged preview only", () => {
   assert.equal(stripped[0][0], "Ada");
 });
 
-test("applyLiveLeaderboardPreviewMerge: prohibited name strips preview, no insert", () => {
+test("applyLiveLeaderboardPreviewMerge: prohibited name shows preview before submit", () => {
   const norm = normalizeLeaderboardRows([
     ["YOU", 88, "blinders"],
     ["", 0, 88, "blinders", LEADERBOARD_META_LIVE_PREVIEW],
@@ -207,13 +207,25 @@ test("applyLiveLeaderboardPreviewMerge: prohibited name strips preview, no inser
     useDemoData: false,
     liveSubmitUsed: false,
   });
+  const preview = merged.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW);
+  assert.ok(preview);
+  assert.equal(preview[0], "FUCK");
+});
+
+test("applyLiveLeaderboardPreviewMerge: skipped after lost turn (liveSubmitUsed)", () => {
+  const norm = normalizeLeaderboardRows([
+    ["YOU", 88, "blinders"],
+    ["FUCK", 0, 88, "blinders", LEADERBOARD_META_LIVE_PREVIEW],
+  ]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "fuck", 88, "blinders", {
+    useDemoData: false,
+    liveSubmitUsed: true,
+  });
+  assert.deepEqual(merged, norm);
+  const stripped = stripLiveLeaderboardPreviewRows(merged);
   assert.equal(
-    merged.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW),
+    stripped.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW),
     undefined
-  );
-  assert.equal(
-    merged.some((r) => r[2] === 88 && String(r[0]).toUpperCase() === "YOU"),
-    true
   );
 });
 

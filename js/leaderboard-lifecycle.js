@@ -1,6 +1,5 @@
 import { DEMO_LEADERBOARD_NAME_MAX, SCORE_SUBMIT_THRESHOLD } from "./config.js";
 import { LEADERBOARD_META_LIVE_PREVIEW } from "./leaderboard-api.js";
-import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 import { leaderboardNumericScore } from "./leaderboard-ui-helpers.js";
 
 export function sanitizeDemoLeaderboardName(raw) {
@@ -121,9 +120,6 @@ export function applyLiveLeaderboardPreviewMerge(
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
   const trimmed = String(trimmedPlayerName || "").trim();
-  if (leaderboardNameHasLetters(trimmed) && !isLeaderboardNameAcceptable(trimmed)) {
-    return stripLiveLeaderboardPreviewRows(normalizedApiRows);
-  }
   const displayName = sanitizeDemoLeaderboardName(trimmed);
   const run = Number(runScore);
   if (
