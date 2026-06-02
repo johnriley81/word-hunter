@@ -35,6 +35,7 @@ import { persistMuted, readStoredMuted } from "./sfx-pref.js";
 import { calculatePuzzleDayIndex, puzzleListIndex } from "./game-lifecycle.js";
 import { createLeaderboardController } from "./leaderboard-ui.js";
 import { clearLiveLeaderboardSubmitCooldown } from "./leaderboard-ui-submit-visibility.js";
+import { liveLeaderboardTurnSpent } from "./leaderboard-live-flow.js";
 import {
   getTileText,
   setTileText,
@@ -319,7 +320,7 @@ export function initGame(ctx) {
     if (!td || !leaderboardTable.contains(td)) return;
     if (LEADERBOARD_USE_DEMO_DATA && leaderboardRtState.demoLeaderboardSubmitUsed)
       return;
-    if (!LEADERBOARD_USE_DEMO_DATA && leaderboardRtState.liveLeaderboardSubmitUsed)
+    if (!LEADERBOARD_USE_DEMO_DATA && liveLeaderboardTurnSpent(leaderboardRtState))
       return;
     if (td.querySelector(".leaderboard-inline-name-input")) return;
     e.preventDefault();
@@ -971,6 +972,7 @@ export function initGame(ctx) {
     leaderboardRtState.liveLeaderboardEligibilityRows = null;
     leaderboardRtState.demoLeaderboardSubmitUsed = false;
     leaderboardRtState.liveLeaderboardSubmitUsed = false;
+    leaderboardRtState.liveLeaderboardNameRejected = false;
     clearLiveLeaderboardSubmitCooldown(leaderboardRtState);
     if (!skipLeaderboardOverlayTeardown) {
       lbCtl.hidePostgameLeaderboardOverlay();

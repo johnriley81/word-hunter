@@ -138,6 +138,7 @@ export function createGameEndgameCoordinator(deps) {
     deps.getLbCtl().hidePostgameLeaderboardOverlay();
     st.demoLeaderboardSubmitUsed = false;
     st.liveLeaderboardSubmitUsed = false;
+    st.liveLeaderboardNameRejected = false;
     clearLiveLeaderboardSubmitCooldown(st);
     st.liveLeaderboardPreviewRows = null;
     st.liveLeaderboardEligibilityRows = null;
