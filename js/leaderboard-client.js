@@ -46,19 +46,6 @@ export function resetLeaderboardFetchCacheForTests() {
   leaderboardFetchCache.clear();
 }
 
-/**
- * Live leaderboard GET/POST round-trip (`fetch` + JSON parse edge cases).
- *
- * @param {{
- *   leaderboardLink: string;
- *   puzzleId: number | string;
- *   canPost: boolean;
- *   playerNameTrim: string;
- *   score: number;
- *   trophyWord: string;
- *   scoreValidationPayload: unknown;
- * }} p
- */
 export async function fetchLiveLeaderboardNetworkResult(p) {
   const requestURL = `${p.leaderboardLink}${p.puzzleId}`;
   const method = p.canPost ? "POST" : "GET";

@@ -9,9 +9,6 @@ export function sanitizeLeaderboardName(raw) {
     .slice(0, DEMO_LEADERBOARD_NAME_MAX);
 }
 
-/** @deprecated Use {@link sanitizeLeaderboardName}. */
-export const sanitizeDemoLeaderboardName = sanitizeLeaderboardName;
-
 /** True when the player has typed at least one letter (A–Z after sanitize). */
 export function leaderboardNameHasLetters(raw) {
   return sanitizeLeaderboardName(String(raw ?? "")) !== "";
@@ -114,9 +111,6 @@ export function runQualifiesForLeaderboardTop10(baseRows, runScore) {
   return s > tenthNum;
 }
 
-/** @deprecated Use {@link runQualifiesForLeaderboardTop10}. */
-export const demoRunQualifiesForLeaderboard = runQualifiesForLeaderboardTop10;
-
 export function applyLiveLeaderboardPreviewMerge(
   normalizedApiRows,
   trimmedPlayerName,
@@ -196,6 +190,3 @@ export function mergeRunIntoTop10(baseRows, name, runScore, trophy, mergeOpts) {
   }
   return next;
 }
-
-/** @deprecated Use {@link mergeRunIntoTop10}. */
-export const mergeDemoRunIntoTop10 = mergeRunIntoTop10;

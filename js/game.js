@@ -166,7 +166,7 @@ export function initGame(ctx) {
   /** @type {Array<{ starting_grid: string[][]; next_letters: string[]; perfect_hunt: string[]; perfect_hunt_starter_flats?: number[]; perfect_hunt_starter_tor_neighbors?: string[]; perfect_hunt_shifts_before?: Array<Array<{ t: "row" | "col"; s: number }>> }>} */
   let puzzles = [];
   let leaderboardPuzzleId = 0;
-  /** @type {string[]} */
+  /** Shared with word-drag hooks; clear with `.length = 0` only (never reassign). */
   let scoreValidationWordsPlayed = [];
   /** @type {string[]} */
   let scoreValidationGameLetters = [];
@@ -481,6 +481,7 @@ export function initGame(ctx) {
     lockGridSizeForSwipe();
 
     score = 0;
+    // Keep hook array reference — do not `scoreValidationWordsPlayed = []`.
     scoreValidationWordsPlayed.length = 0;
     wordState.currentWord = "";
     ctx.state.perfectHuntWordsSubmitted?.clear();
@@ -536,6 +537,7 @@ export function initGame(ctx) {
     }
     leaderboardPuzzleId = calculatePuzzleDayIndex();
     lbCtl?.syncSubmitCooldownFromStorage();
+    // Keep hook array reference — do not `scoreValidationWordsPlayed = []`.
     scoreValidationWordsPlayed.length = 0;
     const p = puzzles[puzzleListIndex(puzzles.length)];
     const gridLetters = p.starting_grid;

@@ -1,5 +1,3 @@
-/** Shared leaderboard table utilities (no `rt` / fetch). */
-
 export function leaderboardNumericScore(row) {
   const raw = row[2];
   if (raw === "" || raw === null || raw === undefined || Number.isNaN(Number(raw))) {
