@@ -1,4 +1,4 @@
-import { parsePuzzlesFileText } from "./puzzle-row-format.js";
+import { parsePuzzlesFileTextForPlay } from "./puzzle-row-format.js";
 import {
   decodePuzzleEncFileBase64,
   decryptPuzzleFileBytes,
@@ -63,15 +63,17 @@ async function loadShippedPuzzlesPlaintext() {
 
 /**
  * @returns {Promise<
- *   | { ok: true; wordSet: Set<string>; puzzles: ReturnType<typeof parsePuzzlesFileText> }
+ *   | { ok: true; wordSet: Set<string>; puzzles: ReturnType<typeof parsePuzzlesFileTextForPlay> }
  *   | { ok: false; error: string }
  * >}
  */
 export async function loadWordhunterTextAssets() {
   try {
-    const wordSet = await loadWordlistWordSet();
-    const puzzlesText = await loadShippedPuzzlesPlaintext();
-    const puzzles = parsePuzzlesFileText(puzzlesText, {
+    const [wordSet, puzzlesText] = await Promise.all([
+      loadWordlistWordSet(),
+      loadShippedPuzzlesPlaintext(),
+    ]);
+    const puzzles = parsePuzzlesFileTextForPlay(puzzlesText, {
       fileLabel: "puzzles",
     });
     if (!puzzles.length) {

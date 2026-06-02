@@ -1,6 +1,7 @@
 /** JSON Lines puzzles. Internal `""` sack slots matter; stripping them loses round-trip data. */
 
 import { PERFECT_HUNT_WORD_COUNT } from "./config.js";
+import { puzzleListIndex } from "./puzzle-calendar.js";
 import {
   stripTrailingEmptyNextLetters,
   canonicalNextLettersFromJsonArray,
@@ -157,53 +158,91 @@ export function serializePuzzleRow(row) {
   return JSON.stringify(packed);
 }
 
-export function parsePuzzlesFileText(text, opts = {}) {
-  const fileLabel = opts.fileLabel ?? "puzzles";
+/**
+ * @param {string} text
+ * @returns {{ lineNo: number; text: string }[]}
+ */
+function collectNonEmptyPuzzleLineRefs(text) {
   const lines = text.split(/\r?\n/);
-  const puzzles = [];
+  /** @type {{ lineNo: number; text: string }[]} */
+  const refs = [];
   let lineNo = 0;
   for (const raw of lines) {
     lineNo++;
     const t = raw.trim();
-    if (!t) continue;
-    let j;
-    try {
-      j = JSON.parse(t);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(fileLabel + " line " + lineNo + ": " + msg);
-    }
-    const norm = normalizePuzzleRow(j);
-    validatePuzzleRow(norm);
-    /** @type {Record<string, unknown>} */
-    const entry = {
-      starting_grid: norm.starting_grid.map((r) =>
-        /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
-      ),
-      next_letters: coerceNextLettersForRow(norm.next_letters),
-      perfect_hunt: /** @type {unknown[]} */ (norm.perfect_hunt).map((w) =>
-        String(w || "").toLowerCase()
-      ),
-    };
-    if (norm.perfect_hunt_starter_flats != null) {
-      entry.perfect_hunt_starter_flats = coerceStarterFlatValues(
-        /** @type {unknown[]} */ (norm.perfect_hunt_starter_flats)
-      );
-    }
-    if (norm.perfect_hunt_starter_tor_neighbors != null) {
-      entry.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
-        /** @type {unknown[]} */ (norm.perfect_hunt_starter_tor_neighbors),
-        fileLabel + " line " + lineNo + ": perfect_hunt_starter_tor_neighbors"
-      );
-    }
-    if (norm.perfect_hunt_shifts_before != null) {
-      entry.perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
-        norm.perfect_hunt_shifts_before,
-        fileLabel + " line " + lineNo + ": perfect_hunt_shifts_before"
-      );
-    }
-    puzzles.push(entry);
+    if (t) refs.push({ lineNo, text: t });
   }
+  return refs;
+}
+
+/**
+ * @param {string} trimmedLine
+ * @param {number} lineNo
+ * @param {string} fileLabel
+ */
+function parsePuzzleJsonLine(trimmedLine, lineNo, fileLabel) {
+  let j;
+  try {
+    j = JSON.parse(trimmedLine);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(fileLabel + " line " + lineNo + ": " + msg);
+  }
+  const norm = normalizePuzzleRow(j);
+  validatePuzzleRow(norm);
+  /** @type {Record<string, unknown>} */
+  const entry = {
+    starting_grid: norm.starting_grid.map((r) =>
+      /** @type {unknown[]} */ (r).map((c) => String(c || "").toLowerCase())
+    ),
+    next_letters: coerceNextLettersForRow(norm.next_letters),
+    perfect_hunt: /** @type {unknown[]} */ (norm.perfect_hunt).map((w) =>
+      String(w || "").toLowerCase()
+    ),
+  };
+  if (norm.perfect_hunt_starter_flats != null) {
+    entry.perfect_hunt_starter_flats = coerceStarterFlatValues(
+      /** @type {unknown[]} */ (norm.perfect_hunt_starter_flats)
+    );
+  }
+  if (norm.perfect_hunt_starter_tor_neighbors != null) {
+    entry.perfect_hunt_starter_tor_neighbors = coerceStarterTorNeighborsForRow(
+      /** @type {unknown[]} */ (norm.perfect_hunt_starter_tor_neighbors),
+      fileLabel + " line " + lineNo + ": perfect_hunt_starter_tor_neighbors"
+    );
+  }
+  if (norm.perfect_hunt_shifts_before != null) {
+    entry.perfect_hunt_shifts_before = coercePerfectHuntShiftsBefore(
+      norm.perfect_hunt_shifts_before,
+      fileLabel + " line " + lineNo + ": perfect_hunt_shifts_before"
+    );
+  }
+  return entry;
+}
+
+export function parsePuzzlesFileText(text, opts = {}) {
+  const fileLabel = opts.fileLabel ?? "puzzles";
+  const puzzles = [];
+  for (const { lineNo, text: trimmed } of collectNonEmptyPuzzleLineRefs(text)) {
+    puzzles.push(parsePuzzleJsonLine(trimmed, lineNo, fileLabel));
+  }
+  return puzzles;
+}
+
+/**
+ * Play startup: count JSON Lines, parse only today's row. Returns a sparse array
+ * whose `.length` is the shipped row count so `puzzleListIndex(puzzles.length)` matches
+ * the full-file loader.
+ */
+export function parsePuzzlesFileTextForPlay(text, opts = {}) {
+  const fileLabel = opts.fileLabel ?? "puzzles";
+  const refs = collectNonEmptyPuzzleLineRefs(text);
+  if (!refs.length) return [];
+  const idx = puzzleListIndex(refs.length);
+  const entry = parsePuzzleJsonLine(refs[idx].text, refs[idx].lineNo, fileLabel);
+  const puzzles = [];
+  puzzles.length = refs.length;
+  puzzles[idx] = entry;
   return puzzles;
 }
 
