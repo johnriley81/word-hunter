@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
-import { deriveLiveLeaderboardAfterFetch } from "../js/leaderboard-live-flow.js";
+import {
+  deriveLiveLeaderboardAfterFetch,
+  leaderboardCanPostLive,
+} from "../js/leaderboard-live-flow.js";
 import {
   normalizeLeaderboardRows,
   LEADERBOARD_META_LIVE_PREVIEW,
@@ -16,6 +19,47 @@ const baseInput = {
   liveSubmitUsed: false,
   trophyWord: "STAR",
 };
+
+test("leaderboardCanPostLive: false when name fails policy", () => {
+  assert.equal(leaderboardCanPostLive(true, 88, "FUCK", 0), false);
+  assert.equal(leaderboardCanPostLive(true, 88, "Ada", 0), true);
+  assert.equal(leaderboardCanPostLive(false, 88, "FUCK", 0), false);
+});
+
+test("GET [] + prohibited name: no preview row", () => {
+  const { tableRows, canPost } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw: [] },
+    {
+      ...baseInput,
+      clicked: false,
+      score: 88,
+      nameTrim: "FUCK",
+    }
+  );
+  assert.equal(canPost, false);
+  assert.equal(
+    tableRows.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW),
+    undefined
+  );
+});
+
+test("clicked + prohibited name: no POST, no preview", () => {
+  const { tableRows, committed, canPost } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw: { message: "Record inserted successfully.", top_10: [] } },
+    {
+      ...baseInput,
+      clicked: true,
+      score: 88,
+      nameTrim: "shit",
+    }
+  );
+  assert.equal(canPost, false);
+  assert.equal(committed, false);
+  assert.equal(
+    tableRows.find((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW),
+    undefined
+  );
+});
 
 test("GET [] + qualifying run: preview merge shows player at row 1", () => {
   const { tableRows, committed, canPost } = deriveLiveLeaderboardAfterFetch(

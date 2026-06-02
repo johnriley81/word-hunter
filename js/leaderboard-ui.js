@@ -16,6 +16,7 @@ import {
 } from "./leaderboard-api.js";
 import { fetchLiveLeaderboardNetworkResult } from "./leaderboard-client.js";
 import {
+  applyLiveLeaderboardPreviewMerge,
   buildDemoLeaderboardRows,
   demoRunQualifiesForLeaderboard,
   mergeDemoRunIntoTop10,
@@ -23,6 +24,7 @@ import {
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
   sanitizeDemoLeaderboardName,
+  stripLiveLeaderboardPreviewRows,
 } from "./leaderboard-lifecycle.js";
 import {
   leaderboardCanPostLive,
@@ -92,6 +94,29 @@ export function createLeaderboardController(rt) {
     });
   }
 
+  function refreshLivePreviewFromEligibility() {
+    if (LEADERBOARD_USE_DEMO_DATA || st.liveLeaderboardSubmitUsed) return;
+    const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
+    if (!base?.length) return;
+    const norm = normalizeLeaderboardRows(
+      stripLiveLeaderboardPreviewRows(base.map((r) => r.slice(0, 5)))
+    );
+    const nameTrim = trimLeaderboardSubmitName(refs().playerName.value);
+    const merged = applyLiveLeaderboardPreviewMerge(
+      norm,
+      nameTrim,
+      rt.getScore(),
+      rt.getTrophyWord(),
+      { useDemoData: false, liveSubmitUsed: false }
+    );
+    renderLeaderboardTable(merged);
+  }
+
+  function syncLiveNamePolicyUi() {
+    applySubmitButtonVisibility();
+    refreshLivePreviewFromEligibility();
+  }
+
   function findDemoSelfRowIndex() {
     const rows = st.demoLeaderboardRows;
     if (!LEADERBOARD_USE_DEMO_DATA || !rows) return -1;
@@ -149,7 +174,7 @@ export function createLeaderboardController(rt) {
       input.value = v;
       rows[idx][0] = v;
       refs().playerName.value = v;
-      applySubmitButtonVisibility();
+      syncLiveNamePolicyUi();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -161,7 +186,7 @@ export function createLeaderboardController(rt) {
       const v = sanitizeDemoLeaderboardName(input.value);
       rows[idx][0] = v || "";
       refs().playerName.value = v || "";
-      renderLeaderboardTable(rows);
+      syncLiveNamePolicyUi();
     });
   }
 
@@ -466,12 +491,9 @@ export function createLeaderboardController(rt) {
     }
 
     const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
-    const canPost = leaderboardCanPostLive(
-      clicked,
-      rt.getScore(),
-      nameTrim,
-      SCORE_SUBMIT_THRESHOLD
-    );
+    const canPost =
+      clicked &&
+      leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
     if (canPost) {
       markLiveLeaderboardSubmitCooldown();
     }
@@ -612,7 +634,8 @@ export function createLeaderboardController(rt) {
   const pn = refs().playerName;
   if (pn && !pn.dataset.whNameSubmitSync) {
     pn.dataset.whNameSubmitSync = "1";
-    pn.addEventListener("input", applySubmitButtonVisibility);
+    pn.addEventListener("input", syncLiveNamePolicyUi);
+    pn.addEventListener("blur", syncLiveNamePolicyUi);
   }
 
   async function getLeaderboard(clicked = false) {

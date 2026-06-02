@@ -1,5 +1,6 @@
 import { LEADERBOARD_FETCH_CACHE_MS } from "./leaderboard-client.js";
 import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
+import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 
 export const LEADERBOARD_SUBMIT_COOLDOWN_MS = LEADERBOARD_FETCH_CACHE_MS;
 
@@ -34,6 +35,8 @@ export function applyLeaderboardSubmitButtonVisibility({
 }) {
   const { leaderboardButton, leaderboardDemoAdd, playerName } = refs;
   const nameReady = leaderboardNameHasLetters(playerName?.value);
+  const namePolicyBlocksSubmit =
+    nameReady && !isLeaderboardNameAcceptable(playerName?.value);
 
   if (leaderboardUseDemoData) {
     leaderboardButton.classList.add("hiddenDisplay");
@@ -75,6 +78,13 @@ export function applyLeaderboardSubmitButtonVisibility({
   const runScore = Number(score);
   const meetsSubmitScoreMinimum =
     Number.isFinite(runScore) && runScore > scoreSubmitThreshold;
+  if (namePolicyBlocksSubmit) {
+    leaderboardButton.classList.add("hiddenDisplay");
+    leaderboardButton.classList.add("leaderboard-action--concealed");
+    leaderboardButton.disabled = true;
+    leaderboardButton.style.removeProperty("background-color");
+    return;
+  }
   if (!meetsSubmitScoreMinimum) {
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
