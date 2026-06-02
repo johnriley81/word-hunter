@@ -95,7 +95,7 @@ test("submit at t=0, endgame at t=45: button disabled with 15s cooldown left", (
   assert.equal(leaderboardButton.classList.has("hiddenDisplay"), false);
   assert.equal(leaderboardButton.disabled, true);
   assert.equal(leaderboardButton.style.backgroundColor, "rgba(95, 95, 95, 0.92)");
-  assert.equal(leaderboardButton.textContent, "0:45");
+  assert.equal(leaderboardButton.textContent, "0:15");
 });
 
 test("applyLeaderboardSubmitButtonVisibility: restores Submit when cooldown inactive", () => {
