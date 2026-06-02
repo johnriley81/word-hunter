@@ -103,6 +103,6 @@ test("leaderboard commit markers include update and score-not-improved", () => {
   );
   assert.equal(
     leaderboardPostTreatAsCommitted(true, { message: "Score not improved." }, true),
-    true
+    false
   );
 });

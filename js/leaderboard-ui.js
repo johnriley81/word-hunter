@@ -173,12 +173,16 @@ export function createLeaderboardController(rt) {
     const typedCanonical = String(
       sanitizeDemoLeaderboardName(typedPlayerName) || typedPlayerName
     ).trim();
+    const sessionNameFallback = sessionSubmitNameFallback();
     const previewNameKey = leaderboardPreviewNameKey(playerName.value);
+    const sessionNameKey = leaderboardPreviewNameKey(sessionNameFallback);
+    const rowMatchesSessionPlayer = (rowKey) =>
+      rowKey === previewNameKey ||
+      (Boolean(sessionNameKey) && rowKey === sessionNameKey);
 
     const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
     const runScoreNum = Number(rt.getScore());
     const eligibilityForSession = st.liveLeaderboardEligibilityRows ?? rows;
-    const sessionNameFallback = sessionSubmitNameFallback();
     const sessionBestScore = LEADERBOARD_USE_DEMO_DATA
       ? null
       : leaderboardSessionBestScore(
@@ -225,7 +229,7 @@ export function createLeaderboardController(rt) {
       const isLiveSessionBestRow =
         !LEADERBOARD_USE_DEMO_DATA &&
         runBelowSessionBest &&
-        rowPreviewNameKey === previewNameKey &&
+        rowMatchesSessionPlayer(rowPreviewNameKey) &&
         hasScore &&
         scoreNum === sessionBestScore &&
         row[4] !== LEADERBOARD_META_LIVE_PREVIEW;

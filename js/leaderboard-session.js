@@ -37,11 +37,6 @@ export function resetLeaderboardSessionStorageForTests() {
 }
 
 /**
- * Stable UUID per puzzle day for session-scoped leaderboard UPSERT.
- *
- * @param {number | string} puzzleId
- */
-/**
  * Last successfully committed leaderboard name for this puzzle (survives reload).
  *
  * @param {number | string} puzzleId
@@ -78,6 +73,11 @@ export function setLeaderboardSubmitName(puzzleId, nameTrim) {
   submitNameMemoryFallback.set(key, value);
 }
 
+/**
+ * Stable UUID per puzzle day for session-scoped leaderboard UPSERT.
+ *
+ * @param {number | string} puzzleId
+ */
 export function getLeaderboardSessionId(puzzleId) {
   const key = `${STORAGE_PREFIX}${String(puzzleId)}`;
   try {
