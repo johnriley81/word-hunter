@@ -460,6 +460,20 @@ export function createLeaderboardController(rt) {
       const canPost =
         clicked &&
         leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
+
+      if (clicked && !canPost) {
+        rt.playSound("click", rt.getIsMuted());
+        if (nameRejectedOnSubmit) {
+          const stripped = stripLiveLeaderboardPreviewRows(
+            normalizeLeaderboardRows(st.liveLeaderboardPreviewRows ?? [])
+          );
+          renderLeaderboardTable(stripped);
+        } else {
+          applySubmitButtonVisibility();
+        }
+        return;
+      }
+
       const deriveInput = {
         clicked,
         score: rt.getScore(),
@@ -501,6 +515,13 @@ export function createLeaderboardController(rt) {
           markLeaderboardRateLimitFeedback();
           if (clicked) {
             rt.playSound("click", rt.getIsMuted());
+          }
+          if (
+            !committed &&
+            (!Array.isArray(tableRows) || tableRows.length === 0) &&
+            st.liveLeaderboardPreviewRows?.length
+          ) {
+            tableRows = st.liveLeaderboardPreviewRows.map((r) => r.slice());
           }
         } else if (clicked) {
           rt.playSound("click", rt.getIsMuted());
