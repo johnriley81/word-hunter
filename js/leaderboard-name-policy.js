@@ -1,4 +1,4 @@
-import { sanitizeDemoLeaderboardName } from "./leaderboard-lifecycle.js";
+import { sanitizeLeaderboardName } from "./leaderboard-lifecycle.js";
 
 /** Keep in sync with server-side `_PROHIBITED_LEADERBOARD_NAMES`. */
 const PROHIBITED_LEADERBOARD_NAMES = new Set([
@@ -23,13 +23,13 @@ const PROHIBITED_LEADERBOARD_NAMES = new Set([
 ]);
 
 export function isProhibitedLeaderboardName(raw) {
-  const canonical = sanitizeDemoLeaderboardName(raw);
+  const canonical = sanitizeLeaderboardName(raw);
   if (!canonical) return false;
   return PROHIBITED_LEADERBOARD_NAMES.has(canonical);
 }
 
 export function isLeaderboardNameAllowed(raw) {
-  const canonical = sanitizeDemoLeaderboardName(raw);
+  const canonical = sanitizeLeaderboardName(raw);
   if (!canonical) return false;
   return !isProhibitedLeaderboardName(canonical);
 }

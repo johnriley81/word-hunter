@@ -20,7 +20,10 @@ Pure logic is covered by Node tests:
 
 ```bash
 npm test
+npm run test:leaderboard
 ```
+
+Leaderboard behavior is documented in [`docs/leaderboard.md`](docs/leaderboard.md).
 
 ## Development
 
@@ -40,29 +43,41 @@ pre-commit run --all-files
 ## Architecture (high level)
 
 - **`js/app.js`** — Bootstraps CSS vars, creates the game context, calls `initGame` on `DOMContentLoaded`.
-- **`js/game.js`** — Main game shell: DOM refs, lifecycle (`startGame`, `resetRoundToPregame`, grid generation), wiring to feature modules.
+- **`js/game.js`** — Main game shell: DOM refs, lifecycle (`startGame`, grid generation), wiring to feature modules.
 - **`js/game-endgame.js`** — Endgame choreography (GAME OVER flashes, grid batch fade, audio fallback) and handoff to leaderboard post-game UI.
 - **`js/game-context.js`** — `createGameContext()`: shared **`ctx.refs`**, **`ctx.state`** (board, shift, word path, word-line UI), and **`ctx.fn`** hooks (e.g. `updateCurrentWord`) to avoid circular imports.
 
 Feature modules (each takes `ctx` and/or small host/runtime objects):
 
-| Module                     | Role                                                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `board-logic.js`           | Scoring, shifts, tile normalization (tested)                                                                     |
-| `grid-tiles.js`            | Tile DOM helpers, `syncDomFromBoard`                                                                             |
-| `shift-gestures.js`        | Shift gesture state factory                                                                                      |
-| `shift-dom.js`             | Shift preview, commit, pointers, grid lock hooks                                                                 |
-| `word-play.js`             | Adjacency + selection visit depth on the grid                                                                    |
-| `word-drag.js`             | Word selection, connector SVG, success/invalid choreography                                                      |
-| `word-path.js`             | Path gradient helpers (tested)                                                                                   |
-| `ui-word-line.js`          | Current-word line, messages, intro crossfade                                                                     |
-| `leaderboard-lifecycle.js` | Live leaderboard preview merge, name-key session-best checks, submit-name persistence (pure)                     |
-| `leaderboard-ui.js`        | Table, overlay, API refresh, post-game copy-score flow; **`rt.state`** holds mutable leaderboard/post-game flags |
-| `rules-dock.js`            | Rules overlay + mute wiring                                                                                      |
-| `game-lifecycle.js`        | `loadWordhunterTextAssets`, `loadWordlistWordSet`, `puzzleListIndex`, `calculatePuzzleDayIndex`                  |
-| `audio.js`                 | Sound pools and playback                                                                                         |
-| `config.js`                | Constants and timings                                                                                            |
-| `puzzle-build/`            | Pool ordering, export payload, swap buckets, problematic-word filter (used by automated builder scripts)         |
+| Module                                | Role                                                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `board-logic.js`                      | Scoring, shifts, tile normalization (tested)                                                             |
+| `grid-tiles.js`                       | Tile DOM helpers, `syncDomFromBoard`                                                                     |
+| `shift-gestures.js`                   | Shift gesture state factory                                                                              |
+| `shift-dom.js`                        | Shift preview, commit, pointers, grid lock hooks                                                         |
+| `word-play.js`                        | Adjacency + selection visit depth on the grid                                                            |
+| `word-drag.js`                        | Word selection, connector SVG, success/invalid choreography                                              |
+| `word-path.js`                        | Path gradient helpers (tested)                                                                           |
+| `ui-word-line.js`                     | Current-word line, messages, intro crossfade                                                             |
+| `leaderboard-lifecycle.js`            | Name sanitize, preview merge, top-10 merge, eligibility (pure)                                           |
+| `leaderboard-api.js`                  | API row normalization, pad-to-10, live-preview meta constant                                             |
+| `leaderboard-client.js`               | GET/POST fetch, response cache                                                                           |
+| `leaderboard-live-flow.js`            | Post-fetch derive, prohibited submit, turn-spent                                                         |
+| `leaderboard-name-policy.js`          | Prohibited name list                                                                                     |
+| `leaderboard-score-validation.js`     | POST scoreValidation payload                                                                             |
+| `leaderboard-row-view-model.js`       | Pure row classification for table render                                                                 |
+| `leaderboard-table-render.js`         | DOM builder from row view models                                                                         |
+| `leaderboard-ui.js`                   | Controller: table, overlay, API refresh, post-game copy-score                                            |
+| `leaderboard-ui-helpers.js`           | Score/flash helpers, defer render while inline edit                                                      |
+| `leaderboard-ui-submit-visibility.js` | SUBMIT vs cooldown label, demo-add visibility                                                            |
+| `leaderboard-ui-demo-merge.js`        | Demo-only perfect/over-perfect row injection                                                             |
+| `game-perfect-hunt-hooks.js`          | Perfect-hunt hint + word-drag host hooks                                                                 |
+| `game-round-reset.js`                 | `resetRoundToPregame` round teardown                                                                     |
+| `rules-dock.js`                       | Rules overlay + mute wiring                                                                              |
+| `game-lifecycle.js`                   | `loadWordhunterTextAssets`, `loadWordlistWordSet`, `puzzleListIndex`, `calculatePuzzleDayIndex`          |
+| `audio.js`                            | Sound pools and playback                                                                                 |
+| `config.js`                           | Constants and timings                                                                                    |
+| `puzzle-build/`                       | Pool ordering, export payload, swap buckets, problematic-word filter (used by automated builder scripts) |
 
 ## Content and assets
 

@@ -5,7 +5,7 @@ import {
   LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW,
   LEADERBOARD_DEMO_OVER_PERFECT_SCORE_EXTRA,
 } from "./config.js";
-import { mergeDemoRunIntoTop10 } from "./leaderboard-lifecycle.js";
+import { mergeRunIntoTop10 } from "./leaderboard-lifecycle.js";
 import { leaderboardNumericScore } from "./leaderboard-ui-helpers.js";
 
 /** Demo-only row injection for perfect / over-perfect hunt preview (see config flags). */
@@ -29,7 +29,7 @@ export function mergeDemoLeaderboardPreviewRows(leaderboard, perfectTargetSum) {
           .toUpperCase() === "PERFECT HUNT"
     );
     if (!hasPerfect) {
-      rows = mergeDemoRunIntoTop10(rows, "PERFECT", target, "PERFECT HUNT");
+      rows = mergeRunIntoTop10(rows, "PERFECT", target, "PERFECT HUNT");
     }
   }
   if (LEADERBOARD_DEMO_INJECT_OVER_PERFECT_HUNT_ROW) {
@@ -46,7 +46,7 @@ export function mergeDemoLeaderboardPreviewRows(leaderboard, perfectTargetSum) {
       );
     });
     if (!hasOver) {
-      rows = mergeDemoRunIntoTop10(rows, "TOOHIGH", overScore, "HOW??");
+      rows = mergeRunIntoTop10(rows, "TOOHIGH", overScore, "HOW??");
     }
   }
   return rows;

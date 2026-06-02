@@ -12,18 +12,16 @@ import {
   normalizeLeaderboardRows,
   leaderboardDebugWarn,
   padNormalizedLeaderboardToTop10,
-  LEADERBOARD_META_LIVE_PREVIEW,
 } from "./leaderboard-api.js";
 import { fetchLiveLeaderboardNetworkResult } from "./leaderboard-client.js";
 import {
   applyLiveLeaderboardPreviewMerge,
   buildDemoLeaderboardRows,
-  demoRunQualifiesForLeaderboard,
-  mergeDemoRunIntoTop10,
-  leaderboardPreviewNameKey,
+  runQualifiesForLeaderboardTop10,
+  mergeRunIntoTop10,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
-  sanitizeDemoLeaderboardName,
+  sanitizeLeaderboardName,
   stripLiveLeaderboardPreviewRows,
 } from "./leaderboard-lifecycle.js";
 import {
@@ -42,18 +40,19 @@ import {
 } from "./leaderboard-ui-submit-visibility.js";
 import {
   leaderboardNumericScore,
-  rowPerfectOverFlags,
-  setLeaderboardCellFlash,
+  shouldDeferLeaderboardTableRender,
   syncLeaderboardNameCellSubPerfect,
 } from "./leaderboard-ui-helpers.js";
+import {
+  buildLeaderboardRowViewModels,
+  createLeaderboardRowRenderContext,
+} from "./leaderboard-row-view-model.js";
+import { renderLeaderboardTableDom } from "./leaderboard-table-render.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
 
-const LB_SELF_ROW_FG = "var(--leaderboard-self-row-highlight-color)";
-const LB_TABLE_DEFAULT_FG = "var(--leaderboard-table-text-color)";
-
 function trimLeaderboardSubmitName(raw) {
-  return String(sanitizeDemoLeaderboardName(raw) || String(raw ?? "").trim()).trim();
+  return String(sanitizeLeaderboardName(raw) || String(raw ?? "").trim()).trim();
 }
 
 export function createLeaderboardController(rt) {
@@ -121,7 +120,30 @@ export function createLeaderboardController(rt) {
     });
   }
 
-  function refreshLivePreviewFromEligibility() {
+  function hasLeaderboardInlineNameInput() {
+    const input = refs().leaderboardTable?.querySelector(
+      ".leaderboard-inline-name-input"
+    );
+    return input instanceof HTMLInputElement;
+  }
+
+  function syncLiveLeaderboardPreviewState(merged) {
+    const perfectTargetForDemoMerge = rt.getPerfectHuntTargetSum?.() ?? null;
+    let rows = mergeDemoLeaderboardPreviewRows(
+      normalizeLeaderboardRows(Array.isArray(merged) ? merged : []),
+      perfectTargetForDemoMerge
+    );
+    rows = padNormalizedLeaderboardToTop10(rows);
+    st.liveLeaderboardPreviewRows = rows.map((r) => r.slice(0, 5));
+    st.qualifiesForBoardSlot =
+      runQualifiesForLeaderboardTop10(
+        st.liveLeaderboardEligibilityRows ?? rows,
+        rt.getScore()
+      ) && !liveTurnSpent();
+    applySubmitButtonVisibility();
+  }
+
+  function refreshLivePreviewFromEligibility(options = {}) {
     if (LEADERBOARD_USE_DEMO_DATA || liveTurnSpent()) return;
     const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
     if (!base?.length) return;
@@ -136,11 +158,21 @@ export function createLeaderboardController(rt) {
       rt.getTrophyWord(),
       { useDemoData: false, liveSubmitUsed: liveTurnSpent() }
     );
+    if (
+      shouldDeferLeaderboardTableRender({
+        forceTableRender: options.forceTableRender,
+        skipTableRender: options.skipTableRender,
+        hasInlineNameInput: hasLeaderboardInlineNameInput(),
+      })
+    ) {
+      syncLiveLeaderboardPreviewState(merged);
+      return;
+    }
     renderLeaderboardTable(merged);
   }
 
-  function syncLiveNamePolicyUi() {
-    refreshLivePreviewFromEligibility();
+  function syncLiveNamePolicyUi(options = {}) {
+    refreshLivePreviewFromEligibility(options);
   }
 
   function findDemoSelfRowIndex() {
@@ -173,7 +205,7 @@ export function createLeaderboardController(rt) {
       idx = findLiveSelfRowIndex();
     }
     if (idx < 0 || !rows) return;
-    const nameVal = sanitizeDemoLeaderboardName(rows[idx][0]) || "";
+    const nameVal = sanitizeLeaderboardName(rows[idx][0]) || "";
 
     td.textContent = "";
     td.removeAttribute("data-inline-self-name");
@@ -196,11 +228,11 @@ export function createLeaderboardController(rt) {
     input.focus();
     input.select();
     input.addEventListener("input", () => {
-      const v = sanitizeDemoLeaderboardName(input.value);
+      const v = sanitizeLeaderboardName(input.value);
       input.value = v;
       rows[idx][0] = v;
       refs().playerName.value = v;
-      syncLiveNamePolicyUi();
+      syncLiveNamePolicyUi({ skipTableRender: true });
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -209,10 +241,10 @@ export function createLeaderboardController(rt) {
       }
     });
     input.addEventListener("blur", () => {
-      const v = sanitizeDemoLeaderboardName(input.value);
+      const v = sanitizeLeaderboardName(input.value);
       rows[idx][0] = v || "";
       refs().playerName.value = v || "";
-      syncLiveNamePolicyUi();
+      syncLiveNamePolicyUi({ forceTableRender: true });
     });
   }
 
@@ -220,8 +252,6 @@ export function createLeaderboardController(rt) {
     const { leaderboardTable, playerName } = refs();
     st.playerPosition = undefined;
     leaderboardTable.innerHTML = "";
-    const thead = document.createElement("thead");
-    const tbody = document.createElement("tbody");
 
     const perfectTargetForDemoMerge = rt.getPerfectHuntTargetSum?.() ?? null;
     let rows = mergeDemoLeaderboardPreviewRows(
@@ -232,153 +262,31 @@ export function createLeaderboardController(rt) {
       rows = padNormalizedLeaderboardToTop10(rows);
       st.liveLeaderboardPreviewRows = rows.map((r) => r.slice(0, 5));
     }
-    const headerRow = document.createElement("tr");
-    ["", "👤", "🏹", "🏆"].forEach((headerText) => {
-      const th = document.createElement("th");
-      th.textContent = headerText;
-      headerRow.appendChild(th);
+
+    const renderCtx = createLeaderboardRowRenderContext({
+      useDemoData: LEADERBOARD_USE_DEMO_DATA,
+      demoSubmitUsed: st.demoLeaderboardSubmitUsed,
+      turnSpent: liveTurnSpent(),
+      typedPlayerName: playerName.value,
+      runScore: rt.getScore(),
+      runTrophyWord: rt.getTrophyWord(),
+      perfectTarget: perfectTargetForDemoMerge,
     });
-    thead.appendChild(headerRow);
-
-    const typedPlayerName = String(playerName.value || "").trim();
-    const typedCanonical = String(
-      sanitizeDemoLeaderboardName(typedPlayerName) || typedPlayerName
-    ).trim();
-    const previewNameKey = leaderboardPreviewNameKey(playerName.value);
-
-    const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
-    const runScoreNum = Number(rt.getScore());
-
-    rows.forEach((row, index) => {
-      let [playerRaw, , , rowTrophy] = row;
-      const tr = document.createElement("tr");
-      let color = LB_TABLE_DEFAULT_FG;
-
-      const playerStr = String(playerRaw || "").trim();
-      const scoreNum = leaderboardNumericScore(row);
-      const hasScore = scoreNum !== null;
-      const { isPerfectHuntScore, isAbovePerfectHunt } = rowPerfectOverFlags(
-        perfectTarget,
-        row
-      );
-      const trophyStr = String(rowTrophy || "").trim();
-      const trophyMatches = trophyStr === String(rt.getTrophyWord() || "").trim();
-      const isDemoSelfRow =
-        LEADERBOARD_USE_DEMO_DATA &&
-        hasScore &&
-        Number.isFinite(runScoreNum) &&
-        scoreNum === runScoreNum &&
-        trophyMatches;
-      const sameScoreAndTrophyAsRun =
-        hasScore &&
-        Number.isFinite(runScoreNum) &&
-        scoreNum === runScoreNum &&
-        trophyMatches;
-      const rowPreviewNameKey = leaderboardPreviewNameKey(playerStr);
-      const isLiveStatsAndNameMatch =
-        sameScoreAndTrophyAsRun && rowPreviewNameKey === previewNameKey;
-      const isLiveCurrentRunPreviewRow =
-        isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
-      const turnSpent = liveTurnSpent();
-      const isLiveInlineSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA && !turnSpent && isLiveCurrentRunPreviewRow;
-      const isLiveSubmittedSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA && turnSpent && isLiveStatsAndNameMatch;
-      const playerCanonical = String(
-        sanitizeDemoLeaderboardName(playerStr) || playerStr
-      ).trim();
-      const nameMatches =
-        Boolean(typedCanonical) &&
-        Boolean(playerCanonical) &&
-        playerCanonical === typedCanonical;
-      const scoreMatches =
-        scoreNum !== null && Number.isFinite(runScoreNum) && scoreNum === runScoreNum;
-      const nameMatchesHighlight =
-        nameMatches &&
-        scoreMatches &&
-        trophyMatches &&
-        (LEADERBOARD_USE_DEMO_DATA ||
-          (rowPreviewNameKey === previewNameKey &&
-            (turnSpent || row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
-
-      const displayNameCell = playerStr || "";
-      const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
-      const displayTrophyCell = isPerfectHuntScore ? "PERFECT HUNT" : trophyStr || "";
-      const nameTrophyFlash = isPerfectHuntScore
-        ? "perfect"
-        : isAbovePerfectHunt
-          ? "over"
-          : null;
-
-      const useInlineNameCell =
-        (isDemoSelfRow && !st.demoLeaderboardSubmitUsed) || isLiveInlineSelfRow;
-
-      const highlightSelfRow =
-        isDemoSelfRow ||
-        isLiveInlineSelfRow ||
-        isLiveSubmittedSelfRow ||
-        nameMatchesHighlight;
-
-      if (
-        isDemoSelfRow ||
-        isLiveInlineSelfRow ||
-        isLiveSubmittedSelfRow ||
-        nameMatchesHighlight
-      ) {
-        st.playerPosition = index + 1;
-        color = LB_SELF_ROW_FG;
-      }
-
-      tr.style.color = color;
-
-      const positionDisplay = `${index + 1}.`;
-
-      [positionDisplay, displayNameCell, displayScoreCell, displayTrophyCell].forEach(
-        (cellText, cellIndex) => {
-          const td = document.createElement("td");
-          if (cellIndex === 0) {
-            td.textContent = cellText;
-            td.style.color = highlightSelfRow ? LB_SELF_ROW_FG : LB_TABLE_DEFAULT_FG;
-          } else if (cellIndex === 1 && useInlineNameCell) {
-            td.dataset.inlineSelfName = "1";
-            td.classList.add("leaderboard-name-cell--you-pseudo-select");
-            syncLeaderboardNameCellSubPerfect(td, true);
-            td.style.cursor = "pointer";
-            if (highlightSelfRow) {
-              td.style.color = LB_SELF_ROW_FG;
-            }
-            td.textContent = displayNameCell;
-          } else if (cellIndex === 1 || cellIndex === 2) {
-            if (highlightSelfRow) {
-              td.style.color = LB_SELF_ROW_FG;
-            }
-            td.textContent = cellText;
-          } else {
-            setLeaderboardCellFlash(td, cellText, nameTrophyFlash);
-            if (highlightSelfRow && String(cellText).trim() !== "") {
-              td.style.color = LB_SELF_ROW_FG;
-            }
-          }
-
-          tr.appendChild(td);
-        }
-      );
-      tbody.appendChild(tr);
-    });
-
-    if (rows.length > 0) {
-      tbody.style.setProperty("--lb-rows", String(rows.length));
+    const { viewModels, playerPosition } = buildLeaderboardRowViewModels(
+      rows,
+      renderCtx
+    );
+    if (playerPosition != null) {
+      st.playerPosition = playerPosition;
     }
-
-    leaderboardTable.appendChild(thead);
-    leaderboardTable.appendChild(tbody);
+    renderLeaderboardTableDom(leaderboardTable, viewModels);
 
     const qualifiesForBoardSlot = LEADERBOARD_USE_DEMO_DATA
-      ? demoRunQualifiesForLeaderboard(
+      ? runQualifiesForLeaderboardTop10(
           LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows(),
           rt.getScore()
         )
-      : demoRunQualifiesForLeaderboard(
+      : runQualifiesForLeaderboardTop10(
           st.liveLeaderboardEligibilityRows ?? rows,
           rt.getScore()
         ) && !liveTurnSpent();
@@ -396,9 +304,9 @@ export function createLeaderboardController(rt) {
     const input = leaderboardTable.querySelector(".leaderboard-inline-name-input");
     let name;
     if (input) {
-      name = sanitizeDemoLeaderboardName(input.value);
+      name = sanitizeLeaderboardName(input.value);
     } else {
-      name = sanitizeDemoLeaderboardName(rows[idx][0]);
+      name = sanitizeLeaderboardName(rows[idx][0]);
     }
     if (!name) return;
     rt.playSound("submit", rt.getIsMuted());
@@ -608,15 +516,15 @@ export function createLeaderboardController(rt) {
       if (LEADERBOARD_DEMO_EMPTY_BOARD) {
         const run = Number(rt.getScore());
         let rows = [];
-        if (demoRunQualifiesForLeaderboard([], run) && run > 0) {
-          rows = mergeDemoRunIntoTop10([], "", run, rt.getTrophyWord() || "");
+        if (runQualifiesForLeaderboardTop10([], run) && run > 0) {
+          rows = mergeRunIntoTop10([], "", run, rt.getTrophyWord() || "");
         }
         st.demoLeaderboardRows = rows;
         renderLeaderboardTable(rows);
       } else {
         const base = buildDemoLeaderboardRows();
-        if (demoRunQualifiesForLeaderboard(base, rt.getScore())) {
-          st.demoLeaderboardRows = mergeDemoRunIntoTop10(
+        if (runQualifiesForLeaderboardTop10(base, rt.getScore())) {
+          st.demoLeaderboardRows = mergeRunIntoTop10(
             base,
             "",
             rt.getScore(),

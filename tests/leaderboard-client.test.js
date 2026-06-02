@@ -11,10 +11,10 @@ import {
 } from "../js/leaderboard-api.js";
 import {
   applyLiveLeaderboardPreviewMerge,
-  demoRunQualifiesForLeaderboard,
+  runQualifiesForLeaderboardTop10,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
-  mergeDemoRunIntoTop10,
+  mergeRunIntoTop10,
   stripLiveLeaderboardPreviewRows,
 } from "../js/leaderboard-lifecycle.js";
 import { isLeaderboardNameAcceptable } from "../js/leaderboard-name-policy.js";
@@ -100,12 +100,12 @@ test("parsedFetchPayload: API Gateway body string", () => {
   assert.deepEqual(parsedFetchPayload({ body: "not json" }), {});
 });
 
-test("mergeDemoRunIntoTop10: removes prior row same name+score+trophy before insert", () => {
+test("mergeRunIntoTop10: removes prior row same name+score+trophy before insert", () => {
   const base = normalizeLeaderboardRows([
     ["YOU", 88, "blinders"],
     ["TOMMY", 88, "blinders"],
   ]);
-  const merged = mergeDemoRunIntoTop10(base, "YOU", 88, "blinders");
+  const merged = mergeRunIntoTop10(base, "YOU", 88, "blinders");
   const you888 = merged.filter(
     (r) =>
       String(r[0]).toUpperCase() === "YOU" &&
@@ -116,12 +116,12 @@ test("mergeDemoRunIntoTop10: removes prior row same name+score+trophy before ins
   assert.ok(merged.some((r) => String(r[0]).toUpperCase() === "TOMMY" && r[2] === 88));
 });
 
-test("mergeDemoRunIntoTop10: same score preserves API order; new row ranks last among ties", () => {
+test("mergeRunIntoTop10: same score preserves API order; new row ranks last among ties", () => {
   const base = normalizeLeaderboardRows([
     ["ALEX", 100, "ZEBRA"],
     ["BETH", 100, "YAK"],
   ]);
-  const merged = mergeDemoRunIntoTop10(base, "CARLA", 100, "XRAY");
+  const merged = mergeRunIntoTop10(base, "CARLA", 100, "XRAY");
   const ranks = merged
     .filter((r) => r[0] && leaderboardNumericScore(r) === 100)
     .map((r) => r[0]);
@@ -167,13 +167,13 @@ test("applyLiveLeaderboardPreviewMerge: empty player name still adds preview row
   assert.equal(String(preview[3] ?? "").toLowerCase(), "blinders");
 });
 
-test("demoRunQualifiesForLeaderboard: beat 10th score only (tie does not qualify)", () => {
+test("runQualifiesForLeaderboardTop10: beat 10th score only (tie does not qualify)", () => {
   const base = normalizeLeaderboardRows(
     Array.from({ length: 10 }, (_, i) => [`P${i}`, 100 - i * 10, "T"])
   );
-  assert.equal(demoRunQualifiesForLeaderboard(base, 10), false);
-  assert.equal(demoRunQualifiesForLeaderboard(base, 11), true);
-  assert.equal(demoRunQualifiesForLeaderboard(base, 9), false);
+  assert.equal(runQualifiesForLeaderboardTop10(base, 10), false);
+  assert.equal(runQualifiesForLeaderboardTop10(base, 11), true);
+  assert.equal(runQualifiesForLeaderboardTop10(base, 9), false);
 });
 
 test("applyLiveLeaderboardPreviewMerge: empty GET + qualifying score shows player", () => {

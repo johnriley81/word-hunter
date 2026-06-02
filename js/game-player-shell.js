@@ -49,8 +49,6 @@ export function freezePlayerShellBeforeAssets({
 
 /**
  * Fetches puzzles + wordlist. Resolves `null` when puzzles are missing or fetch fails is handled upstream.
- */
-/**
  * @returns {Promise<{ wordSet: Set<string>; puzzles: unknown[] } | { error: string }>}
  */
 export async function loadPlayerWordhunterAssetBundle() {
