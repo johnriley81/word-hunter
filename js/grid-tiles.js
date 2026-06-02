@@ -72,36 +72,6 @@ export function syncConsumedEmptySlotVisual(el, cellText, opts = {}) {
   }
 }
 
-/**
- * Like setTileText but never disables the button (for gamemaker empty cells).
- * @param {HTMLButtonElement} el
- * @param {string} tileText
- */
-export function setTileTextAllowEmpty(el, tileText) {
-  const normalized = normalizeTileText(tileText);
-  el.dataset.tileText = normalized;
-  const isBlankTile = normalized === "";
-
-  let glyph = el.querySelector(".tile-glyph");
-  if (!glyph) {
-    glyph = document.createElement("span");
-    glyph.className = "tile-glyph";
-    el.appendChild(glyph);
-  }
-  glyph.textContent = normalized;
-
-  let badge = el.querySelector(".tile-weight-badge");
-  if (!badge) {
-    badge = document.createElement("span");
-    badge.className = "tile-weight-badge";
-    badge.setAttribute("aria-hidden", "true");
-    el.appendChild(badge);
-  }
-  badge.textContent = isBlankTile ? "" : String(getLetterWeight(normalized));
-  badge.style.display = isBlankTile ? "none" : "";
-  el.disabled = false;
-}
-
 /** Resync tiles from logical board — blank cells stay visible (no instant peel-hide). */
 export function syncDomFromBoard(grid, gameBoard, gridSize) {
   const n = gridSize;

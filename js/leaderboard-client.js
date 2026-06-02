@@ -1,5 +1,4 @@
 import { leaderboardDebugWarn } from "./leaderboard-api.js";
-import { getLeaderboardSessionId } from "./leaderboard-session.js";
 
 const LEADERBOARD_FETCH_CACHE_MS = 60_000;
 
@@ -81,7 +80,6 @@ export async function fetchLiveLeaderboardNetworkResult(p) {
       score: p.score,
       trophy: p.trophyWord,
       scoreValidation: p.scoreValidationPayload,
-      sessionId: getLeaderboardSessionId(p.puzzleId),
     };
     requestOptions.method = "POST";
     requestOptions.body = JSON.stringify(postBody);

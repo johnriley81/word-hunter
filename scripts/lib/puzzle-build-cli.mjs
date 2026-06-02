@@ -3,7 +3,7 @@
  */
 
 import { resolve } from "node:path";
-import { loadPathCatalogIfReady } from "../../js/puzzle-export-sim/load-path-catalog.js";
+import { loadPathCatalogIfReady } from "../../js/puzzle-export-sim/path-catalog/load-path-catalog.js";
 import { DEFAULT_PATH_CATALOG, repoRoot } from "./puzzle-build-paths.mjs";
 import { loadSwapWordBucketsFromWordlist } from "./load-swap-word-buckets.mjs";
 import { loadProblematicWordsSet } from "./problematic-words.mjs";

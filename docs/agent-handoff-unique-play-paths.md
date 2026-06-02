@@ -37,8 +37,8 @@ Concretely:
 ## Repo & branch state
 
 - **Repo:** `/Users/johnriley/word-hunter` (Word Hunter / wordhunter.io)
-- **Branch:** `test` (commit `18f00b4` — shift-mode auto builder + 100 puzzles)
-- **Shipped data:** `text/puzzles.txt` — **100 lines**, shift-mode rows (`perfect_hunt_shifts_before`, peel slots in `next_letters`, `starting_grid` = final generation board)
+- **Branch:** `test`
+- **Shipped data:** `text/puzzles.enc` (AES-GCM encrypted JSON Lines in the browser bundle). Local **`text/puzzles.txt`** is gitignored plaintext for export/regen — **147 rows** as of the current shipped set.
 - **Pool / catalog:** `text/gamemaker/pregen/puzzle-pool.json`, `text/gamemaker/pregen/path-signature-catalog.json` (~4.6MB, required for fast builds)
 - **Tests:** `npm test`. After export-semantics changes, regen per [`.cursor/rules/puzzles-regeneration.mdc`](../.cursor/rules/puzzles-regeneration.mdc).
 

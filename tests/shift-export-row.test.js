@@ -4,7 +4,7 @@ import { readShippedPuzzlesText } from "./lib/read-shipped-puzzles.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
-import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/load-path-catalog.js";
+import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/path-catalog/load-path-catalog.js";
 import {
   wordToTileLabelSequence,
   wordReuseStats,

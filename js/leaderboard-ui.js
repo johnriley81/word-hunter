@@ -25,11 +25,9 @@ import {
   sanitizeDemoLeaderboardName,
   leaderboardSessionBestScore,
   leaderboardRunAtOrBelowSessionBest,
-} from "./leaderboard-lifecycle.js";
-import {
   getLeaderboardSubmitName,
   setLeaderboardSubmitName,
-} from "./leaderboard-session.js";
+} from "./leaderboard-lifecycle.js";
 import {
   leaderboardCanPostLive,
   deriveLiveLeaderboardAfterFetch,

@@ -15,9 +15,6 @@ import { rotatePathFlatQuarterTurnsCW } from "./grid-symmetry.js";
 /** Per first-visit on a blank snapshot cell; dominates covered-letter tie-break (see {@link scorePlacementCoverExisting}). */
 export const PLACEMENT_BLANK_FIRST_WEIGHT = 4096;
 
-/** @deprecated renamed — blank-first weight; kept for tests/imports. */
-export const PLACEMENT_COVER_EXISTING_WEIGHT = PLACEMENT_BLANK_FIRST_WEIGHT;
-
 /** Hub centrality tie-break magnitude (matches builder subsample ranking). */
 export const PLACEMENT_HUB_RANK_WEIGHT = 720;
 

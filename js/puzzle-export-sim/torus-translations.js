@@ -12,7 +12,7 @@ import {
   minUniqueTilesForReuseRule,
 } from "../board-logic.js";
 import { applyShiftSeqToBoard, normalizeShiftsBeforeOps } from "./shift-starter.js";
-import { scoreBestCatalogPlacement } from "./path-variant-catalog.js";
+import { scoreBestCatalogPlacement } from "./path-catalog/path-variant-catalog.js";
 import {
   findRandomLegalPathFlat,
   pickBestPathFlatByCoverRotations,
@@ -145,7 +145,7 @@ export function torusTranslationReplayMatches(source, entry, gridSize = GRID_SIZ
 }
 
 /**
- * @param {import("./path-variant-catalog.js").PathSignatureCatalogJson | null} catalog
+ * @param {import("./path-catalog/path-variant-catalog.js").PathSignatureCatalogJson | null} catalog
  * @param {string} wordLc
  * @param {string[][]} snapshotBoard4
  * @param {Parameters<typeof findRandomLegalPathFlat>[1]} findOpts
@@ -198,7 +198,7 @@ function scorePlacementOnBoard(catalog, wordLc, snapshotBoard4, findOpts, deps) 
  * @param {string[][]} board current board before inter-word shift
  * @param {string} wordLc
  * @param {{
- *   catalog: import("./path-variant-catalog.js").PathSignatureCatalogJson | null;
+ *   catalog: import("./path-catalog/path-variant-catalog.js").PathSignatureCatalogJson | null;
  *   gridSize?: number;
  *   usePathCatalog?: boolean;
  *   allowPlacementDfsFallback?: boolean;

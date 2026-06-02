@@ -21,7 +21,7 @@ import {
   resolveOneWordPathOnShippedGrid,
   resolvePathsAscForShippedUniqueness,
 } from "../js/puzzle-export-sim/resolve-shipped-paths.js";
-import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/load-path-catalog.js";
+import { loadPathCatalogIfReady } from "../js/puzzle-export-sim/path-catalog/load-path-catalog.js";
 import { tryBuildAutomatedPuzzle } from "../js/puzzle-export-sim/auto-puzzle-build.js";
 import {
   wordToTileLabelSequence,

@@ -7,7 +7,7 @@ import {
   tileSlotDisplay,
   pathSignatureFromWord,
   signatureKeyForWord,
-} from "../js/puzzle-export-sim/path-signature.js";
+} from "../js/puzzle-export-sim/path-catalog/path-signature.js";
 import {
   wordToTileLabelSequence,
   canReuseLabelPair,
@@ -17,7 +17,7 @@ import {
 import {
   canonicalPathFlatKey,
   pathFitsSnapshotBoard,
-} from "../js/puzzle-export-sim/path-variant-catalog.js";
+} from "../js/puzzle-export-sim/path-catalog/path-variant-catalog.js";
 
 test("labelRankPattern is first-occurrence rank", () => {
   const g = wordToTileLabelSequence("binging");

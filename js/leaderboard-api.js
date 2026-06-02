@@ -85,8 +85,6 @@ export function top10RowsFromPayload(payload) {
 const LEADERBOARD_POST_COMMIT_MARKERS = Object.freeze([
   "record inserted successfully",
   "this record already exists",
-  "record updated successfully",
-  "score not improved",
 ]);
 
 function leaderboardPayloadIndicatesSoftReject(payload) {
@@ -134,7 +132,6 @@ export function leaderboardPostTreatAsCommitted(ok, payload, didSubmit) {
   if (leaderboardPayloadIndicatesSoftReject(payload)) return false;
   const message = String(payload.message ?? "").trim();
   const lower = message.toLowerCase();
-  if (lower.includes("score not improved")) return false;
   if (leaderboardPostMessageIndicatesCommit(payload)) return true;
   if (top10RowsFromPayload(payload).length > 0) return true;
   if (!message) return true;
