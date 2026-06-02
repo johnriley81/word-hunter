@@ -15,9 +15,6 @@ import { clearWordSubmitFeedbackTimer, bumpWordReplaceEpoch } from "./word-drag.
 import { getTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
 import { showMessage, getShowMessageDurationMs } from "./ui-word-line.js";
 
-/**
- * Endgame tile choreography, audio fallback, and grid batch fade before leaderboard post-game UI.
- */
 export function createGameEndgameCoordinator(deps) {
   let endgameBlankRestoreFallbackTimer = null;
   let endgameTileStartTimer = null;
