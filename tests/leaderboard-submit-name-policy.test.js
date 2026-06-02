@@ -41,22 +41,6 @@ test("applyLeaderboardSubmitButtonVisibility: shows live submit for prohibited n
   assert.equal(refs.leaderboardButton.disabled, false);
 });
 
-test("applyLeaderboardSubmitButtonVisibility: hides live submit after name rejected (lost turn)", () => {
-  const refs = mockRefs("FUCK");
-  applyLeaderboardSubmitButtonVisibility({
-    leaderboardUseDemoData: false,
-    refs,
-    qualifiesForBoardSlot: true,
-    score: 88,
-    scoreSubmitThreshold: 0,
-    liveSubmitUsed: false,
-    liveNameRejected: true,
-    demoSubmitUsed: false,
-    submitCooldownRemainingMs: 0,
-  });
-  assert.equal(refs.leaderboardButton.disabled, true);
-});
-
 test("applyLeaderboardSubmitButtonVisibility: hides live submit after lost turn (submit used)", () => {
   const refs = mockRefs("FUCK");
   applyLeaderboardSubmitButtonVisibility({

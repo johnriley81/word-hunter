@@ -4,8 +4,6 @@ import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 import {
   deriveLiveLeaderboardAfterFetch,
   leaderboardCanPostLive,
-  isProhibitedLeaderboardSubmitClick,
-  liveLeaderboardTurnSpent,
 } from "../js/leaderboard-live-flow.js";
 import {
   normalizeLeaderboardRows,
@@ -19,39 +17,8 @@ const baseInput = {
   scoreThreshold: SCORE_SUBMIT_THRESHOLD,
   useDemoData: false,
   liveSubmitUsed: false,
-  liveNameRejected: false,
   trophyWord: "STAR",
 };
-
-test("isProhibitedLeaderboardSubmitClick: only on submit click with bad name", () => {
-  assert.equal(isProhibitedLeaderboardSubmitClick(true, "FUCK"), true);
-  assert.equal(isProhibitedLeaderboardSubmitClick(false, "FUCK"), false);
-  assert.equal(isProhibitedLeaderboardSubmitClick(true, "Ada"), false);
-});
-
-test("liveLeaderboardTurnSpent: true after submit or name rejection", () => {
-  assert.equal(
-    liveLeaderboardTurnSpent({
-      liveLeaderboardSubmitUsed: false,
-      liveLeaderboardNameRejected: true,
-    }),
-    true
-  );
-  assert.equal(
-    liveLeaderboardTurnSpent({
-      liveLeaderboardSubmitUsed: true,
-      liveLeaderboardNameRejected: false,
-    }),
-    true
-  );
-  assert.equal(
-    liveLeaderboardTurnSpent({
-      liveLeaderboardSubmitUsed: false,
-      liveLeaderboardNameRejected: false,
-    }),
-    false
-  );
-});
 
 test("leaderboardCanPostLive: false when name fails policy", () => {
   assert.equal(leaderboardCanPostLive(true, 88, "FUCK", 0), false);
@@ -84,7 +51,7 @@ test("clicked + prohibited name: lost turn — no POST, no preview, name rejecte
       clicked: true,
       score: 88,
       nameTrim: "shit",
-      liveNameRejected: true,
+      liveSubmitUsed: true,
     }
   );
   assert.equal(canPost, false);

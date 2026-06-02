@@ -29,11 +29,13 @@ export function applyLeaderboardSubmitButtonVisibility({
   score,
   scoreSubmitThreshold,
   liveSubmitUsed,
+  liveNameRejected = false,
   demoSubmitUsed,
   submitCooldownRemainingMs = 0,
 }) {
   const { leaderboardButton, leaderboardDemoAdd, playerName } = refs;
   const nameReady = leaderboardNameHasLetters(playerName?.value);
+  const turnSpent = liveSubmitUsed || liveNameRejected;
 
   if (leaderboardUseDemoData) {
     leaderboardButton.classList.add("hiddenDisplay");
@@ -72,7 +74,7 @@ export function applyLeaderboardSubmitButtonVisibility({
     leaderboardDemoAdd.classList.add("hiddenDisplay");
   }
 
-  if (liveSubmitUsed) {
+  if (turnSpent) {
     leaderboardButton.classList.add("hiddenDisplay");
     leaderboardButton.classList.add("leaderboard-action--concealed");
     leaderboardButton.disabled = true;
