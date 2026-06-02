@@ -36,6 +36,9 @@ import { mergeDemoLeaderboardPreviewRows } from "./leaderboard-ui-demo-merge.js"
 import {
   applyLeaderboardSubmitButtonVisibility,
   leaderboardSubmitCooldownRemainingMs,
+  clearPersistedLeaderboardSubmitAt,
+  syncLiveLeaderboardSubmitCooldown,
+  writePersistedLeaderboardSubmitAt,
 } from "./leaderboard-ui-submit-visibility.js";
 import {
   leaderboardNumericScore,
@@ -74,12 +77,21 @@ export function createLeaderboardController(rt) {
     if (remaining <= 0) return;
     st.liveLeaderboardSubmitCooldownTimer = window.setTimeout(() => {
       st.liveLeaderboardSubmitCooldownTimer = null;
+      clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
+      st.liveLeaderboardSubmitCooldownAt = null;
       applySubmitButtonVisibility();
     }, remaining);
   }
 
   function markLiveLeaderboardSubmitCooldown() {
-    st.liveLeaderboardSubmitCooldownAt = Date.now();
+    const at = Date.now();
+    st.liveLeaderboardSubmitCooldownAt = at;
+    writePersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId(), at);
+    armSubmitCooldownRefresh();
+  }
+
+  function syncSubmitCooldownFromStorage() {
+    syncLiveLeaderboardSubmitCooldown(st, rt.getLeaderboardPuzzleId());
     armSubmitCooldownRefresh();
   }
 
@@ -681,5 +693,6 @@ export function createLeaderboardController(rt) {
     maybeShowPostGameUi,
     refreshLeaderboardFromApi,
     getLeaderboard,
+    syncSubmitCooldownFromStorage,
   };
 }
