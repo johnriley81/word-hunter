@@ -48,7 +48,6 @@ import {
 } from "./leaderboard-ui-helpers.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
 import { unlockGameAudio } from "./audio.js";
-import { shouldAutofocusLeaderboardNameEntry } from "./leaderboard-ui-autofocus.js";
 
 const LB_SELF_ROW_FG = "var(--leaderboard-self-row-highlight-color)";
 const LB_TABLE_DEFAULT_FG = "var(--leaderboard-table-text-color)";
@@ -214,41 +213,6 @@ export function createLeaderboardController(rt) {
       rows[idx][0] = v || "";
       refs().playerName.value = v || "";
       syncLiveNamePolicyUi();
-    });
-  }
-
-  function maybeAutofocusLeaderboardNameEntryOnce() {
-    if (st.leaderboardNameAutofocusDone) return;
-    if (!st.postgameSequenceStarted || st.endgameUiShown) return;
-    if (
-      !shouldAutofocusLeaderboardNameEntry({
-        leaderboardUseDemoData: LEADERBOARD_USE_DEMO_DATA,
-        liveTurnSpent: liveTurnSpent(),
-        liveNameRejected: st.liveLeaderboardNameRejected,
-        postgameSequenceActive: st.postgameSequenceStarted && !st.endgameUiShown,
-        playerNameValue: refs().playerName?.value,
-        submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
-        runScore: rt.getScore(),
-        scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
-        activeElement: document.activeElement,
-      })
-    ) {
-      return;
-    }
-
-    st.leaderboardNameAutofocusDone = true;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const { leaderboardTable, playerName } = refs();
-        const inlineTd = leaderboardTable?.querySelector("td[data-inline-self-name]");
-        if (inlineTd && !inlineTd.querySelector(".leaderboard-inline-name-input")) {
-          openLeaderboardInlineNameEdit(inlineTd);
-          return;
-        }
-        if (playerName && !playerName.disabled) {
-          playerName.focus({ preventScroll: true });
-        }
-      });
     });
   }
 
@@ -420,7 +384,6 @@ export function createLeaderboardController(rt) {
         ) && !liveTurnSpent();
     st.qualifiesForBoardSlot = qualifiesForBoardSlot;
     applySubmitButtonVisibility();
-    maybeAutofocusLeaderboardNameEntryOnce();
   }
 
   function finalizeDemoLeaderboardSubmit() {
@@ -693,7 +656,6 @@ export function createLeaderboardController(rt) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           leaderboardElements.classList.add("leaderboard-elements--visible");
-          maybeAutofocusLeaderboardNameEntryOnce();
         });
       });
       st.postgameCopyScoreTimer = window.setTimeout(() => {
