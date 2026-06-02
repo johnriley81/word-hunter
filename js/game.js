@@ -20,12 +20,10 @@ import {
   buildPerfectHuntMetadata,
   applyColumnShiftInPlace,
   applyRowShiftInPlace,
-  computePerfectHuntStarterFlatWithRowHints,
   remapPerfectHuntHintStickyFlatAfterCommittedShift,
 } from "./board-logic.js";
 import {
   preloadGameSoundLayers,
-  resetGameOverAudio,
   syncLiveSfxMute,
   playSound,
   scheduleDeferredGameAudioWarmup,
@@ -47,17 +45,9 @@ import {
   crossfadeCopyScoreToCopied,
   crossfadeWordmarkToHappyHunting,
 } from "./ui-word-line.js";
-import {
-  bumpWordReplaceEpoch,
-  clearWordSubmitFeedbackTimer,
-  createWordDragHandlers,
-  resetWordSelectionState,
-} from "./word-drag.js";
+import { createWordDragHandlers, resetWordSelectionState } from "./word-drag.js";
 import { attachRulesDock } from "./rules-dock.js";
-import {
-  isGridAllNormalizedEmpty,
-  omitEmptyNextLetterSlots,
-} from "./puzzle-export-sim/next-letters.js";
+import { omitEmptyNextLetterSlots } from "./puzzle-export-sim/next-letters.js";
 import { coerceStarterTorNeighborsForRow } from "./puzzle-row-format.js";
 import { cloneGameGrid } from "./perfect-hunt-shifts.js";
 import {
@@ -77,6 +67,11 @@ import {
   hydrateRulesHudCounts,
   loadPlayerWordhunterAssetBundle,
 } from "./game-player-shell.js";
+import {
+  createPerfectHuntHintController,
+  createPerfectHuntWordDragHooks,
+} from "./game-perfect-hunt-hooks.js";
+import { resetRoundToPregame as resetRoundToPregameCore } from "./game-round-reset.js";
 
 let isMouseDown = false;
 let isGameActive = false;
@@ -129,7 +124,24 @@ export function initGame(ctx) {
   /** Live list of `#grid` tile buttons — refresh in `generateGrid` after rebuilding children. */
   let gridButtonElements = grid.getElementsByClassName("grid-button");
 
-  const PERFECT_HUNT_HINT_CLASS = "grid-button--perfect-hunt-hint";
+  const perfectHuntHints = createPerfectHuntHintController({
+    ctx,
+    grid,
+    gridSize: GRID_SIZE,
+    getGridButtonElements: () => gridButtonElements,
+    getIsGameActive: () => isGameActive,
+    updateNextLetters,
+    getNextLetters: () => nextLetters,
+    setNextLetters: (v) => {
+      nextLetters = v;
+    },
+  });
+  const {
+    PERFECT_HUNT_HINT_CLASS,
+    clearPerfectHuntHintVisual,
+    refreshPerfectHuntHint,
+    currentWordMatchesExpectedPerfectHunt,
+  } = perfectHuntHints;
 
   const leaderboardRtState = createPlayerLeaderboardRuntimeState();
 
@@ -348,73 +360,22 @@ export function initGame(ctx) {
     commitBoardShift("col", signedSteps);
   }
 
+  function clearStartUiTransitionTimer() {
+    if (startUiTransitionTimer !== null) {
+      window.clearTimeout(startUiTransitionTimer);
+      startUiTransitionTimer = null;
+    }
+  }
+
+  function clearTilePaletteTransitionTimer() {
+    if (tilePaletteTransitionTimer !== null) {
+      window.clearTimeout(tilePaletteTransitionTimer);
+      tilePaletteTransitionTimer = null;
+    }
+  }
+
   function applyRowShift(signedSteps) {
     commitBoardShift("row", signedSteps);
-  }
-
-  function clearPerfectHuntHintVisual() {
-    for (let i = 0; i < gridButtonElements.length; i++) {
-      gridButtonElements[i].classList.remove(PERFECT_HUNT_HINT_CLASS);
-    }
-    ctx.state.perfectHuntHintFlat = null;
-    ctx.state.perfectHuntHintStickyFlat = null;
-  }
-
-  function computePerfectHuntHintFlat() {
-    return computePerfectHuntStarterFlatWithRowHints(
-      ctx.state.gameBoard,
-      ctx.state.perfectHunt,
-      ctx.state.perfectHuntOrderIndex,
-      ctx.state.perfectHuntOnPace,
-      GRID_SIZE,
-      ctx.state.perfectHuntStarterFlats,
-      ctx.state.perfectHuntStarterTorNeighbors
-    );
-  }
-
-  function refreshPerfectHuntHint() {
-    if (!isGameActive) {
-      clearPerfectHuntHintVisual();
-      return;
-    }
-
-    const nSq = GRID_SIZE * GRID_SIZE;
-
-    let nextFlat;
-    if (ctx.state.perfectHuntOnPace && ctx.state.perfectHuntHintStickyFlat != null) {
-      nextFlat = ctx.state.perfectHuntHintStickyFlat;
-    } else {
-      nextFlat = computePerfectHuntHintFlat();
-      ctx.state.perfectHuntHintStickyFlat =
-        ctx.state.perfectHuntOnPace && nextFlat != null ? nextFlat : null;
-    }
-    const prevFlat = ctx.state.perfectHuntHintFlat;
-
-    if (nextFlat == null) {
-      clearPerfectHuntHintVisual();
-      return;
-    }
-
-    for (let i = 0; i < nSq; i++) {
-      if (i !== nextFlat) {
-        grid.children[i]?.classList.remove(PERFECT_HUNT_HINT_CLASS);
-      }
-    }
-
-    const btn = grid.children[nextFlat];
-    if (!btn) {
-      ctx.state.perfectHuntHintFlat = null;
-      ctx.state.perfectHuntHintStickyFlat = null;
-      return;
-    }
-
-    if (prevFlat === nextFlat && btn.classList.contains(PERFECT_HUNT_HINT_CLASS)) {
-      ctx.state.perfectHuntHintFlat = nextFlat;
-      return;
-    }
-
-    btn.classList.add(PERFECT_HUNT_HINT_CLASS);
-    ctx.state.perfectHuntHintFlat = nextFlat;
   }
 
   function syncDomFromBoard() {
@@ -427,6 +388,8 @@ export function initGame(ctx) {
       window.clearTimeout(tilePaletteTransitionTimer);
       tilePaletteTransitionTimer = null;
     }
+
+    const tiles = gridButtonElements;
 
     const tiles = gridButtonElements;
     for (let i = 0; i < tiles.length; i++) {
@@ -681,16 +644,6 @@ export function initGame(ctx) {
     updateScoreStrip();
   }
 
-  function currentWordMatchesExpectedPerfectHunt(word) {
-    if (!ctx.state.perfectHuntOnPace) return false;
-    const hunt = ctx.state.perfectHunt;
-    if (!hunt?.length) return false;
-    const idx = ctx.state.perfectHuntOrderIndex;
-    if (idx >= hunt.length) return false;
-    const key = String(word || "").toLowerCase();
-    return key === String(hunt[idx]).toLowerCase();
-  }
-
   function updateCurrentWord() {
     if (ctx.state.wordLine.active) return;
     if (leaderboardRtState.endgameUiShown) return;
@@ -755,6 +708,33 @@ export function initGame(ctx) {
     }
   }
 
+  const perfectHuntWordDragHooks = createPerfectHuntWordDragHooks({
+    ctx,
+    getScore: () => score,
+    setScore: (v) => {
+      score = v;
+    },
+    getTrophyWord: () => trophyWord,
+    setTrophyWord: (v) => {
+      trophyWord = v;
+    },
+    getTrophyWordScore: () => trophyWordScore,
+    setTrophyWordScore: (v) => {
+      trophyWordScore = v;
+    },
+    getNextLetters: () => nextLetters,
+    setNextLetters: (v) => {
+      nextLetters = v;
+    },
+    updateNextLetters,
+    getIsGameActive: () => isGameActive,
+    gridSize: GRID_SIZE,
+    scoreValidationWordsPlayed,
+    clearPerfectHuntHintVisual,
+    refreshPerfectHuntHint,
+    currentWordMatchesExpectedPerfectHunt,
+  });
+
   const wordDragHost = {
     grid,
     gridLineContainer,
@@ -775,89 +755,7 @@ export function initGame(ctx) {
     validateWord: (word) => wordSet.has(word.toLowerCase()),
     getWordScoreFromSelectedTiles: (seq) => getLiveWordScoreBreakdown(seq).wordTotal,
     getTrophyWord: () => trophyWord,
-    recordTrophyWordIfBest(word, wordScore) {
-      const w = String(word || "");
-      const n = Number(wordScore);
-      if (!Number.isFinite(n)) return;
-      if (
-        n > trophyWordScore ||
-        (n === trophyWordScore && w.length > trophyWord.length)
-      ) {
-        trophyWord = w;
-        trophyWordScore = n;
-      }
-    },
-    addToScore: (delta) => {
-      score += delta;
-    },
-    evaluatePerfectHuntSubmit(word, wordScore) {
-      const key = String(word || "").toLowerCase();
-      if (
-        !ctx.state.perfectHunt?.length ||
-        ctx.state.perfectHuntTargetSum == null ||
-        !ctx.state.perfectHuntChoirRateByWord
-      ) {
-        return { inList: false, isPerfectCompletion: false, choirPlaybackRate: null };
-      }
-      const inList = ctx.state.perfectHunt.some((w) => w.toLowerCase() === key);
-      if (!inList) {
-        return { inList: false, isPerfectCompletion: false, choirPlaybackRate: null };
-      }
-      const nextSet = new Set(ctx.state.perfectHuntWordsSubmitted);
-      nextSet.add(key);
-      const choirPlaybackRate = ctx.state.perfectHuntChoirRateByWord.get(key) ?? 1;
-      const huntLen = ctx.state.perfectHunt?.length ?? 0;
-      const isPerfectCompletion =
-        huntLen > 0 &&
-        nextSet.size === huntLen &&
-        score + wordScore === ctx.state.perfectHuntTargetSum;
-      return { inList: true, isPerfectCompletion, choirPlaybackRate };
-    },
-    commitPerfectHuntWordIfListed(word) {
-      const key = String(word || "").toLowerCase();
-      if (!ctx.state.perfectHunt?.some((w) => w.toLowerCase() === key)) return;
-      ctx.state.perfectHuntWordsSubmitted.add(key);
-    },
-    recordPerfectHuntOrderPace(word) {
-      if (!ctx.state.perfectHuntOnPace) return { brokePace: false };
-      const hunt = ctx.state.perfectHunt;
-      if (!hunt?.length) {
-        ctx.state.perfectHuntOnPace = false;
-        ctx.state.perfectHuntHintStickyFlat = null;
-        return { brokePace: false };
-      }
-      const idx = ctx.state.perfectHuntOrderIndex;
-      if (idx >= hunt.length) {
-        return { brokePace: false };
-      }
-      const key = String(word || "").toLowerCase();
-      const expected = hunt[idx];
-      if (key === String(expected).toLowerCase()) {
-        ctx.state.perfectHuntHintStickyFlat = null;
-        const nextIdx = idx + 1;
-        ctx.state.perfectHuntOrderIndex = nextIdx;
-        return { brokePace: false };
-      }
-      ctx.state.perfectHuntOnPace = false;
-      ctx.state.perfectHuntHintStickyFlat = null;
-      return { brokePace: true };
-    },
-    collapseNextLetterBlankSlots() {
-      nextLetters = omitEmptyNextLetterSlots(nextLetters);
-      updateNextLetters();
-    },
-    areAllLetterTilesUsedUp() {
-      return isGridAllNormalizedEmpty(ctx.state.gameBoard, GRID_SIZE);
-    },
-    isWordKeepingPerfectHuntPace(word) {
-      return currentWordMatchesExpectedPerfectHunt(word);
-    },
-    refreshPerfectHuntHint,
-    clearPerfectHuntHintVisual,
-    recordLeaderboardScoreTurn(word) {
-      const w = String(word || "").toLowerCase();
-      if (w) scoreValidationWordsPlayed.push(w);
-    },
+    ...perfectHuntWordDragHooks,
   };
   const wordDrag = createWordDragHandlers(ctx, wordDragHost);
 
@@ -895,7 +793,7 @@ export function initGame(ctx) {
     ctx,
     grid,
     getGridButtons: () => gridButtonElements,
-    perfectHuntHintClass: PERFECT_HUNT_HINT_CLASS,
+    perfectHuntHintClass: perfectHuntHints.PERFECT_HUNT_HINT_CLASS,
     getLbCtl: () => lbCtl,
     rtState: leaderboardRtState,
     clearTapStreak,
@@ -944,160 +842,61 @@ export function initGame(ctx) {
   wordDragHost.onPerfectFanfareEnded = gameEndgame.onGameOverSoundEndedPostGameUi;
 
   function resetRoundToPregame(options = {}) {
-    const forImmediateStart = options.forImmediateStart === true;
-    const skipLeaderboardOverlayTeardown =
-      options.skipLeaderboardOverlayTeardown === true;
-    grid.classList.remove("grid--awaiting-retry-fade-in");
-    grid.classList.remove("grid--endgame-final-fade");
-    grid.style.removeProperty("--endgame-grid-batch-fade-ms");
-    isGameActive = false;
-    isPaused = false;
-    isMouseDown = false;
-    clearTapStreak();
-
-    gameEndgame.clearInternalEndgameTimers();
-
-    if (leaderboardRtState.postgameCopyScoreTimer !== null) {
-      window.clearTimeout(leaderboardRtState.postgameCopyScoreTimer);
-      leaderboardRtState.postgameCopyScoreTimer = null;
-    }
-    if (
-      !skipLeaderboardOverlayTeardown &&
-      leaderboardRtState.leaderboardFadeOutTimer !== null
-    ) {
-      window.clearTimeout(leaderboardRtState.leaderboardFadeOutTimer);
-      leaderboardRtState.leaderboardFadeOutTimer = null;
-    }
-    leaderboardRtState.postgameSequenceStarted = false;
-    leaderboardRtState.demoLeaderboardRows = null;
-    leaderboardRtState.liveLeaderboardPreviewRows = null;
-    leaderboardRtState.liveLeaderboardEligibilityRows = null;
-    leaderboardRtState.demoLeaderboardSubmitUsed = false;
-    leaderboardRtState.liveLeaderboardSubmitUsed = false;
-    leaderboardRtState.liveLeaderboardNameRejected = false;
-    if (!skipLeaderboardOverlayTeardown) {
-      lbCtl.hidePostgameLeaderboardOverlay();
-    }
-    if (tilePaletteTransitionTimer !== null) {
-      window.clearTimeout(tilePaletteTransitionTimer);
-      tilePaletteTransitionTimer = null;
-    }
-    clearWordSubmitFeedbackTimer(ctx);
-    bumpWordReplaceEpoch(ctx);
-    if (startUiTransitionTimer !== null) {
-      window.clearTimeout(startUiTransitionTimer);
-      startUiTransitionTimer = null;
-    }
-    clearWordLineTimers(ctx);
-
-    resetGameOverAudio();
-
-    leaderboardRtState.endgamePostUiReady = false;
-    leaderboardRtState.endgameUiShown = false;
-    leaderboardRtState.copyScoreLineUsed = false;
-    leaderboardRtState.deferRetryUntilCopyScoreVisible = false;
-
-    ctx.state.shift.animating = false;
-    ctx.state.shift.pointerId = null;
-    ctx.state.shift.dragLockedHorizontal = null;
-    leaderboardRtState.playerPosition = undefined;
-
-    score = 0;
-    trophyWord = "";
-    trophyWordScore = Number.NEGATIVE_INFINITY;
-
-    resetShiftDragVisualHard();
-    grid.style.width = "";
-    grid.style.maxWidth = "";
-    grid.style.height = "";
-
-    while (gridLineContainer.firstChild) {
-      gridLineContainer.firstChild.remove();
-    }
-    resetSelectionState();
-
-    generateGrid();
-    generateNextLetters();
-    updateNextLetters();
-    updateScore();
-
-    setRulesOverlayVisible(false);
-
-    rulesButton.classList.remove("hiddenDisplay", "hidden");
-    muteButton.classList.remove("hiddenDisplay", "hidden");
-
-    doneButton.classList.add("hiddenDisplay");
-    doneButton.classList.remove("visibleDisplay");
-
-    buttonContainer.classList.remove("hiddenDisplay");
-    retryButton.classList.add("hiddenDisplay");
-    retryButton.classList.remove("visibleDisplay", "dock-fade-in");
-
-    if (forImmediateStart) {
-      boardShiftZone.classList.remove("dock-fade-in");
-      boardShiftZone.classList.add("hiddenDisplay");
-      boardShiftZone.classList.remove("visibleDisplay");
-      startButton.classList.add("hiddenDisplay");
-      startButton.classList.remove("visibleDisplay");
-      startButton.classList.remove("dock-fade-out");
-      startButton.disabled = true;
-    } else {
-      boardShiftZone.classList.add("hiddenDisplay");
-      boardShiftZone.classList.remove("visibleDisplay", "dock-fade-in");
-      startButton.classList.remove("hiddenDisplay");
-      startButton.classList.add("visibleDisplay");
-      startButton.disabled = false;
-      startButton.classList.remove("dock-fade-out");
-    }
-
-    currentWordElement.classList.remove(
-      "current-word--soft-hidden",
-      "current-word--valid-solve",
-      "current-word--hunt-pace-line"
+    resetRoundToPregameCore(
+      {
+        grid,
+        gridLineContainer,
+        leaderboardRtState,
+        lbCtl,
+        gameEndgame,
+        clearTapStreak,
+        resetShiftDragVisualHard,
+        resetSelectionState,
+        generateGrid,
+        generateNextLetters,
+        updateNextLetters,
+        updateScore,
+        setRulesOverlayVisible,
+        syncLineOverlaySize,
+        scheduleSyncLineOverlaySize,
+        getGridButtonElements: () => gridButtonElements,
+        refs: {
+          rulesButton,
+          muteButton,
+          doneButton,
+          buttonContainer,
+          retryButton,
+          boardShiftZone,
+          startButton,
+          currentWordElement,
+          playerName,
+          leaderboardButton,
+          leaderboardDemoAdd,
+        },
+        setGameActive: (v) => {
+          isGameActive = v;
+        },
+        setPaused: (v) => {
+          isPaused = v;
+        },
+        setMouseDown: (v) => {
+          isMouseDown = v;
+        },
+        clearStartUiTransitionTimer,
+        clearTilePaletteTransitionTimer,
+        ctx,
+        setScore: (v) => {
+          score = v;
+        },
+        setTrophyWord: (v) => {
+          trophyWord = v;
+        },
+        setTrophyWordScore: (v) => {
+          trophyWordScore = v;
+        },
+      },
+      options
     );
-    currentWordElement.style.color = currentWordNeutralTextColor();
-    if (!forImmediateStart) {
-      currentWordElement.textContent = PRE_START_WORDMARK;
-    }
-
-    playerName.classList.add("hiddenDisplay");
-    playerName.disabled = false;
-    leaderboardButton.classList.add("hiddenDisplay");
-    leaderboardButton.classList.add("leaderboard-action--concealed");
-    leaderboardButton.disabled = false;
-    leaderboardButton.style.backgroundColor = "";
-    if (leaderboardDemoAdd) {
-      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--eligible");
-      leaderboardDemoAdd.classList.remove("leaderboard-demo-add--spent");
-      leaderboardDemoAdd.disabled = false;
-      leaderboardDemoAdd.classList.add("hiddenDisplay");
-    }
-
-    for (let i = 0; i < gridButtonElements.length; i++) {
-      gridButtonElements[i].classList.remove(
-        "grid-button--palette-to-active",
-        "grid-button--palette-to-inactive",
-        "grid-button--palette-to-active-fade-in",
-        "grid-button--selected-enter",
-        "grid-button--invalid-shake",
-        "grid-button--word-success",
-        "grid-button--word-release-green",
-        "grid-button--word-release-hunt-pace",
-        "grid-button--letter-flip",
-        "grid-button--letter-swap-in",
-        "grid-button--slot-consumed",
-        "grid-button--slot-consumed-hunt-pace",
-        "grid-button--slot-consumed-instant",
-        "grid-button--perfect-hunt-hint"
-      );
-    }
-
-    if (forImmediateStart && skipLeaderboardOverlayTeardown) {
-      grid.classList.add("grid--awaiting-retry-fade-in");
-    }
-
-    syncLineOverlaySize();
-    scheduleSyncLineOverlaySize();
   }
 
   function buildClipboardScoreText() {

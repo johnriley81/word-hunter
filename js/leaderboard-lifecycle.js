@@ -2,23 +2,26 @@ import { DEMO_LEADERBOARD_NAME_MAX, SCORE_SUBMIT_THRESHOLD } from "./config.js";
 import { LEADERBOARD_META_LIVE_PREVIEW } from "./leaderboard-api.js";
 import { leaderboardNumericScore } from "./leaderboard-ui-helpers.js";
 
-export function sanitizeDemoLeaderboardName(raw) {
+export function sanitizeLeaderboardName(raw) {
   return String(raw || "")
     .replace(/[^a-zA-Z]/g, "")
     .toUpperCase()
     .slice(0, DEMO_LEADERBOARD_NAME_MAX);
 }
 
+/** @deprecated Use {@link sanitizeLeaderboardName}. */
+export const sanitizeDemoLeaderboardName = sanitizeLeaderboardName;
+
 /** True when the player has typed at least one letter (A–Z after sanitize). */
 export function leaderboardNameHasLetters(raw) {
-  return sanitizeDemoLeaderboardName(String(raw ?? "")) !== "";
+  return sanitizeLeaderboardName(String(raw ?? "")) !== "";
 }
 
 /** Stable key for matching preview/inline rows; empty input is "" (no default name). */
 export function leaderboardPreviewNameKey(raw) {
   const t = String(raw ?? "").trim();
   if (!t) return "";
-  return sanitizeDemoLeaderboardName(t) || t;
+  return sanitizeLeaderboardName(t) || t;
 }
 
 export function leaderboardLiveSelfRowIndex(
@@ -101,7 +104,7 @@ export function stripLiveLeaderboardPreviewRows(rows) {
   return rows.filter((r) => r[4] !== LEADERBOARD_META_LIVE_PREVIEW);
 }
 
-export function demoRunQualifiesForLeaderboard(baseRows, runScore) {
+export function runQualifiesForLeaderboardTop10(baseRows, runScore) {
   const s = Number(runScore);
   if (!Number.isFinite(s) || s <= 0) return false;
   const n = baseRows?.length ?? 0;
@@ -110,6 +113,9 @@ export function demoRunQualifiesForLeaderboard(baseRows, runScore) {
   if (!Number.isFinite(tenthNum) || tenthNum <= 0) return true;
   return s > tenthNum;
 }
+
+/** @deprecated Use {@link runQualifiesForLeaderboardTop10}. */
+export const demoRunQualifiesForLeaderboard = runQualifiesForLeaderboardTop10;
 
 export function applyLiveLeaderboardPreviewMerge(
   normalizedApiRows,
@@ -120,15 +126,15 @@ export function applyLiveLeaderboardPreviewMerge(
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
   const trimmed = String(trimmedPlayerName || "").trim();
-  const displayName = sanitizeDemoLeaderboardName(trimmed);
+  const displayName = sanitizeLeaderboardName(trimmed);
   const run = Number(runScore);
   if (
     !(Number.isFinite(run) && run > SCORE_SUBMIT_THRESHOLD) ||
-    !demoRunQualifiesForLeaderboard(normalizedApiRows, run)
+    !runQualifiesForLeaderboardTop10(normalizedApiRows, run)
   ) {
     return normalizedApiRows;
   }
-  return mergeDemoRunIntoTop10(
+  return mergeRunIntoTop10(
     normalizedApiRows,
     displayName,
     run,
@@ -137,7 +143,7 @@ export function applyLiveLeaderboardPreviewMerge(
   );
 }
 
-export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpts) {
+export function mergeRunIntoTop10(baseRows, name, runScore, trophy, mergeOpts) {
   const dedupeNameScoreTrophy = !mergeOpts || mergeOpts.dedupeNameScoreTrophy !== false;
   const tagLiveRunPreview = Boolean(mergeOpts?.tagLiveRunPreview);
   const filled = baseRows.map((r, idx) => {
@@ -152,7 +158,7 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpt
   const dataRows = filled.filter(
     (r) => (r[0] && String(r[0]).trim()) || (r[2] !== "" && !Number.isNaN(Number(r[2])))
   );
-  const nameKey = sanitizeDemoLeaderboardName(name);
+  const nameKey = sanitizeLeaderboardName(name);
   const trophyKey = String(trophy || "")
     .trim()
     .toUpperCase();
@@ -165,7 +171,7 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpt
         String(r[3] || "")
           .trim()
           .toUpperCase() === trophyKey;
-      const sameName = sanitizeDemoLeaderboardName(r[0]) === nameKey;
+      const sameName = sanitizeLeaderboardName(r[0]) === nameKey;
       return !(sameScore && sameTrophy && sameName);
     });
   }
@@ -190,3 +196,6 @@ export function mergeDemoRunIntoTop10(baseRows, name, runScore, trophy, mergeOpt
   }
   return next;
 }
+
+/** @deprecated Use {@link mergeRunIntoTop10}. */
+export const mergeDemoRunIntoTop10 = mergeRunIntoTop10;

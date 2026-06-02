@@ -9,7 +9,7 @@ import {
   normalizeLeaderboardRows,
   LEADERBOARD_META_LIVE_PREVIEW,
 } from "../js/leaderboard-api.js";
-import { demoRunQualifiesForLeaderboard } from "../js/leaderboard-lifecycle.js";
+import { runQualifiesForLeaderboardTop10 } from "../js/leaderboard-lifecycle.js";
 
 const EMPTY_PAD = ["", 0, "", ""];
 
@@ -256,7 +256,7 @@ test("derive: submit cutoff uses GET board before preview merge", () => {
     }
   );
   assert.equal(eligibilityRows[9][2], 110);
-  assert.ok(demoRunQualifiesForLeaderboard(eligibilityRows, 115));
+  assert.ok(runQualifiesForLeaderboardTop10(eligibilityRows, 115));
   assert.equal(tableRows[9][2], 115);
-  assert.equal(demoRunQualifiesForLeaderboard(tableRows, 115), false);
+  assert.equal(runQualifiesForLeaderboardTop10(tableRows, 115), false);
 });
