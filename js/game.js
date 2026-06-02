@@ -390,8 +390,6 @@ export function initGame(ctx) {
     }
 
     const tiles = gridButtonElements;
-
-    const tiles = gridButtonElements;
     for (let i = 0; i < tiles.length; i++) {
       const el = tiles[i];
       el.classList.remove(
