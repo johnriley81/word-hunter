@@ -4,9 +4,6 @@ import {
   omitEmptyNextLetterSlots,
 } from "./puzzle-export-sim/next-letters.js";
 
-/**
- * Perfect-hunt hint visuals and word-drag host hooks extracted from `game.js`.
- */
 export function createPerfectHuntHintController({
   ctx,
   grid,
@@ -103,7 +100,6 @@ export function createPerfectHuntHintController({
   };
 }
 
-/** Word-drag host hooks for perfect hunt scoring, pace, and leaderboard turn tracking. */
 export function createPerfectHuntWordDragHooks({
   ctx,
   getScore,

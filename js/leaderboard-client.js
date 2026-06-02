@@ -35,51 +35,17 @@ function readCachedLeaderboardResult(puzzleId, method) {
   return entry.result;
 }
 
-/** Do not cache failures — especially 429 — or they poison later GET/POST reads. */
-export function shouldCacheLeaderboardNetworkResult(result) {
-  if (!result?.ok) return false;
-  if (result.status === 429) return false;
-  return true;
-}
-
 function writeCachedLeaderboardResult(puzzleId, method, result) {
-  if (!shouldCacheLeaderboardNetworkResult(result)) return;
   leaderboardFetchCache.set(cacheKeyFor(puzzleId, method), {
     fetchedAt: Date.now(),
     result,
   });
 }
 
-export function invalidateLeaderboardFetchCache(puzzleId, method = null) {
-  if (puzzleId == null) {
-    leaderboardFetchCache.clear();
-    return;
-  }
-  if (method == null) {
-    leaderboardFetchCache.delete(cacheKeyFor(puzzleId, "GET"));
-    leaderboardFetchCache.delete(cacheKeyFor(puzzleId, "POST"));
-    return;
-  }
-  leaderboardFetchCache.delete(cacheKeyFor(puzzleId, method));
-}
-
 export function resetLeaderboardFetchCacheForTests() {
   leaderboardFetchCache.clear();
 }
 
-/**
- * Live leaderboard GET/POST round-trip (`fetch` + JSON parse edge cases).
- *
- * @param {{
- *   leaderboardLink: string;
- *   puzzleId: number | string;
- *   canPost: boolean;
- *   playerNameTrim: string;
- *   score: number;
- *   trophyWord: string;
- *   scoreValidationPayload: unknown;
- * }} p
- */
 export async function fetchLiveLeaderboardNetworkResult(p) {
   const requestURL = `${p.leaderboardLink}${p.puzzleId}`;
   const method = p.canPost ? "POST" : "GET";
@@ -108,7 +74,7 @@ export async function fetchLiveLeaderboardNetworkResult(p) {
 
   const result = await fetchJsonLeaderboardRound(requestURL, requestOptions);
   writeCachedLeaderboardResult(p.puzzleId, method, result);
-  if (p.canPost && shouldCacheLeaderboardNetworkResult(result)) {
+  if (p.canPost) {
     writeCachedLeaderboardResult(p.puzzleId, "GET", result);
   }
   return result;

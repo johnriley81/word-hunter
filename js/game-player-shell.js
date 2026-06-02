@@ -1,7 +1,6 @@
 import { NEXT_LETTERS_UI_COUNT, PERFECT_HUNT_WORD_COUNT } from "./config.js";
 import { loadWordhunterTextAssets } from "./game-lifecycle.js";
 
-/** Fresh mutable leaderboard UI state bag wired from `game.js` `initGame`. */
 export function createPlayerLeaderboardRuntimeState() {
   return {
     demoLeaderboardRows: null,
@@ -12,7 +11,6 @@ export function createPlayerLeaderboardRuntimeState() {
     liveLeaderboardNameRejected: false,
     liveLeaderboardSubmitCooldownAt: null,
     liveLeaderboardSubmitCooldownTimer: null,
-    liveLeaderboardRateLimitAt: null,
     playerPosition: undefined,
     postgameCopyScoreTimer: null,
     leaderboardFadeOutTimer: null,
@@ -24,7 +22,6 @@ export function createPlayerLeaderboardRuntimeState() {
   };
 }
 
-/** Initial rules overlay copy that depends only on numeric config. */
 export function hydrateRulesHudCounts(
   rulesNextLettersCountElement,
   rulesPerfectHuntCountElement
@@ -37,7 +34,6 @@ export function hydrateRulesHudCounts(
   }
 }
 
-/** Disables start and clears transient queue HUD until puzzles load. */
 export function freezePlayerShellBeforeAssets({
   startButton,
   nextLettersElement,
@@ -48,10 +44,6 @@ export function freezePlayerShellBeforeAssets({
   if (queueSackCountElement) queueSackCountElement.textContent = "0";
 }
 
-/**
- * Fetches puzzles + wordlist. Resolves `null` when puzzles are missing or fetch fails is handled upstream.
- * @returns {Promise<{ wordSet: Set<string>; puzzles: unknown[] } | { error: string }>}
- */
 export async function loadPlayerWordhunterAssetBundle() {
   const loaded = await loadWordhunterTextAssets();
   if (!loaded.ok) {

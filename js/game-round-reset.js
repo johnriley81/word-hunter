@@ -3,9 +3,6 @@ import { resetGameOverAudio } from "./audio.js";
 import { bumpWordReplaceEpoch, clearWordSubmitFeedbackTimer } from "./word-drag.js";
 import { clearWordLineTimers } from "./ui-word-line.js";
 
-/**
- * Reset round UI/state to pregame. Caller supplies closures for game-specific wiring.
- */
 export function resetRoundToPregame(deps, options = {}) {
   const { forImmediateStart = false, skipLeaderboardOverlayTeardown = false } = options;
 
@@ -80,7 +77,6 @@ export function resetRoundToPregame(deps, options = {}) {
   leaderboardRtState.demoLeaderboardSubmitUsed = false;
   leaderboardRtState.liveLeaderboardSubmitUsed = false;
   leaderboardRtState.liveLeaderboardNameRejected = false;
-  leaderboardRtState.liveLeaderboardRateLimitAt = null;
   if (!skipLeaderboardOverlayTeardown) {
     lbCtl.hidePostgameLeaderboardOverlay();
   }

@@ -24,8 +24,6 @@ Client-side leaderboard flow for Word Hunter post-game UI: fetch top-10, preview
 - **Live (default):** `LEADERBOARD_USE_DEMO_DATA = false` in `config.js`. API base resolves to production on wordhunter.io hosts and to `http://127.0.0.1:8765/leaderboard/` on localhost (see dev proxy below).
 - **Demo:** Set `LEADERBOARD_USE_DEMO_DATA = true` for offline table UX. Uses `buildDemoLeaderboardRows()` and the demo ADD button instead of network POST. Optional flags: `LEADERBOARD_DEMO_EMPTY_BOARD`, inject perfect/over rows via `leaderboard-ui-demo-merge.js`.
 
-Production code paths use neutral names (`sanitizeLeaderboardName`, `mergeRunIntoTop10`, `runQualifiesForLeaderboardTop10`). Deprecated `demo*` aliases remain exported from `leaderboard-lifecycle.js` for older imports.
-
 ## Preview row
 
 Before submit, a qualifying run is merged into the displayed top-10 with index `[4] === LEADERBOARD_META_LIVE_PREVIEW` (`"live-preview"`). That row:

@@ -5,13 +5,6 @@ import {
 } from "./board-logic.js";
 import { canonicalNextLettersFromJsonArray } from "./puzzle-export-sim/next-letters.js";
 
-/**
- * Full letter pool at puzzle start: row-major starting grid + padded next_letters.
- *
- * @param {string[][]} startingGrid
- * @param {string[]} nextLettersRaw
- * @returns {string[]}
- */
 export function buildGameLettersList(startingGrid, nextLettersRaw) {
   const flat = [];
   const n = GRID_SIZE;
@@ -74,9 +67,6 @@ export function validatedScoreFromGameLetters(gameLetters, wordsPlayed, trophyWo
   return scoreFromWordsPlayed(words);
 }
 
-/**
- * POST `scoreValidation` payload for the leaderboard API.
- */
 export function buildScoreValidationPayload(gameLetters, wordsPlayed) {
   return {
     gameLetters: Array.isArray(gameLetters) ? gameLetters.slice() : [],

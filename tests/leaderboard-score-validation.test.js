@@ -16,7 +16,6 @@ import {
 import {
   fetchLiveLeaderboardNetworkResult,
   resetLeaderboardFetchCacheForTests,
-  shouldCacheLeaderboardNetworkResult,
 } from "../js/leaderboard-client.js";
 
 function scoreWord(word) {
@@ -73,44 +72,6 @@ test("fetchLiveLeaderboardNetworkResult bypasses cache for POST submit", async (
       score: 10,
       trophyWord: "cat",
       scoreValidationPayload: { gameLetters: [], wordsPlayed: [] },
-    };
-    await fetchLiveLeaderboardNetworkResult(params);
-    await fetchLiveLeaderboardNetworkResult(params);
-    assert.equal(calls, 2);
-  } finally {
-    globalThis.fetch = originalFetch;
-    resetLeaderboardFetchCacheForTests();
-  }
-});
-
-test("shouldCacheLeaderboardNetworkResult rejects failures and 429", () => {
-  assert.equal(shouldCacheLeaderboardNetworkResult({ ok: false, status: 429 }), false);
-  assert.equal(shouldCacheLeaderboardNetworkResult({ ok: false, status: 500 }), false);
-  assert.equal(shouldCacheLeaderboardNetworkResult({ ok: true, status: 429 }), false);
-  assert.equal(shouldCacheLeaderboardNetworkResult({ ok: true, status: 200 }), true);
-});
-
-test("fetchLiveLeaderboardNetworkResult does not cache 429 GET", async () => {
-  resetLeaderboardFetchCacheForTests();
-  let calls = 0;
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => {
-    calls += 1;
-    return {
-      ok: false,
-      status: 429,
-      json: async () => ({ message: "Rate limit exceeded." }),
-    };
-  };
-  try {
-    const params = {
-      leaderboardLink: "http://example.test/leaderboard/",
-      puzzleId: 99,
-      canPost: false,
-      playerNameTrim: "",
-      score: 0,
-      trophyWord: "",
-      scoreValidationPayload: null,
     };
     await fetchLiveLeaderboardNetworkResult(params);
     await fetchLiveLeaderboardNetworkResult(params);

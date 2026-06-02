@@ -1,12 +1,9 @@
+import { LB_SELF_ROW_FG, LB_TABLE_DEFAULT_FG } from "./leaderboard-row-view-model.js";
 import {
   setLeaderboardCellFlash,
   syncLeaderboardNameCellSubPerfect,
 } from "./leaderboard-ui-helpers.js";
 
-const LB_SELF_ROW_FG = "var(--leaderboard-self-row-highlight-color)";
-const LB_TABLE_DEFAULT_FG = "var(--leaderboard-table-text-color)";
-
-/** Build thead + tbody DOM for a classified leaderboard table. */
 export function renderLeaderboardTableDom(
   table,
   viewModels,
