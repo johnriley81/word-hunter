@@ -1,6 +1,6 @@
 import { leaderboardDebugWarn } from "./leaderboard-api.js";
 
-export const LEADERBOARD_FETCH_CACHE_MS = 30_000;
+export const LEADERBOARD_FETCH_CACHE_MS = 60_000;
 
 /** @type {Map<string, { fetchedAt: number; result: { ok: boolean; status: number; raw: unknown } }>} */
 const leaderboardFetchCache = new Map();

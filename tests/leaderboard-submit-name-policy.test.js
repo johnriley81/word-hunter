@@ -16,6 +16,7 @@ function mockRefs(playerNameValue) {
   const leaderboardButton = {
     classList: mockClassList(),
     disabled: false,
+    textContent: "",
     style: { backgroundColor: "", removeProperty() {} },
   };
   return {
