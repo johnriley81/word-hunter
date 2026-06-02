@@ -46,6 +46,14 @@ test("scoreValidationPayloadMatches: consumes duplicate tiles once each", () => 
   );
 });
 
+test("scoreValidationPayloadMatches: rejects tile missing from game letters", () => {
+  const payload = buildScoreValidationPayload(["d", "o"], ["dog"]);
+  assert.equal(
+    scoreValidationPayloadMatches(payload, scoreWord("dog"), "dog", scoreWord),
+    false
+  );
+});
+
 test("scoreValidationPayloadMatches: perfect hunt puzzle 14 payload", () => {
   const gameLetters = [
     "a",
