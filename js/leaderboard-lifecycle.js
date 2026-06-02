@@ -21,6 +21,27 @@ export function leaderboardPreviewNameKey(raw) {
   return sanitizeDemoLeaderboardName(t) || t;
 }
 
+/** Best score on eligibility rows for this player key (GET rows before preview merge). */
+export function leaderboardSessionBestScore(rows, playerNameValue) {
+  if (!rows?.length) return null;
+  const playerKey = leaderboardPreviewNameKey(playerNameValue);
+  let best = null;
+  for (const r of rows) {
+    if (leaderboardPreviewNameKey(r[0]) !== playerKey) continue;
+    const s = Number(r[2]);
+    if (!Number.isFinite(s)) continue;
+    if (best === null || s > best) best = s;
+  }
+  return best;
+}
+
+export function leaderboardRunAtOrBelowSessionBest(rows, playerNameValue, runScore) {
+  const sessionBest = leaderboardSessionBestScore(rows, playerNameValue);
+  if (sessionBest === null) return false;
+  const run = Number(runScore);
+  return Number.isFinite(run) && run <= sessionBest;
+}
+
 export function leaderboardLiveSelfRowIndex(
   rows,
   playerNameValue,
@@ -120,7 +141,8 @@ export function applyLiveLeaderboardPreviewMerge(
   const run = Number(runScore);
   if (
     !(Number.isFinite(run) && run > SCORE_SUBMIT_THRESHOLD) ||
-    !demoRunQualifiesForLeaderboard(normalizedApiRows, run)
+    !demoRunQualifiesForLeaderboard(normalizedApiRows, run) ||
+    leaderboardRunAtOrBelowSessionBest(normalizedApiRows, trimmedPlayerName, run)
   ) {
     return normalizedApiRows;
   }

@@ -14,9 +14,13 @@ import {
   demoRunQualifiesForLeaderboard,
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
+  leaderboardSessionBestScore,
+  leaderboardRunAtOrBelowSessionBest,
   mergeDemoRunIntoTop10,
 } from "../js/leaderboard-lifecycle.js";
+import { leaderboardCanPostLive } from "../js/leaderboard-live-flow.js";
 import { leaderboardNumericScore } from "../js/leaderboard-ui-helpers.js";
+import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
 
 test("top10RowsFromPayload: Flask GET root array and empty POST object", () => {
   assert.deepEqual(top10RowsFromPayload([]), []);
@@ -216,6 +220,63 @@ test("applyLiveLeaderboardPreviewMerge: improved anonymous score replaces prior 
       r[4] === LEADERBOARD_META_LIVE_PREVIEW
   );
   assert.equal(anonRows.length, 1);
+});
+
+test("leaderboardSessionBestScore: named and anonymous keys", () => {
+  const norm = normalizeLeaderboardRows([
+    ["Ada", 88, "STAR"],
+    ["Bob", 100, "STAR"],
+    ["", 70, "STAR"],
+  ]);
+  assert.equal(leaderboardSessionBestScore(norm, "Ada"), 88);
+  assert.equal(leaderboardSessionBestScore(norm, ""), 70);
+  assert.equal(leaderboardSessionBestScore(norm, "Zoe"), null);
+});
+
+test("leaderboardRunAtOrBelowSessionBest: blocks tie and lower retry", () => {
+  const norm = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
+  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 88), true);
+  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 50), true);
+  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Ada", 90), false);
+  assert.equal(leaderboardRunAtOrBelowSessionBest(norm, "Zoe", 90), false);
+});
+
+test("leaderboardCanPostLive: blocks POST at or below session best", () => {
+  const norm = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
+  assert.equal(
+    leaderboardCanPostLive(true, 50, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
+    false
+  );
+  assert.equal(
+    leaderboardCanPostLive(true, 88, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
+    false
+  );
+  assert.equal(
+    leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, norm),
+    true
+  );
+});
+
+test("applyLiveLeaderboardPreviewMerge: lower retry leaves API rows unchanged", () => {
+  const norm = normalizeLeaderboardRows([
+    ["ADA", 88, "STAR"],
+    ["BOB", 100, "STAR"],
+  ]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 50, "STAR", {
+    useDemoData: false,
+    liveSubmitUsed: false,
+  });
+  assert.deepEqual(merged, norm);
+  assert.equal(merged.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length, 0);
+});
+
+test("applyLiveLeaderboardPreviewMerge: tie with session best skips preview", () => {
+  const norm = normalizeLeaderboardRows([["ADA", 88, "STAR"]]);
+  const merged = applyLiveLeaderboardPreviewMerge(norm, "Ada", 88, "STAR", {
+    useDemoData: false,
+    liveSubmitUsed: false,
+  });
+  assert.deepEqual(merged, norm);
 });
 
 test("applyLiveLeaderboardPreviewMerge: skipped after submit or in demo", () => {

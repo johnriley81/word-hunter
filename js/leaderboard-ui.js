@@ -23,6 +23,8 @@ import {
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
   sanitizeDemoLeaderboardName,
+  leaderboardSessionBestScore,
+  leaderboardRunAtOrBelowSessionBest,
 } from "./leaderboard-lifecycle.js";
 import {
   leaderboardCanPostLive,
@@ -167,6 +169,15 @@ export function createLeaderboardController(rt) {
 
     const perfectTarget = rt.getPerfectHuntTargetSum?.() ?? null;
     const runScoreNum = Number(rt.getScore());
+    const eligibilityForSession = st.liveLeaderboardEligibilityRows ?? rows;
+    const sessionBestScore = LEADERBOARD_USE_DEMO_DATA
+      ? null
+      : leaderboardSessionBestScore(eligibilityForSession, playerName.value);
+    const runBelowSessionBest =
+      !LEADERBOARD_USE_DEMO_DATA &&
+      sessionBestScore !== null &&
+      Number.isFinite(runScoreNum) &&
+      runScoreNum < sessionBestScore;
 
     rows.forEach((row, index) => {
       let [playerRaw, , , rowTrophy] = row;
@@ -198,9 +209,17 @@ export function createLeaderboardController(rt) {
         sameScoreAndTrophyAsRun && rowPreviewNameKey === previewNameKey;
       const isLiveCurrentRunPreviewRow =
         isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
+      const isLiveSessionBestRow =
+        !LEADERBOARD_USE_DEMO_DATA &&
+        runBelowSessionBest &&
+        rowPreviewNameKey === previewNameKey &&
+        hasScore &&
+        scoreNum === sessionBestScore &&
+        row[4] !== LEADERBOARD_META_LIVE_PREVIEW;
       const isLiveInlineSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
         !st.liveLeaderboardSubmitUsed &&
+        !runBelowSessionBest &&
         isLiveCurrentRunPreviewRow;
       const isLiveSubmittedSelfRow =
         !LEADERBOARD_USE_DEMO_DATA &&
@@ -216,6 +235,7 @@ export function createLeaderboardController(rt) {
       const scoreMatches =
         scoreNum !== null && Number.isFinite(runScoreNum) && scoreNum === runScoreNum;
       const nameMatchesHighlight =
+        !runBelowSessionBest &&
         nameMatches &&
         scoreMatches &&
         trophyMatches &&
@@ -240,12 +260,14 @@ export function createLeaderboardController(rt) {
         isDemoSelfRow ||
         isLiveInlineSelfRow ||
         isLiveSubmittedSelfRow ||
+        isLiveSessionBestRow ||
         nameMatchesHighlight;
 
       if (
         isDemoSelfRow ||
         isLiveInlineSelfRow ||
         isLiveSubmittedSelfRow ||
+        isLiveSessionBestRow ||
         nameMatchesHighlight
       ) {
         st.playerPosition = index + 1;
@@ -296,15 +318,19 @@ export function createLeaderboardController(rt) {
     leaderboardTable.appendChild(thead);
     leaderboardTable.appendChild(tbody);
 
+    const liveEligibility = st.liveLeaderboardEligibilityRows ?? rows;
     const qualifiesForBoardSlot = LEADERBOARD_USE_DEMO_DATA
       ? demoRunQualifiesForLeaderboard(
           LEADERBOARD_DEMO_EMPTY_BOARD ? [] : buildDemoLeaderboardRows(),
           rt.getScore()
         )
-      : demoRunQualifiesForLeaderboard(
-          st.liveLeaderboardEligibilityRows ?? rows,
+      : demoRunQualifiesForLeaderboard(liveEligibility, rt.getScore()) &&
+        !leaderboardRunAtOrBelowSessionBest(
+          liveEligibility,
+          playerName.value,
           rt.getScore()
-        ) && !st.liveLeaderboardSubmitUsed;
+        ) &&
+        !st.liveLeaderboardSubmitUsed;
     st.qualifiesForBoardSlot = qualifiesForBoardSlot;
     applySubmitButtonVisibility();
   }
@@ -440,7 +466,8 @@ export function createLeaderboardController(rt) {
       clicked,
       rt.getScore(),
       nameTrim,
-      SCORE_SUBMIT_THRESHOLD
+      SCORE_SUBMIT_THRESHOLD,
+      st.liveLeaderboardEligibilityRows
     );
     const deriveInput = {
       clicked,
@@ -450,6 +477,7 @@ export function createLeaderboardController(rt) {
       scoreThreshold: SCORE_SUBMIT_THRESHOLD,
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      priorEligibilityRows: st.liveLeaderboardEligibilityRows,
     };
     let tableRows;
     let committed = false;

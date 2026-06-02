@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SCORE_SUBMIT_THRESHOLD } from "../js/config.js";
-import { deriveLiveLeaderboardAfterFetch } from "../js/leaderboard-live-flow.js";
+import {
+  deriveLiveLeaderboardAfterFetch,
+  leaderboardCanPostLive,
+} from "../js/leaderboard-live-flow.js";
 import {
   normalizeLeaderboardRows,
   LEADERBOARD_META_LIVE_PREVIEW,
@@ -216,6 +219,39 @@ test("derive: improved self score preview replaces prior API row", () => {
   assert.equal(adaRows.length, 1);
   assert.equal(adaRows[0][2], 88);
   assert.equal(adaRows[0][4], LEADERBOARD_META_LIVE_PREVIEW);
+});
+
+test("derive: lower retry keeps API row, no preview merge", () => {
+  const prior = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
+  const { tableRows, canPost } = deriveLiveLeaderboardAfterFetch(
+    { ok: true, raw: [["Ada", 88, "STAR"]] },
+    {
+      ...baseInput,
+      clicked: false,
+      score: 50,
+      nameTrim: "Ada",
+      priorEligibilityRows: prior,
+    }
+  );
+  assert.equal(canPost, false);
+  assert.equal(tableRows.filter((r) => String(r[0]).toUpperCase() === "ADA").length, 1);
+  assert.equal(tableRows.find((r) => String(r[0]).toUpperCase() === "ADA")[2], 88);
+  assert.equal(
+    tableRows.filter((r) => r[4] === LEADERBOARD_META_LIVE_PREVIEW).length,
+    0
+  );
+});
+
+test("leaderboardCanPostLive: blocks submit when run does not beat session best", () => {
+  const prior = normalizeLeaderboardRows([["Ada", 88, "STAR"]]);
+  assert.equal(
+    leaderboardCanPostLive(true, 50, "Ada", SCORE_SUBMIT_THRESHOLD, prior),
+    false
+  );
+  assert.equal(
+    leaderboardCanPostLive(true, 90, "Ada", SCORE_SUBMIT_THRESHOLD, prior),
+    true
+  );
 });
 
 test("derive: submit cutoff uses GET board before preview merge", () => {
