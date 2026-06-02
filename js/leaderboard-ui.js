@@ -496,10 +496,12 @@ export function createLeaderboardController(rt) {
           st.liveLeaderboardRateLimitAt = null;
           playerName.value = nameTrim;
           markLiveLeaderboardSubmitCooldown();
-        } else if (clicked && network.status === 429) {
+        } else if (network.status === 429) {
           invalidateLeaderboardFetchCache(rt.getLeaderboardPuzzleId());
           markLeaderboardRateLimitFeedback();
-          rt.playSound("click", rt.getIsMuted());
+          if (clicked) {
+            rt.playSound("click", rt.getIsMuted());
+          }
         } else if (clicked) {
           rt.playSound("click", rt.getIsMuted());
           if (nameRejectedOnSubmit) {
