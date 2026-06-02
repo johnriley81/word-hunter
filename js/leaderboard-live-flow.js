@@ -5,13 +5,33 @@ import {
   leaderboardRowsFromResponse,
   leaderboardPostTreatAsCommitted,
 } from "./leaderboard-api.js";
-import { applyLiveLeaderboardPreviewMerge } from "./leaderboard-lifecycle.js";
+import {
+  applyLiveLeaderboardPreviewMerge,
+  leaderboardRunAtOrBelowSessionBest,
+} from "./leaderboard-lifecycle.js";
 import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
 
-export function leaderboardCanPostLive(clicked, score, nameTrim, scoreThreshold) {
-  return (
-    clicked && Number(score) > scoreThreshold && isLeaderboardNameAcceptable(nameTrim)
-  );
+export function leaderboardCanPostLive(
+  clicked,
+  score,
+  nameTrim,
+  scoreThreshold,
+  eligibilityRows
+) {
+  if (
+    !clicked ||
+    Number(score) <= scoreThreshold ||
+    !isLeaderboardNameAcceptable(nameTrim)
+  ) {
+    return false;
+  }
+  if (
+    eligibilityRows &&
+    leaderboardRunAtOrBelowSessionBest(eligibilityRows, nameTrim, score)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function deriveLiveLeaderboardAfterFetch(network, input) {
@@ -24,10 +44,17 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     scoreThreshold,
     useDemoData,
     liveSubmitUsed,
+    priorEligibilityRows,
   } = input;
 
   const trimmedName = String(nameTrim || "").trim();
-  const canPost = leaderboardCanPostLive(clicked, score, trimmedName, scoreThreshold);
+  const canPost = leaderboardCanPostLive(
+    clicked,
+    score,
+    trimmedName,
+    scoreThreshold,
+    priorEligibilityRows
+  );
   const payload = parsedFetchPayload(raw);
   const response = { ok, status: status ?? (ok ? 200 : 400) };
 
