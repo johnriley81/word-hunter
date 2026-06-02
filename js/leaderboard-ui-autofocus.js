@@ -1,9 +1,7 @@
 import { leaderboardNameHasLetters } from "./leaderboard-lifecycle.js";
 
 /** Desktop/laptop with mouse or trackpad — not typical phones/tablets. */
-export function isDesktopFinePointerForAutofocus(
-  matchMedia = globalThis.matchMedia
-) {
+export function isDesktopFinePointerForAutofocus(matchMedia = globalThis.matchMedia) {
   if (typeof matchMedia !== "function") return false;
   return matchMedia("(hover: hover) and (pointer: fine)").matches;
 }

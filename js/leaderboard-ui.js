@@ -239,13 +239,8 @@ export function createLeaderboardController(rt) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const { leaderboardTable, playerName } = refs();
-        const inlineTd = leaderboardTable?.querySelector(
-          "td[data-inline-self-name]"
-        );
-        if (
-          inlineTd &&
-          !inlineTd.querySelector(".leaderboard-inline-name-input")
-        ) {
+        const inlineTd = leaderboardTable?.querySelector("td[data-inline-self-name]");
+        if (inlineTd && !inlineTd.querySelector(".leaderboard-inline-name-input")) {
           openLeaderboardInlineNameEdit(inlineTd);
           return;
         }

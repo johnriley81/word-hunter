@@ -13,17 +13,11 @@ function mockMatchMedia(matches) {
 }
 
 test("isDesktopFinePointerForAutofocus: true for fine pointer + hover", () => {
-  assert.equal(
-    isDesktopFinePointerForAutofocus(mockMatchMedia(true)),
-    true
-  );
+  assert.equal(isDesktopFinePointerForAutofocus(mockMatchMedia(true)), true);
 });
 
 test("isDesktopFinePointerForAutofocus: false for coarse pointer", () => {
-  assert.equal(
-    isDesktopFinePointerForAutofocus(mockMatchMedia(false)),
-    false
-  );
+  assert.equal(isDesktopFinePointerForAutofocus(mockMatchMedia(false)), false);
 });
 
 test("isDesktopFinePointerForAutofocus: false when matchMedia missing", () => {
