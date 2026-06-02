@@ -96,6 +96,11 @@ export function buildDemoLeaderboardRows() {
   return rows;
 }
 
+export function stripLiveLeaderboardPreviewRows(rows) {
+  if (!rows?.length) return [];
+  return rows.filter((r) => r[4] !== LEADERBOARD_META_LIVE_PREVIEW);
+}
+
 export function demoRunQualifiesForLeaderboard(baseRows, runScore) {
   const s = Number(runScore);
   if (!Number.isFinite(s) || s <= 0) return false;
@@ -114,9 +119,8 @@ export function applyLiveLeaderboardPreviewMerge(
   { useDemoData, liveSubmitUsed }
 ) {
   if (useDemoData || liveSubmitUsed) return normalizedApiRows;
-  const displayName = sanitizeDemoLeaderboardName(
-    String(trimmedPlayerName || "").trim()
-  );
+  const trimmed = String(trimmedPlayerName || "").trim();
+  const displayName = sanitizeDemoLeaderboardName(trimmed);
   const run = Number(runScore);
   if (
     !(Number.isFinite(run) && run > SCORE_SUBMIT_THRESHOLD) ||

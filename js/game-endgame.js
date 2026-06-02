@@ -11,7 +11,6 @@ import {
   happyHuntingColor,
 } from "./config.js";
 import { pickRandomScenarioMessage } from "./board-logic.js";
-import { clearLiveLeaderboardSubmitCooldown } from "./leaderboard-ui-submit-visibility.js";
 import { clearWordSubmitFeedbackTimer, bumpWordReplaceEpoch } from "./word-drag.js";
 import { getTileText, syncConsumedEmptySlotVisual } from "./grid-tiles.js";
 import { showMessage, getShowMessageDurationMs } from "./ui-word-line.js";
@@ -138,7 +137,7 @@ export function createGameEndgameCoordinator(deps) {
     deps.getLbCtl().hidePostgameLeaderboardOverlay();
     st.demoLeaderboardSubmitUsed = false;
     st.liveLeaderboardSubmitUsed = false;
-    clearLiveLeaderboardSubmitCooldown(st);
+    st.liveLeaderboardNameRejected = false;
     st.liveLeaderboardPreviewRows = null;
     st.liveLeaderboardEligibilityRows = null;
     clearInternalEndgameTimers();

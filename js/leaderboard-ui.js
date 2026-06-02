@@ -16,6 +16,7 @@ import {
 } from "./leaderboard-api.js";
 import { fetchLiveLeaderboardNetworkResult } from "./leaderboard-client.js";
 import {
+  applyLiveLeaderboardPreviewMerge,
   buildDemoLeaderboardRows,
   demoRunQualifiesForLeaderboard,
   mergeDemoRunIntoTop10,
@@ -23,15 +24,21 @@ import {
   leaderboardLiveSelfRowIndex,
   leaderboardLiveSubmitNameFallbackRaw,
   sanitizeDemoLeaderboardName,
+  stripLiveLeaderboardPreviewRows,
 } from "./leaderboard-lifecycle.js";
 import {
   leaderboardCanPostLive,
   deriveLiveLeaderboardAfterFetch,
+  isProhibitedLeaderboardSubmitClick,
+  liveLeaderboardTurnSpent,
 } from "./leaderboard-live-flow.js";
 import { mergeDemoLeaderboardPreviewRows } from "./leaderboard-ui-demo-merge.js";
 import {
   applyLeaderboardSubmitButtonVisibility,
   leaderboardSubmitCooldownRemainingMs,
+  clearPersistedLeaderboardSubmitAt,
+  syncLiveLeaderboardSubmitCooldown,
+  writePersistedLeaderboardSubmitAt,
 } from "./leaderboard-ui-submit-visibility.js";
 import {
   leaderboardNumericScore,
@@ -70,13 +77,26 @@ export function createLeaderboardController(rt) {
     if (remaining <= 0) return;
     st.liveLeaderboardSubmitCooldownTimer = window.setTimeout(() => {
       st.liveLeaderboardSubmitCooldownTimer = null;
+      clearPersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId());
+      st.liveLeaderboardSubmitCooldownAt = null;
       applySubmitButtonVisibility();
     }, remaining);
   }
 
   function markLiveLeaderboardSubmitCooldown() {
-    st.liveLeaderboardSubmitCooldownAt = Date.now();
+    const at = Date.now();
+    st.liveLeaderboardSubmitCooldownAt = at;
+    writePersistedLeaderboardSubmitAt(rt.getLeaderboardPuzzleId(), at);
     armSubmitCooldownRefresh();
+  }
+
+  function syncSubmitCooldownFromStorage() {
+    syncLiveLeaderboardSubmitCooldown(st, rt.getLeaderboardPuzzleId());
+    armSubmitCooldownRefresh();
+  }
+
+  function liveTurnSpent() {
+    return liveLeaderboardTurnSpent(st);
   }
 
   function applySubmitButtonVisibility() {
@@ -87,9 +107,32 @@ export function createLeaderboardController(rt) {
       score: rt.getScore(),
       scoreSubmitThreshold: SCORE_SUBMIT_THRESHOLD,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      liveNameRejected: st.liveLeaderboardNameRejected,
       demoSubmitUsed: st.demoLeaderboardSubmitUsed,
       submitCooldownRemainingMs: liveSubmitCooldownRemainingMs(),
     });
+  }
+
+  function refreshLivePreviewFromEligibility() {
+    if (LEADERBOARD_USE_DEMO_DATA || liveTurnSpent()) return;
+    const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
+    if (!base?.length) return;
+    const norm = normalizeLeaderboardRows(
+      stripLiveLeaderboardPreviewRows(base.map((r) => r.slice(0, 5)))
+    );
+    const nameTrim = trimLeaderboardSubmitName(refs().playerName.value);
+    const merged = applyLiveLeaderboardPreviewMerge(
+      norm,
+      nameTrim,
+      rt.getScore(),
+      rt.getTrophyWord(),
+      { useDemoData: false, liveSubmitUsed: liveTurnSpent() }
+    );
+    renderLeaderboardTable(merged);
+  }
+
+  function syncLiveNamePolicyUi() {
+    refreshLivePreviewFromEligibility();
   }
 
   function findDemoSelfRowIndex() {
@@ -149,7 +192,7 @@ export function createLeaderboardController(rt) {
       input.value = v;
       rows[idx][0] = v;
       refs().playerName.value = v;
-      applySubmitButtonVisibility();
+      syncLiveNamePolicyUi();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -161,7 +204,7 @@ export function createLeaderboardController(rt) {
       const v = sanitizeDemoLeaderboardName(input.value);
       rows[idx][0] = v || "";
       refs().playerName.value = v || "";
-      renderLeaderboardTable(rows);
+      syncLiveNamePolicyUi();
     });
   }
 
@@ -228,14 +271,11 @@ export function createLeaderboardController(rt) {
         sameScoreAndTrophyAsRun && rowPreviewNameKey === previewNameKey;
       const isLiveCurrentRunPreviewRow =
         isLiveStatsAndNameMatch && row[4] === LEADERBOARD_META_LIVE_PREVIEW;
+      const turnSpent = liveTurnSpent();
       const isLiveInlineSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA &&
-        !st.liveLeaderboardSubmitUsed &&
-        isLiveCurrentRunPreviewRow;
+        !LEADERBOARD_USE_DEMO_DATA && !turnSpent && isLiveCurrentRunPreviewRow;
       const isLiveSubmittedSelfRow =
-        !LEADERBOARD_USE_DEMO_DATA &&
-        st.liveLeaderboardSubmitUsed &&
-        isLiveStatsAndNameMatch;
+        !LEADERBOARD_USE_DEMO_DATA && turnSpent && isLiveStatsAndNameMatch;
       const playerCanonical = String(
         sanitizeDemoLeaderboardName(playerStr) || playerStr
       ).trim();
@@ -251,8 +291,7 @@ export function createLeaderboardController(rt) {
         trophyMatches &&
         (LEADERBOARD_USE_DEMO_DATA ||
           (rowPreviewNameKey === previewNameKey &&
-            (st.liveLeaderboardSubmitUsed ||
-              row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
+            (turnSpent || row[4] === LEADERBOARD_META_LIVE_PREVIEW)));
 
       const displayNameCell = playerStr || "";
       const displayScoreCell = scoreNum === null ? "" : String(scoreNum);
@@ -334,7 +373,7 @@ export function createLeaderboardController(rt) {
       : demoRunQualifiesForLeaderboard(
           st.liveLeaderboardEligibilityRows ?? rows,
           rt.getScore()
-        ) && !st.liveLeaderboardSubmitUsed;
+        ) && !liveTurnSpent();
     st.qualifiesForBoardSlot = qualifiesForBoardSlot;
     applySubmitButtonVisibility();
   }
@@ -466,12 +505,15 @@ export function createLeaderboardController(rt) {
     }
 
     const nameTrim = resolveLiveLeaderboardNameTrimForSubmit();
-    const canPost = leaderboardCanPostLive(
-      clicked,
-      rt.getScore(),
-      nameTrim,
-      SCORE_SUBMIT_THRESHOLD
-    );
+    const nameRejectedOnSubmit =
+      !LEADERBOARD_USE_DEMO_DATA &&
+      isProhibitedLeaderboardSubmitClick(clicked, nameTrim);
+    if (nameRejectedOnSubmit) {
+      st.liveLeaderboardNameRejected = true;
+    }
+    const canPost =
+      clicked &&
+      leaderboardCanPostLive(true, rt.getScore(), nameTrim, SCORE_SUBMIT_THRESHOLD);
     if (canPost) {
       markLiveLeaderboardSubmitCooldown();
     }
@@ -483,6 +525,7 @@ export function createLeaderboardController(rt) {
       scoreThreshold: SCORE_SUBMIT_THRESHOLD,
       useDemoData: LEADERBOARD_USE_DEMO_DATA,
       liveSubmitUsed: st.liveLeaderboardSubmitUsed,
+      liveNameRejected: st.liveLeaderboardNameRejected,
     };
     let tableRows;
     let committed = false;
@@ -510,13 +553,20 @@ export function createLeaderboardController(rt) {
         playerName.value = nameTrim;
       } else if (clicked) {
         rt.playSound("click", rt.getIsMuted());
+        if (nameRejectedOnSubmit) {
+          tableRows = stripLiveLeaderboardPreviewRows(
+            normalizeLeaderboardRows(Array.isArray(tableRows) ? tableRows : [])
+          );
+        }
       }
 
       if (
         !LEADERBOARD_USE_DEMO_DATA &&
         Array.isArray(tableRows) &&
         tableRows.length === 0 &&
-        st.liveLeaderboardSubmitUsed
+        committed &&
+        st.liveLeaderboardSubmitUsed &&
+        !st.liveLeaderboardNameRejected
       ) {
         const prev = st.liveLeaderboardPreviewRows;
         if (prev?.length) {
@@ -612,7 +662,8 @@ export function createLeaderboardController(rt) {
   const pn = refs().playerName;
   if (pn && !pn.dataset.whNameSubmitSync) {
     pn.dataset.whNameSubmitSync = "1";
-    pn.addEventListener("input", applySubmitButtonVisibility);
+    pn.addEventListener("input", syncLiveNamePolicyUi);
+    pn.addEventListener("blur", syncLiveNamePolicyUi);
   }
 
   async function getLeaderboard(clicked = false) {
@@ -642,5 +693,6 @@ export function createLeaderboardController(rt) {
     maybeShowPostGameUi,
     refreshLeaderboardFromApi,
     getLeaderboard,
+    syncSubmitCooldownFromStorage,
   };
 }

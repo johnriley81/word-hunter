@@ -6,7 +6,22 @@ import {
   leaderboardPostTreatAsCommitted,
 } from "./leaderboard-api.js";
 import { applyLiveLeaderboardPreviewMerge } from "./leaderboard-lifecycle.js";
-import { isLeaderboardNameAcceptable } from "./leaderboard-name-policy.js";
+import {
+  isLeaderboardNameAcceptable,
+  isProhibitedLeaderboardName,
+} from "./leaderboard-name-policy.js";
+
+/** True after a successful submit or a prohibited-name submit (lost turn). */
+export function liveLeaderboardTurnSpent({
+  liveLeaderboardSubmitUsed,
+  liveLeaderboardNameRejected,
+}) {
+  return Boolean(liveLeaderboardSubmitUsed || liveLeaderboardNameRejected);
+}
+
+export function isProhibitedLeaderboardSubmitClick(clicked, nameTrim) {
+  return Boolean(clicked && isProhibitedLeaderboardName(nameTrim));
+}
 
 export function leaderboardCanPostLive(clicked, score, nameTrim, scoreThreshold) {
   return (
@@ -24,10 +39,15 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
     scoreThreshold,
     useDemoData,
     liveSubmitUsed,
+    liveNameRejected = false,
   } = input;
 
   const trimmedName = String(nameTrim || "").trim();
   const canPost = leaderboardCanPostLive(clicked, score, trimmedName, scoreThreshold);
+  const turnSpent = liveLeaderboardTurnSpent({
+    liveLeaderboardSubmitUsed: liveSubmitUsed,
+    liveLeaderboardNameRejected: liveNameRejected,
+  });
   const payload = parsedFetchPayload(raw);
   const response = { ok, status: status ?? (ok ? 200 : 400) };
 
@@ -41,14 +61,14 @@ export function deriveLiveLeaderboardAfterFetch(network, input) {
   const runPreviewMerge = (norm) =>
     applyLiveLeaderboardPreviewMerge(norm, trimmedName, score, trophyWord, {
       useDemoData,
-      liveSubmitUsed,
+      liveSubmitUsed: turnSpent,
     });
 
-  if (!useDemoData && !canPost && !liveSubmitUsed) {
+  if (!useDemoData && !canPost && !turnSpent) {
     tableRows = runPreviewMerge(normalizeLeaderboardRows(tableRows));
   }
 
-  if (!useDemoData && !liveSubmitUsed && tableRows.length === 0 && !(canPost && ok)) {
+  if (!useDemoData && !turnSpent && tableRows.length === 0 && !(canPost && ok)) {
     tableRows = runPreviewMerge(normalizeLeaderboardRows([]));
   }
 
