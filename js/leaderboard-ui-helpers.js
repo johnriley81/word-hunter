@@ -41,11 +41,21 @@ export function syncLeaderboardNameCellSubPerfect(td, subPerfect) {
   );
 }
 
-/** True while the leaderboard inline name field owns focus (skip full table rebuild). */
+/** True while the leaderboard inline name field owns focus. */
 export function isLeaderboardInlineNameInputFocused(
   leaderboardTable,
   activeElement = globalThis.document?.activeElement ?? null
 ) {
   const input = leaderboardTable?.querySelector?.(".leaderboard-inline-name-input");
   return Boolean(input && activeElement === input);
+}
+
+/** Skip full table rebuild while typing in inline name cell (keeps input focus). */
+export function shouldDeferLeaderboardTableRender({
+  forceTableRender = false,
+  skipTableRender = false,
+  hasInlineNameInput = false,
+} = {}) {
+  if (forceTableRender) return false;
+  return skipTableRender || hasInlineNameInput;
 }

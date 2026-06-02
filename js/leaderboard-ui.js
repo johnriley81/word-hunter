@@ -41,10 +41,10 @@ import {
   writePersistedLeaderboardSubmitAt,
 } from "./leaderboard-ui-submit-visibility.js";
 import {
-  isLeaderboardInlineNameInputFocused,
   leaderboardNumericScore,
   rowPerfectOverFlags,
   setLeaderboardCellFlash,
+  shouldDeferLeaderboardTableRender,
   syncLeaderboardNameCellSubPerfect,
 } from "./leaderboard-ui-helpers.js";
 import { clearWordLineTimers, fadeInCurrentWordLine } from "./ui-word-line.js";
@@ -122,6 +122,13 @@ export function createLeaderboardController(rt) {
     });
   }
 
+  function hasLeaderboardInlineNameInput() {
+    const input = refs().leaderboardTable?.querySelector(
+      ".leaderboard-inline-name-input"
+    );
+    return input instanceof HTMLInputElement;
+  }
+
   function syncLiveLeaderboardPreviewState(merged) {
     const perfectTargetForDemoMerge = rt.getPerfectHuntTargetSum?.() ?? null;
     let rows = mergeDemoLeaderboardPreviewRows(
@@ -138,7 +145,7 @@ export function createLeaderboardController(rt) {
     applySubmitButtonVisibility();
   }
 
-  function refreshLivePreviewFromEligibility() {
+  function refreshLivePreviewFromEligibility(options = {}) {
     if (LEADERBOARD_USE_DEMO_DATA || liveTurnSpent()) return;
     const base = st.liveLeaderboardEligibilityRows ?? st.liveLeaderboardPreviewRows;
     if (!base?.length) return;
@@ -153,19 +160,21 @@ export function createLeaderboardController(rt) {
       rt.getTrophyWord(),
       { useDemoData: false, liveSubmitUsed: liveTurnSpent() }
     );
-    if (isLeaderboardInlineNameInputFocused(refs().leaderboardTable)) {
+    if (
+      shouldDeferLeaderboardTableRender({
+        forceTableRender: options.forceTableRender,
+        skipTableRender: options.skipTableRender,
+        hasInlineNameInput: hasLeaderboardInlineNameInput(),
+      })
+    ) {
       syncLiveLeaderboardPreviewState(merged);
       return;
     }
     renderLeaderboardTable(merged);
   }
 
-  function syncLiveNamePolicyUi() {
-    if (isLeaderboardInlineNameInputFocused(refs().leaderboardTable)) {
-      applySubmitButtonVisibility();
-      return;
-    }
-    refreshLivePreviewFromEligibility();
+  function syncLiveNamePolicyUi(options = {}) {
+    refreshLivePreviewFromEligibility(options);
   }
 
   function findDemoSelfRowIndex() {
@@ -225,7 +234,7 @@ export function createLeaderboardController(rt) {
       input.value = v;
       rows[idx][0] = v;
       refs().playerName.value = v;
-      syncLiveNamePolicyUi();
+      syncLiveNamePolicyUi({ skipTableRender: true });
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -237,7 +246,7 @@ export function createLeaderboardController(rt) {
       const v = sanitizeDemoLeaderboardName(input.value);
       rows[idx][0] = v || "";
       refs().playerName.value = v || "";
-      syncLiveNamePolicyUi();
+      syncLiveNamePolicyUi({ forceTableRender: true });
     });
   }
 

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isLeaderboardInlineNameInputFocused } from "../js/leaderboard-ui-helpers.js";
+import {
+  isLeaderboardInlineNameInputFocused,
+  shouldDeferLeaderboardTableRender,
+} from "../js/leaderboard-ui-helpers.js";
 
 function mockLeaderboardTable(input) {
   return {
@@ -24,4 +27,23 @@ test("isLeaderboardInlineNameInputFocused: true when inline input is activeEleme
   const input = {};
   const table = mockLeaderboardTable(input);
   assert.equal(isLeaderboardInlineNameInputFocused(table, input), true);
+});
+
+test("shouldDeferLeaderboardTableRender: defers while inline input is open", () => {
+  assert.equal(shouldDeferLeaderboardTableRender({ hasInlineNameInput: true }), true);
+  assert.equal(shouldDeferLeaderboardTableRender({ skipTableRender: true }), true);
+});
+
+test("shouldDeferLeaderboardTableRender: blur forces full table rebuild", () => {
+  assert.equal(
+    shouldDeferLeaderboardTableRender({
+      forceTableRender: true,
+      hasInlineNameInput: true,
+    }),
+    false
+  );
+});
+
+test("shouldDeferLeaderboardTableRender: no inline edit allows rebuild", () => {
+  assert.equal(shouldDeferLeaderboardTableRender({}), false);
 });
