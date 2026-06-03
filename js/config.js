@@ -109,6 +109,7 @@ export const GAME_OVER_FLASH_HOLD_EXTRA_MS = 400;
 /** Brief beat after last “GAME OVER” flash before `#grid.grid--endgame-final-fade`. */
 export const ENDGAME_PAUSE_AFTER_GAME_OVER_MESSAGES_MS = 96;
 export const WORD_INVALID_SHAKE_MS = 320;
+export const SCORE_CALC_RESET_MS = 320;
 export const WORD_LINE_FADE_MS = 520;
 export const WORD_PATH_COLOR_STEPS = 11;
 export const WORD_RELEASE_GREEN_MS = 255;

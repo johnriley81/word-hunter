@@ -14,6 +14,7 @@ import {
   LEADERBOARD_API_BASE,
   LEADERBOARD_OVERLAY_FADE_OUT_TOTAL_MS,
   CHOIR_PLAYBACK_RATES_FOR_RANK,
+  SCORE_CALC_RESET_MS,
 } from "./config.js";
 import {
   getLiveWordScoreBreakdownFromLabels,
@@ -623,6 +624,148 @@ export function initGame(ctx) {
     return getLiveWordScoreBreakdownFromLabels(labels);
   }
 
+  const SCORE_CALC_COMMIT_FLASH_CLASS = "score-value--commit-flash";
+  const SCORE_CALC_RESET_FLIP_CLASS = "score-value--commit-reset-flip";
+  const SCORE_CALC_RESET_FLIP_MID_MS = Math.max(
+    40,
+    Math.floor(SCORE_CALC_RESET_MS / 2)
+  );
+  /** @type {{ letterSum: number; length: number; wordTotal: number } | null} */
+  let scoreCalcHold = null;
+  /** @type {ReturnType<typeof window.setTimeout> | null} */
+  let scoreCalcResetMidTimer = null;
+  /** @type {ReturnType<typeof window.setTimeout> | null} */
+  let scoreCalcResetEndTimer = null;
+  let scoreCalcResetting = false;
+  let pendingWordScoreDelta = 0;
+
+  function scoreCalcFlashElements() {
+    return [scoreSwipeSumElement, scoreLengthElement, scoreWordTotalElement].filter(
+      Boolean
+    );
+  }
+
+  function scoreCalcFlipElements() {
+    return [
+      scoreSwipeSumElement,
+      scoreLengthElement,
+      scoreWordTotalElement,
+      scoreGameTotalElement,
+    ].filter(Boolean);
+  }
+
+  function applyPendingWordScoreToGameTotal() {
+    if (pendingWordScoreDelta === 0) return;
+    score += pendingWordScoreDelta;
+    pendingWordScoreDelta = 0;
+    if (scoreGameTotalElement) {
+      scoreGameTotalElement.textContent = String(score);
+    }
+  }
+
+  function stagePendingWordScoreForGameTotal(delta) {
+    const n = Number(delta);
+    if (!Number.isFinite(n) || n <= 0) return;
+    pendingWordScoreDelta = n;
+  }
+
+  function setScoreCalcFlashActive(active) {
+    for (const el of scoreCalcFlashElements()) {
+      el.classList.toggle(SCORE_CALC_COMMIT_FLASH_CLASS, active);
+    }
+  }
+
+  function setScoreCalcStripToZero() {
+    if (!scoreSwipeSumElement || !scoreLengthElement || !scoreWordTotalElement) {
+      return;
+    }
+    scoreSwipeSumElement.textContent = "0";
+    scoreLengthElement.textContent = "0";
+    scoreWordTotalElement.textContent = "0";
+  }
+
+  function clearScoreCalcResetTimers() {
+    if (scoreCalcResetMidTimer !== null) {
+      window.clearTimeout(scoreCalcResetMidTimer);
+      scoreCalcResetMidTimer = null;
+    }
+    if (scoreCalcResetEndTimer !== null) {
+      window.clearTimeout(scoreCalcResetEndTimer);
+      scoreCalcResetEndTimer = null;
+    }
+  }
+
+  function cancelScoreCalcResetAnimation(options = {}) {
+    const flushPendingScore = options.flushPendingScore !== false;
+    scoreCalcResetting = false;
+    clearScoreCalcResetTimers();
+    for (const el of scoreCalcFlipElements()) {
+      el.classList.remove(SCORE_CALC_RESET_FLIP_CLASS);
+    }
+    if (flushPendingScore) {
+      applyPendingWordScoreToGameTotal();
+    }
+  }
+
+  function scoreCalcStripHeldValuesAreZero() {
+    if (!scoreSwipeSumElement || !scoreLengthElement || !scoreWordTotalElement) {
+      return true;
+    }
+    return (
+      scoreSwipeSumElement.textContent === "0" &&
+      scoreLengthElement.textContent === "0" &&
+      scoreWordTotalElement.textContent === "0"
+    );
+  }
+
+  function holdScoreCalcDuringWordCommit(breakdown) {
+    cancelScoreCalcResetAnimation({ flushPendingScore: scoreCalcResetting });
+    scoreCalcHold = breakdown;
+    setScoreCalcFlashActive(true);
+    updateScoreStrip();
+  }
+
+  function clearScoreCalcHold(options = {}) {
+    const { animate = false, discardPendingScore = false } = options;
+    if (discardPendingScore) {
+      pendingWordScoreDelta = 0;
+    }
+    cancelScoreCalcResetAnimation({
+      flushPendingScore: !animate && !discardPendingScore,
+    });
+    scoreCalcHold = null;
+    setScoreCalcFlashActive(false);
+    if (!scoreSwipeSumElement || !scoreLengthElement || !scoreWordTotalElement) {
+      pendingWordScoreDelta = 0;
+      return;
+    }
+    if (!animate || scoreCalcStripHeldValuesAreZero()) {
+      setScoreCalcStripToZero();
+      return;
+    }
+    scoreCalcResetting = true;
+    const flipEls = scoreCalcFlipElements();
+    for (const el of flipEls) {
+      el.classList.remove(SCORE_CALC_RESET_FLIP_CLASS);
+      void el.offsetWidth;
+      el.classList.add(SCORE_CALC_RESET_FLIP_CLASS);
+    }
+
+    scoreCalcResetMidTimer = window.setTimeout(() => {
+      scoreCalcResetMidTimer = null;
+      setScoreCalcStripToZero();
+      applyPendingWordScoreToGameTotal();
+    }, SCORE_CALC_RESET_FLIP_MID_MS);
+
+    scoreCalcResetEndTimer = window.setTimeout(() => {
+      scoreCalcResetEndTimer = null;
+      scoreCalcResetting = false;
+      for (const el of flipEls) {
+        el.classList.remove(SCORE_CALC_RESET_FLIP_CLASS);
+      }
+    }, SCORE_CALC_RESET_MS);
+  }
+
   function updateScoreStrip() {
     if (
       !scoreSwipeSumElement ||
@@ -632,11 +775,14 @@ export function initGame(ctx) {
     ) {
       return;
     }
-    const live = getLiveWordScoreBreakdown(wordState.selectedButtons);
-    scoreSwipeSumElement.textContent = String(live.letterSum);
-    scoreLengthElement.textContent = String(live.length);
-    scoreWordTotalElement.textContent = String(live.wordTotal);
-    scoreGameTotalElement.textContent = String(score);
+    if (!scoreCalcResetting) {
+      const live =
+        scoreCalcHold ?? getLiveWordScoreBreakdown(wordState.selectedButtons);
+      scoreSwipeSumElement.textContent = String(live.letterSum);
+      scoreLengthElement.textContent = String(live.length);
+      scoreWordTotalElement.textContent = String(live.wordTotal);
+      scoreGameTotalElement.textContent = String(score);
+    }
   }
 
   function updateScore() {
@@ -752,6 +898,11 @@ export function initGame(ctx) {
     updateScoreStrip,
     updateNextLetters,
     updateScore,
+    getLiveWordScoreBreakdownFromSelection: (seq) =>
+      getLiveWordScoreBreakdown(seq ?? wordState.selectedButtons),
+    holdScoreCalcDuringWordCommit,
+    clearScoreCalcHold,
+    queueScoreTotalIncrement: stagePendingWordScoreForGameTotal,
     validateWord: (word) => wordSet.has(word.toLowerCase()),
     getWordScoreFromSelectedTiles: (seq) => getLiveWordScoreBreakdown(seq).wordTotal,
     getTrophyWord: () => trophyWord,
@@ -797,6 +948,7 @@ export function initGame(ctx) {
     getLbCtl: () => lbCtl,
     rtState: leaderboardRtState,
     clearTapStreak,
+    clearScoreCalcHold,
     setRulesOverlayVisible,
     resetSelectionState,
     runGridTilePaletteTransition,
@@ -856,6 +1008,7 @@ export function initGame(ctx) {
         generateNextLetters,
         updateNextLetters,
         updateScore,
+        clearScoreCalcHold,
         setRulesOverlayVisible,
         syncLineOverlaySize,
         scheduleSyncLineOverlaySize,

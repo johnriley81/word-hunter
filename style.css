@@ -704,6 +704,8 @@ html {
 }
 
 #score .score-value {
+  display: inline-block;
+  transform-origin: center center;
   color: var(--next-letters-text-color);
   text-shadow: 2px 2px 2px var(--next-letters-shadow-color);
   font-size: clamp(0.66rem, 2.9vw, 0.98rem);
@@ -749,6 +751,43 @@ html {
 #score .score-value-total {
   grid-column: 6;
   color: var(--score-accent-gold);
+}
+
+#score .score-value.score-value--commit-flash {
+  color: var(--tile-glyph-white);
+  animation: leaderboardSharedPulse 0.42s ease-in-out infinite;
+}
+
+#score .score-value.score-value--commit-reset-flip {
+  animation: scoreCalcResetFlip var(--score-calc-reset-ms, 320ms)
+    cubic-bezier(0.42, 0, 0.2, 1) forwards;
+}
+
+@keyframes scoreCalcResetFlip {
+  0% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.12);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes scoreCalcResetFade {
+  0% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.22;
+  }
+  55% {
+    opacity: 0.22;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 #score .score-operator {
@@ -1577,8 +1616,14 @@ body.rules-overlay-open #leaderboard-elements {
   #leaderboard-table .leaderboard-perfect-hunt-flash,
   #leaderboard-table .leaderboard-over-perfect-glow,
   .rules-perfect-hunt-total,
-  .rules-perfect-hunt-pulse-label {
+  .rules-perfect-hunt-pulse-label,
+  #score .score-value.score-value--commit-flash,
+  #score .score-value.score-value--commit-reset-flip {
     animation: none;
+  }
+
+  #score .score-value.score-value--commit-reset-flip {
+    animation: scoreCalcResetFade var(--score-calc-reset-ms, 320ms) ease-in-out forwards;
   }
 
   .grid-button.grid-button--perfect-hunt-hint::before,
