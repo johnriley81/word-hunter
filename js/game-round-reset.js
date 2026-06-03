@@ -19,6 +19,7 @@ export function resetRoundToPregame(deps, options = {}) {
     generateNextLetters,
     updateNextLetters,
     updateScore,
+    clearScoreCalcHold,
     setRulesOverlayVisible,
     syncLineOverlaySize,
     scheduleSyncLineOverlaySize,
@@ -110,6 +111,7 @@ export function resetRoundToPregame(deps, options = {}) {
   while (gridLineContainer.firstChild) {
     gridLineContainer.firstChild.remove();
   }
+  clearScoreCalcHold?.({ discardPendingScore: true });
   resetSelectionState();
 
   generateGrid();

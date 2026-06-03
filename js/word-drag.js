@@ -140,6 +140,7 @@ export function createWordDragHandlers(ctx, host) {
     const n = tilesToReplace.length;
     const gridN = gridSize;
     if (n === 0) {
+      host.clearScoreCalcHold?.({ animate: true });
       if (collapseNextLetterBlanksAfterFlip) {
         host.collapseNextLetterBlankSlots?.();
       }
@@ -217,6 +218,7 @@ export function createWordDragHandlers(ctx, host) {
 
       const finishWordCommitAnimations = () => {
         if (epoch !== st.wordReplaceEpoch) return;
+        host.clearScoreCalcHold?.({ animate: true });
         if (collapseNextLetterBlanksAfterFlip) {
           host.collapseNextLetterBlankSlots?.();
         }
@@ -441,8 +443,11 @@ export function createWordDragHandlers(ctx, host) {
         });
       }
       const tilesToReplace = Array.from(w().selectedButtonSet);
+      const committedScoreBreakdown = host.getLiveWordScoreBreakdownFromSelection(
+        w().selectedButtons
+      );
       host.recordLeaderboardScoreTurn?.(cw, tilesToReplace.length);
-      host.addToScore(wordScore);
+      host.queueScoreTotalIncrement?.(wordScore);
       const paceOrderResult = host.recordPerfectHuntOrderPace(cw);
       host.commitPerfectHuntWordIfListed(cw);
       showMessage(
@@ -457,7 +462,6 @@ export function createWordDragHandlers(ctx, host) {
         )
       );
       host.recordTrophyWordIfBest(cw, wordScore);
-      host.updateScore();
 
       applyWordConnectorLineOutcome(true, { huntPaceSuccess: keepingPace });
 
@@ -469,6 +473,7 @@ export function createWordDragHandlers(ctx, host) {
       w().selectedButtonSet = new Set();
       w().lastButton = null;
       host.updateCurrentWord();
+      host.holdScoreCalcDuringWordCommit(committedScoreBreakdown);
       host.updateScoreStrip();
       w().currentWord = "";
 

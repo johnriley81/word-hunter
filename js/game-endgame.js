@@ -123,6 +123,7 @@ export function createGameEndgameCoordinator(deps) {
     deps.setIsGameActive(false);
     clearWordSubmitFeedbackTimer(deps.ctx);
     bumpWordReplaceEpoch(deps.ctx);
+    deps.clearScoreCalcHold?.();
     st.endgamePostUiReady = false;
     st.endgameUiShown = false;
     st.copyScoreLineUsed = false;

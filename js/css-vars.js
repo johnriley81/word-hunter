@@ -5,6 +5,7 @@ import {
   CURRENT_WORD_FADE_MS,
   LEADERBOARD_POSTGAME_FADE_MS,
   ENDGAME_GRID_BATCH_FADE_MS,
+  SCORE_CALC_RESET_MS,
 } from "./config.js";
 
 export function syncWordReplaceAnimationCssVars() {
@@ -21,4 +22,5 @@ export function syncWordReplaceAnimationCssVars() {
     "--endgame-grid-batch-fade-ms",
     `${ENDGAME_GRID_BATCH_FADE_MS}ms`
   );
+  root.style.setProperty("--score-calc-reset-ms", `${SCORE_CALC_RESET_MS}ms`);
 }
